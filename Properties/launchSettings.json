@@ -1,0 +1,14 @@
+{
+  "profiles": {
+    "Create questions": {
+      "commandName": "Project",
+      "commandLineArgs": "\".\\PubQuiz_X_Fragen.potx\"",
+      "workingDirectory": "C:\\Users\\mgr\\HiDrive\\Veranstaltungen\\PubQuiz\\Vorlagen\\Präsentation"
+    },
+    "Create answers": {
+      "commandName": "Project",
+      "commandLineArgs": "\".\\PubQuiz_Y_Antworten.potx\"",
+      "workingDirectory": "C:\\Users\\mgr\\HiDrive\\Veranstaltungen\\PubQuiz\\Vorlagen\\Präsentation"
+    }
+  }
+}
