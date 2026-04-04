@@ -74,8 +74,6 @@ internal class Program
                 pdfExport: ps));
         app.MapFallbackToPage("/_Host");
 
-        await SeedCategories(app);
-
         app.Run();
     }
 
@@ -87,44 +85,6 @@ internal class Program
         var bytes = pdfExport.ExportQuiz(quiz);
         var filename = $"quiz_{quiz.Date:yyyy-MM-dd}.pdf";
         return Results.File(bytes, "application/pdf", filename);
-    }
-
-    private static async Task SeedCategories(WebApplication app)
-    {
-        // Seed default categories if none exist
-
-        using var scope = app.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-
-        await db.Database.MigrateAsync();
-
-        if (!db.Categories.Any())
-        {
-            var defaults = new[]
-            {
-                ("Biologie | Medizin",      "#c0392b"),
-                ("Celebrity",               "#e91e63"),
-                ("Essen | Gastronomie",     "#f39c12"),
-                ("Film | Fernsehen",        "#e74c3c"),
-                ("Fußball",                 "#1abc9c"),
-                ("Games | Media",           "#3498db"),
-                ("Geographie",              "#27ae60"),
-                ("Geschichte | Religion",   "#d35400"),
-                ("Kunst | Druck",           "#8e44ad"),
-                ("Mode | Möbel",            "#e67e22"),
-                ("Musik",                   "#9b59b6"),
-                ("Politik | Wirtschaft",    "#2980b9"),
-                ("Sonstiges",               "#95a5a6"),
-                ("Sport",                   "#16a085"),
-                ("Wissenschaft | Technik",  "#2c3e50"),
-                ("Open Air",                "#f1c40f"),
-            };
-
-            foreach (var (name, color) in defaults)
-                db.Categories.Add(new Category { Name = name, ColorHex = color });
-
-            await db.SaveChangesAsync();
-        }
     }
 
     #endregion Private Methods
