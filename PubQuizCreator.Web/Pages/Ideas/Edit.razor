@@ -1,0 +1,276 @@
+﻿@page "/ideas/{Id:guid}/edit"
+@using Microsoft.EntityFrameworkCore
+@using PubQuizCreator.Core
+@using PubQuizCreator.Core.Models
+@using PubQuizCreator.Core.Types
+@using PubQuizCreator.Data
+@using PubQuizCreator.Services
+@inject StateService AppState
+@inject CategoryService CategoryService
+@inject IdeaService IdeaService
+@inject QuestionService QuestionService
+@inject NavigationManager Nav
+@implements IDisposable
+
+<PageTitle>Process Idea</PageTitle>
+
+@if (idea == null)
+{
+    <p class="text-muted">Loading…</p>
+}
+else
+{
+    <div class="d-flex gap-4 align-items-start">
+
+        @* Left: Form *@
+        <div style="flex: 1; min-width: 0;">
+            <div class="alert alert-secondary mb-3">
+                <strong>Original idea:</strong><br />
+                @idea.Text
+            </div>
+
+            <h5 class="mb-3">Turn into question</h5>
+
+            <EditForm Model="model" OnValidSubmit="SaveAsync">
+                <DataAnnotationsValidator />
+
+                <div class="mb-3">
+                    <label class="form-label">Category</label>
+                    <select class="form-select" value="@model.CategoryId"
+                            @onchange="e => model.CategoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : Guid.Empty">
+                        <option value="@Guid.Empty">— select —</option>
+                        @foreach (var cat in categories)
+                        {
+                            <option value="@cat.Id">@cat.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="mb-1">
+                    <label class="form-label">
+                        Short text <small class="text-muted">(for presentation)</small>
+                    </label>
+                    <textarea class="form-control" rows="2"
+                              value="@model.TextShort"
+                              @oninput="e => { model.TextShort = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
+                </div>
+                @{
+                    var shortLen = model.TextShort?.Length ?? 0;
+                    var warnClass = shortLen > QuizConstants.TextShortWarnLength ? "text-danger fw-semibold" : "text-muted";
+                }
+                <div class="d-flex justify-content-between mt-1 mb-3">
+                    <small class="@warnClass">
+                        @if (shortLen > QuizConstants.TextShortWarnLength)
+                        {
+                            <span>⚠ Too long for presentation — consider shortening.</span>
+                        }
+                    </small>
+                    <small class="@warnClass">@shortLen / @QuizConstants.TextShortWarnLength chars</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">
+                        Long text <small class="text-muted">(internal / moderator notes)</small>
+                    </label>
+                    <textarea class="form-control" rows="5"
+                              value="@model.TextLong"
+                              @oninput="e => { model.TextLong = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Answer</label>
+                    <input class="form-control"
+                           value="@model.Answer"
+                           @oninput="e => { model.Answer = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col">
+                        <label class="form-label">
+                            Media file <small class="text-muted">(filename, optional)</small>
+                        </label>
+                        <input class="form-control" @bind="model.MediaFile" />
+                    </div>
+                    <div class="col-auto">
+                        <label class="form-label">Media type</label>
+                        <select class="form-select" @bind="model.MediaType">
+                            <option value="@MediaType.None">—</option>
+                            <option value="@MediaType.Image">Image</option>
+                            <option value="@MediaType.Audio">Audio</option>
+                            <option value="@MediaType.Video">Video</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" type="submit" disabled="@saving">
+                        @(saving ? "Saving…" : "Save & mark idea as done")
+                    </button>
+                    <a class="btn btn-outline-secondary" href="/ideas">Cancel</a>
+                </div>
+
+                @if (saveError != null)
+                {
+                    <div class="alert alert-danger mt-3">@saveError</div>
+                }
+            </EditForm>
+        </div>
+
+        @* Right: Similarity sidebar *@
+        <div style="width: 360px; flex-shrink: 0; position: sticky; top: 1rem;">
+            <div class="card">
+                <div class="card-header d-flex align-items-center gap-2 fw-semibold">
+                    Similar questions
+                    @if (searching)
+                    {
+                        <span class="spinner-border spinner-border-sm text-secondary" />
+                    }
+                </div>
+                <div class="card-body p-2">
+                    @if (!similarQuestions.Any())
+                    {
+                        <p class="text-muted small mb-0">
+                            @(hasSearched ? "No similar questions found." : "Start typing to search for duplicates.")
+                        </p>
+                    }
+                    else
+                    {
+                        @foreach (var sq in similarQuestions
+                                        .Where(sq => sq.Distance < QuizConstants.SimilarityThresholdMedium)
+                                        .Take(10))
+                        {
+                            var borderClass = sq.Distance < QuizConstants.SimilarityThresholdHigh ? "border-danger" : "border-warning";
+                            var badgeClass = sq.Distance < QuizConstants.SimilarityThresholdHigh ? "bg-danger" : "bg-warning text-dark";
+                            var label = sq.Distance < QuizConstants.SimilarityThresholdHigh ? "very similar" : "similar";
+
+                            <div class="border rounded p-2 mb-2 @borderClass">
+                                <div class="small fw-semibold">@sq.TextShort</div>
+                                <div class="small text-muted">→ @sq.Answer</div>
+                                <div class="text-end mt-1">
+                                    <span class="badge @badgeClass">@label</span>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private Idea? idea;
+    private List<Category> categories = [];
+    private List<QuestionSimilar> similarQuestions = [];
+    private bool saving, searching, hasSearched;
+    private string? saveError;
+    private Timer? debounceTimer;
+
+    private QuestionFormModel model = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.SetPageTitle("Process idea");
+
+        categories = await CategoryService.GetAllAsync();
+        idea = await IdeaService.GetAsync(Id);
+
+        if (idea == null) return;
+
+        model.CategoryId = idea.CategoryId ?? Guid.Empty;
+        model.TextShort = idea.Text.Length <= QuizConstants.TextShortWarnLength ? idea.Text : string.Empty;
+        model.TextLong = idea.Text;
+    }
+
+    private void TriggerSimilaritySearch()
+    {
+        debounceTimer?.Dispose();
+        debounceTimer = new Timer(async _ =>
+        {
+            await RunSimilaritySearchAsync();
+            await InvokeAsync(StateHasChanged);
+        }, null, 800, Timeout.Infinite);
+    }
+
+    private async Task RunSimilaritySearchAsync()
+    {
+        var text = $"{model.TextShort} {model.TextLong} {model.Answer}".Trim();
+        if (text.Length < 10) return;
+
+        searching = true;
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            similarQuestions = await QuestionService.FindSimilarAsync(text, Guid.Empty);
+            hasSearched = true;
+        }
+        catch { /* Ollama unavailable — fail silently */ }
+        finally
+        {
+            searching = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(model.Answer))
+        {
+            saveError = "Please enter an answer before saving.";
+            return;
+        }
+
+        if (model.CategoryId == Guid.Empty)
+        {
+            saveError = "Please select a category before saving the question.";
+            return;
+        }
+
+        saving = true;
+        saveError = null;
+
+        try
+        {
+            var question = new Question
+            {
+                TextShort = model.TextShort,
+                TextLong = model.TextLong,
+                Answer = model.Answer,
+                CategoryId = model.CategoryId,
+                MediaFile = model.MediaFile,
+                MediaType = model.MediaType
+            };
+
+            await QuestionService.CreateAsync(question);
+            await IdeaService.MarkProcessedAsync(Id);
+            Nav.NavigateTo("/ideas");
+        }
+        catch (Exception ex)
+        {
+            saveError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    public void Dispose() => debounceTimer?.Dispose();
+
+    private sealed class QuestionFormModel
+    {
+        public Guid CategoryId { get; set; }
+
+        public MediaType MediaType { get; set; } = MediaType.None;
+
+        public string Answer { get; set; } = string.Empty;
+
+        public string TextLong { get; set; } = string.Empty;
+
+        public string TextShort { get; set; } = string.Empty;
+
+        public string? MediaFile { get; set; }
+    }
+}

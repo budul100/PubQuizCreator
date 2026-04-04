@@ -1,0 +1,67 @@
+﻿@inherits LayoutComponentBase
+@using PubQuizCreator.Core
+@using PubQuizCreator.Services
+@inject StateService AppState
+@implements IDisposable
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4 d-flex justify-content-between align-items-center">
+            <span class="fw-semibold text-secondary">@AppState.PageTitle</span>
+            <span class="badge @(AppState.OllamaOnline ? "bg-success" : "bg-danger")">
+                Ollama @(AppState.OllamaOnline ? "online" : "offline")
+            </span>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    private PeriodicTimer? timer;
+    private CancellationTokenSource cts = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.OnChange += OnAppStateChanged;
+        await AppState.CheckOllamaAsync();
+
+        timer = new PeriodicTimer(TimeSpan.FromSeconds(QuizConstants.OllamaStatusPollIntervalSeconds));
+        _ = PollOllamaAsync();
+    }
+
+    private async Task PollOllamaAsync()
+    {
+        try
+        {
+            while (timer != null && await timer.WaitForNextTickAsync(cts.Token))
+            {
+                await InvokeAsync(() => AppState.CheckOllamaAsync());
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected on circuit teardown — swallow cleanly
+        }
+    }
+
+    private void OnAppStateChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        AppState.OnChange -= OnAppStateChanged;
+
+        cts.Cancel();
+        cts.Dispose();
+
+        timer?.Dispose();
+        timer = null;
+    }
+}
+

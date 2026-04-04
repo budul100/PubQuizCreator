@@ -1,0 +1,415 @@
+﻿@page "/quizzes/{Id:guid}"
+@using Microsoft.EntityFrameworkCore
+@using PubQuizCreator.Core.Models
+@using PubQuizCreator.Services
+@inject QuizService QuizService
+@inject TemplateService TemplateService
+@inject CategoryService CategoryService
+@inject QuestionService QuestionService
+@inject StateService AppState
+@inject NavigationManager Nav
+
+<PageTitle>@(quiz?.Title ?? "Quiz")</PageTitle>
+
+@if (quiz == null)
+{
+    <p class="text-muted">Loading…</p>
+}
+else
+{
+    @* Header row: Title + Date + Export buttons *@
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <input class="form-control form-control-lg"
+               style="min-width: 260px; max-width: 400px;"
+               value="@quiz.Title"
+               @onchange="e => quiz.Title = e.Value?.ToString() ?? string.Empty"
+               @onblur="SaveHeaderAsync" />
+        <input type="date"
+               class="form-control w-auto"
+               value="@quiz.Date.ToString("yyyy-MM-dd")"
+               @onchange="e => { quiz.Date = DateOnly.Parse(e.Value?.ToString() ?? string.Empty); _ = SaveHeaderAsync(); }" />
+        <div class="ms-auto d-flex gap-2">
+            <a class="btn btn-outline-secondary btn-sm"
+               href="/export/quiz/@quiz.Id/pdf"
+               target="_blank">
+                ⬇ PDF
+            </a>
+            <button class="btn btn-outline-secondary btn-sm" disabled title="Coming soon">
+                ⬇ PPTX
+            </button>
+        </div>
+    </div>
+
+    @* Status badges *@
+    var totalSlots = quiz.Rounds.SelectMany(r => r.Slots).Count();
+    var totalOpen = quiz.Rounds.SelectMany(r => r.Slots).Count(s => s.QuestionId == null);
+    var (quizLabel, quizBadge) = totalSlots == 0
+        ? ("Empty", "bg-secondary")
+        : totalOpen == 0
+            ? ("Complete", "bg-success")
+            : ($"{totalOpen} open", "bg-warning text-dark");
+    <div class="mb-3">
+        <span class="badge @quizBadge">@quizLabel</span>
+        <span class="badge bg-secondary ms-1">@totalSlots total</span>
+    </div>
+
+    @* Rounds *@
+    @foreach (var round in quiz.Rounds.OrderBy(r => r.Position))
+    {
+        var r          = round;
+        var openInRound = r.Slots.Count(s => s.QuestionId == null);
+        var (roundLabel, roundBadge) = r.Slots.Count == 0
+            ? ("Empty", "bg-secondary")
+            : openInRound == 0
+                ? ("✓", "bg-success")
+                : ($"{openInRound} open", "bg-warning text-dark");
+
+        <div class="card mb-3"
+             draggable="true"
+             @ondragstart="() => dragFromRound = r.Id"
+             @ondragover="OnDragOver"
+             @ondragover:preventDefault="true"
+             @ondrop="() => DropRound(r.Id)">
+
+            <div class="card-header d-flex justify-content-between align-items-center"
+                 style="cursor: grab;">
+                <span>
+                    <span class="me-2 text-muted">☰</span>
+                    <strong>Round @r.Position</strong>
+                    <span class="badge @roundBadge ms-2">@roundLabel</span>
+                </span>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-outline-primary btn-sm"
+                            @onclick="() => OpenAddSlot(r)">
+                        + Slot
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm"
+                            @onclick="() => RemoveRoundAsync(r.Id)">
+                        Remove round
+                    </button>
+                </div>
+            </div>
+
+            <div class="list-group list-group-flush">
+                @foreach (var slot in r.Slots.OrderBy(s => s.Position))
+                {
+                    var s = slot;
+
+                    <div class="list-group-item d-flex align-items-center gap-2"
+                         draggable="true"
+                         @ondragstart="() => { dragFromSlot = s.Id; dragFromSlotRound = r.Id; }"
+                         @ondragover="OnDragOver"
+                         @ondragover:preventDefault="true"
+                         @ondrop="() => DropSlot(r.Id, s.Id)"
+                         style="cursor: grab;">
+
+                        <span class="text-muted flex-shrink-0">☰</span>
+
+                        @* Category — 1/8 *@
+                        <div style="flex: 1; min-width: 0;">
+                            @{
+                                var catColor = s.Category?.ColorHex ?? "#95a5a6";
+                            }
+                            <span class="badge text-truncate d-inline-block"
+                                  style="max-width: 100%; background-color: @catColor; color: @catColor.TextColor();">
+                                @s.Category?.Name
+                            </span>
+                        </div>
+
+                        @* Question — 4/8 *@
+                        <div style="flex: 4; min-width: 0;">
+                            <div class="small fw-semibold text-truncate">
+                                @(s.Question?.TextShort ?? "— no question assigned —")
+                            </div>
+                        </div>
+
+                        @* Answer — 3/8 *@
+                        <div style="flex: 3; min-width: 0;">
+                            @if (s.Question != null)
+                            {
+                                <div class="small text-muted text-truncate">@s.Question.Answer</div>
+                            }
+                        </div>
+
+                        <div class="d-flex gap-1 flex-shrink-0">
+                            <button class="btn btn-outline-primary btn-sm"
+                                    title="@(s.Question != null ? "Change question" : "Assign question")"
+                                    @onclick="() => OpenPicker(s)">
+                                <span class="oi @(s.Question != null ? "oi-pencil" : "oi-plus")" />
+                            </button>
+                            @if (s.Question != null)
+                            {
+                                <button class="btn btn-outline-secondary btn-sm"
+                                        title="Unassign question"
+                                        @onclick="() => UnassignAsync(s.Id)">
+                                    <span class="oi oi-action-undo" />
+                                </button>
+                            }
+                            <button class="btn btn-outline-danger btn-sm"
+                                    title="Remove slot"
+                                    @onclick="() => RemoveSlotAsync(s.Id)">
+                                <span class="oi oi-trash" />
+                            </button>
+                        </div>
+
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    @* Add round controls *@
+    <div class="d-flex gap-2 mb-4 flex-wrap">
+        <button class="btn btn-outline-secondary btn-sm"
+                @onclick="AddEmptyRoundAsync">
+            + Empty round
+        </button>
+        <button class="btn btn-outline-primary btn-sm"
+                @onclick="() => showTemplatePicker = true">
+            + Round from template
+        </button>
+    </div>
+
+    @if (showTemplatePicker)
+    {
+        <div class="card border-primary mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong>Add round from template</strong>
+                <button class="btn-close" @onclick="() => showTemplatePicker = false" />
+            </div>
+            <div class="card-body d-flex flex-column gap-2">
+                <select class="form-select" @bind="selectedTemplateId">
+                    <option value="@Guid.Empty">— select template —</option>
+                    @foreach (var t in templates)
+                    {
+                        <option value="@t.Id">@t.Name (@t.Slots.Count slots)</option>
+                    }
+                </select>
+                <button class="btn btn-primary btn-sm"
+                        @onclick="AddRoundFromTemplateAsync"
+                        disabled="@(selectedTemplateId == Guid.Empty)">
+                    Add round
+                </button>
+            </div>
+        </div>
+    }
+
+    @* Add slot panel *@
+    @if (addSlotRound != null)
+    {
+        <div class="card border-success mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong>Add slot to round @addSlotRound.Position</strong>
+                <button class="btn-close" @onclick="() => addSlotRound = null" />
+            </div>
+            <div class="card-body d-flex gap-2">
+                <select class="form-select" @bind="addSlotCategoryId">
+                    <option value="@Guid.Empty">— select category —</option>
+                    @foreach (var cat in categories)
+                    {
+                        <option value="@cat.Id">@cat.Name</option>
+                    }
+                </select>
+                <button class="btn btn-success btn-sm"
+                        @onclick="ConfirmAddSlotAsync"
+                        disabled="@(addSlotCategoryId == Guid.Empty)">
+                    Add
+                </button>
+            </div>
+        </div>
+    }
+
+    @* Question picker *@
+    @if (pickerSlot != null)
+    {
+        <div class="card border-primary mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">Assign question — @pickerSlot.Category?.Name</span>
+                <button class="btn-close" @onclick="() => pickerSlot = null" />
+            </div>
+            <div class="card-body p-2">
+                <input class="form-control form-control-sm mb-2"
+                       placeholder="Search…"
+                       value="@pickerSearch"
+                       @oninput="e => { pickerSearch = e.Value?.ToString() ?? string.Empty; ApplyFilter(); }" />
+                <div class="small text-muted mb-2">
+                    @pickerFiltered.Count of @pickerAll.Count in this category
+                </div>
+                <div class="list-group">
+                    @foreach (var q in pickerFiltered.Take(20))
+                    {
+                        <button class="list-group-item list-group-item-action"
+                                @onclick="() => AssignAsync(q.Id)">
+                            <div class="small fw-semibold">@q.TextShort</div>
+                            <div class="small text-muted">→ @q.Answer</div>
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private Quiz? quiz;
+    private List<Template> templates = [];
+    private List<Category> categories = [];
+
+    // Round drag
+    private Guid dragFromRound;
+
+    // Slot drag
+    private Guid dragFromSlot;
+    private Guid dragFromSlotRound;
+
+    // Add round
+    private bool showTemplatePicker;
+    private Guid selectedTemplateId;
+
+    // Add slot
+    private QuizRound? addSlotRound;
+    private Guid addSlotCategoryId;
+
+    // Picker
+    private QuizSlot? pickerSlot;
+    private string pickerSearch = string.Empty;
+    private List<Question> pickerAll = [];
+    private List<Question> pickerFiltered = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        templates  = await TemplateService.GetAllAsync();
+        categories = await CategoryService.GetAllAsync();
+        
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        quiz = await QuizService.GetDetailAsync(Id);
+        AppState.SetPageTitle(quiz?.Title ?? "Quiz");
+    }
+
+    private async Task AddRoundFromTemplateAsync()
+    {
+        await QuizService.AddRoundFromTemplateAsync(Id, selectedTemplateId);
+        showTemplatePicker = false;
+        selectedTemplateId = Guid.Empty;
+        await ReloadAsync();
+    }
+
+    private async Task AddEmptyRoundAsync()
+    {
+        await QuizService.AddEmptyRoundAsync(Id);
+        await ReloadAsync();
+    }
+
+    private async Task RemoveRoundAsync(Guid roundId)
+    {
+        await QuizService.RemoveRoundAsync(roundId);
+        await ReloadAsync();
+    }
+
+    private async Task DropRound(Guid dropToId)
+    {
+        if (dragFromRound == Guid.Empty || dragFromRound == dropToId || quiz == null) return;
+
+        var ordered = quiz.Rounds.OrderBy(r => r.Position).Select(r => r.Id).ToList();
+        var fromIdx = ordered.IndexOf(dragFromRound);
+        var toIdx   = ordered.IndexOf(dropToId);
+        ordered.RemoveAt(fromIdx);
+        ordered.Insert(toIdx, dragFromRound);
+
+        await QuizService.ReorderRoundsAsync(Id, ordered);
+        dragFromRound = Guid.Empty;
+        await ReloadAsync();
+    }
+
+    private async Task ConfirmAddSlotAsync()
+    {
+        if (addSlotRound == null) return;
+        await QuizService.AddSlotToRoundAsync(addSlotRound.Id, addSlotCategoryId);
+        addSlotRound = null;
+        await ReloadAsync();
+    }
+
+    private async Task RemoveSlotAsync(Guid slotId)
+    {
+        await QuizService.RemoveSlotAsync(slotId);
+        await ReloadAsync();
+    }
+
+    private async Task DropSlot(Guid roundId, Guid dropToSlotId)
+    {
+        if (dragFromSlot == Guid.Empty || dragFromSlot == dropToSlotId) return;
+        if (dragFromSlotRound != roundId) return; // only within same round
+
+        var round   = quiz!.Rounds.First(r => r.Id == roundId);
+        var ordered = round.Slots.OrderBy(s => s.Position).Select(s => s.Id).ToList();
+        var fromIdx = ordered.IndexOf(dragFromSlot);
+        var toIdx   = ordered.IndexOf(dropToSlotId);
+        ordered.RemoveAt(fromIdx);
+        ordered.Insert(toIdx, dragFromSlot);
+
+        await QuizService.ReorderSlotsAsync(roundId, ordered);
+        dragFromSlot = Guid.Empty;
+        await ReloadAsync();
+    }
+
+    private async Task UnassignAsync(Guid slotId)
+    {
+        await QuizService.AssignQuestionAsync(slotId, null);
+        await ReloadAsync();
+    }
+
+    private async Task OpenPicker(QuizSlot slot)
+    {
+        pickerSlot = slot;
+        pickerSearch = string.Empty;
+
+        var assignedIds = quiz!.Rounds
+            .SelectMany(r => r.Slots)
+            .Where(s => s.QuestionId != null && s.Id != slot.Id)
+            .Select(s => s.QuestionId!.Value)
+            .ToHashSet();
+
+        pickerAll = await QuestionService
+            .GetByCategoryAsync(slot.CategoryId, assignedIds);
+
+        ApplyFilter();
+    }
+
+    private async Task AssignAsync(Guid questionId)
+    {
+        if (pickerSlot == null) return;
+        await QuizService.AssignQuestionAsync(pickerSlot.Id, questionId);
+        pickerSlot = null;
+        await ReloadAsync();
+    }
+
+    private async Task SaveHeaderAsync()
+    {
+        if (quiz == null) return;
+        await QuizService.UpdateAsync(quiz.Id, quiz.Title, quiz.Date);
+    }
+
+    private void ApplyFilter()
+    {
+        pickerFiltered = pickerAll
+            .Where(q => !q.WasUsed)
+            .Where(q => string.IsNullOrWhiteSpace(pickerSearch)
+                     || q.TextShort.Contains(pickerSearch, StringComparison.OrdinalIgnoreCase)
+                     || q.Answer.Contains(pickerSearch, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private void OnDragOver(DragEventArgs e) { }
+
+    private void OpenAddSlot(QuizRound round)
+    {
+        addSlotRound = round;
+        addSlotCategoryId = Guid.Empty;
+    }
+}

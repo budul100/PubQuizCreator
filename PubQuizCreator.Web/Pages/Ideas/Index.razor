@@ -1,0 +1,253 @@
+﻿@page "/ideas"
+@using Microsoft.EntityFrameworkCore
+@using PubQuizCreator.Core.Models
+@using PubQuizCreator.Services
+@inject IdeaService IdeaService
+@inject CategoryService CategoryService
+@inject StateService AppState
+@inject IJSRuntime JS
+
+<PageTitle>Ideas</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">Ideas <span class="badge bg-secondary">@ideas.Count open</span></h4>
+</div>
+
+@* Quick capture *@
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="d-flex flex-column gap-2">
+            <textarea class="form-control" rows="3" placeholder="Dump your idea here…"
+                      value="@newText"
+                      @oninput="e => newText = e.Value?.ToString() ?? string.Empty" />
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox"
+                       @bind="newIsTimeSensitive" id="chkNewTimeSensitive" />
+                <label class="form-check-label small" for="chkNewTimeSensitive">
+                    Time-sensitive
+                </label>
+            </div>
+            <div class="d-flex gap-2">
+                <select class="form-select form-select-sm"
+                        value="@newCategoryId"
+                        @onchange="e => newCategoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : Guid.Empty">
+                    <option value="@Guid.Empty">— no category —</option>
+                    @foreach (var cat in categories)
+                    {
+                        <option value="@cat.Id">@cat.Name</option>
+                    }
+                </select>
+                <button class="btn btn-primary btn-sm text-nowrap"
+                        @onclick="AddIdeaAsync"
+                        disabled="@(string.IsNullOrWhiteSpace(newText))">
+                    + Add
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* Filter *@
+<div class="d-flex gap-2 mb-3">
+    <select class="form-select form-select-sm w-auto"
+            value="@selectedCategoryId"
+            @onchange="OnCategoryChanged">
+        <option value="@Guid.Empty">All categories</option>
+        <option value="@uncategorizedId">— uncategorized —</option>
+        @foreach (var cat in categories)
+        {
+            <option value="@cat.Id">@cat.Name</option>
+        }
+    </select>
+    <input class="form-control form-control-sm" placeholder="Search…"
+           value="@searchText"
+           @oninput="async e => { searchText = e.Value?.ToString() ?? string.Empty; await ApplyFilterAsync(); }" />
+    <button class="btn btn-outline-secondary btn-sm text-nowrap"
+            @onclick="async () => { sortAscending = !sortAscending; await ApplyFilterAsync(); }">
+        📅 @(sortAscending ? "↑" : "↓")
+    </button>
+</div>
+
+@if (isLoading)
+{
+    <div class="d-flex align-items-center gap-2 text-muted">
+        <div class="spinner-border spinner-border-sm" />
+        <span>Loading ideas…</span>
+    </div>
+}
+else
+{
+    <div class="mb-2 text-muted small">Showing @filtered.Count of @ideas.Count</div>
+
+    @if (!filtered.Any())
+    {
+        <p class="text-muted">No open ideas.</p>
+    }
+    else
+    {
+        <div class="list-group">
+            @foreach (var idea in filtered)
+            {
+                var categoryColor = idea.Category?.ColorHex ?? "#ffffff";
+
+                <div class="list-group-item d-flex align-items-start gap-3 py-2">
+
+                    @* Left: category + time-sensitive *@
+                    <div style="width: 130px; flex-shrink: 0;">
+                        @if (idea.Category != null)
+                        {
+                            <span class="badge d-block text-truncate mb-1"
+                                  style="background-color: @categoryColor; color: @categoryColor.TextColor();">
+                                @idea.Category.Name
+                            </span>
+                        }
+                        else
+                        {
+                            <select class="form-select form-select-sm mb-1"
+                                    @onchange="e => AssignCategoryAsync(idea.Id, e.Value?.ToString())">
+                                <option value="">— assign —</option>
+                                @foreach (var cat in categories)
+                                {
+                                    <option value="@cat.Id">@cat.Name</option>
+                                }
+                            </select>
+                        }
+                        <div class="form-check mb-0">
+                            <input class="form-check-input" type="checkbox"
+                                   checked="@idea.IsTimeSensitive"
+                                   @onchange="e => ToggleTimeSensitiveAsync(idea.Id, (bool)(e.Value ?? false))" />
+                            <label class="form-check-label small">Time-sensitive</label>
+                        </div>
+                    </div>
+
+                    @* Center: text + date *@
+                    <div style="flex: 1; min-width: 0;">
+                        <div>@idea.Text</div>
+                        <div class="text-muted small mt-1">@idea.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
+                    </div>
+
+                    @* Right: actions *@
+                    <div class="d-flex gap-1 flex-shrink-0">
+                        <a class="btn btn-outline-secondary btn-sm"
+                           href="https://www.google.com/search?q=@Uri.EscapeDataString(idea.Text)"
+                           target="_blank"
+                           title="Google this idea">
+                            <span class="oi oi-magnifying-glass" />
+                        </a>
+                        <a class="btn btn-outline-primary btn-sm"
+                           href="/ideas/@idea.Id/edit"
+                           title="Turn into question">
+                            <span class="oi oi-arrow-right" />
+                        </a>
+                        <button class="btn btn-outline-danger btn-sm"
+                                title="Delete"
+                                @onclick="() => DeleteAsync(idea.Id)">
+                            <span class="oi oi-trash" />
+                        </button>
+                    </div>
+
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private string searchText = "";
+    private string newText = "";
+
+    private bool isLoading = true;
+    private bool sortAscending = false;
+    private List<Idea> ideas = [];
+    private List<Idea> filtered = [];
+    private List<Category> categories = [];
+    private Guid selectedCategoryId;
+    private Guid newCategoryId;
+    private bool newIsTimeSensitive;
+    
+    private static readonly Guid uncategorizedId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.SetPageTitle("Ideas");
+
+        categories = await CategoryService.GetAllAsync();
+        await ReloadAsync();
+
+        if (ideas.Any(i => i.CategoryId == null))
+            selectedCategoryId = uncategorizedId;
+
+        await ApplyFilterAsync();
+    }
+
+    private async Task OnCategoryChanged(ChangeEventArgs e)
+    {
+        selectedCategoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : Guid.Empty;
+        await ApplyFilterAsync();
+    }
+
+    private async Task ApplyFilterAsync()
+    {
+        isLoading = true;
+
+        StateHasChanged();
+        await Task.Yield();
+
+        var q = ideas
+            .Where(i =>
+                selectedCategoryId == Guid.Empty ? true :
+                selectedCategoryId == uncategorizedId ? i.CategoryId == null :
+                i.CategoryId == selectedCategoryId)
+            .Where(i => string.IsNullOrWhiteSpace(searchText)
+                     || i.Text.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+        filtered = sortAscending
+            ? q.OrderBy(i => i.CreatedAt).ToList()
+            : q.OrderByDescending(i => i.CreatedAt).ToList();
+
+        isLoading = false;
+    }
+
+    private async Task ReloadAsync()
+    {
+        ideas = await IdeaService.GetOpenAsync();
+    }
+
+    private async Task AddIdeaAsync()
+    {
+        if (string.IsNullOrWhiteSpace(newText)) return;
+        await IdeaService.CreateAsync(newText.Trim(), newCategoryId, newIsTimeSensitive);
+
+        newText = string.Empty;
+        newIsTimeSensitive = false;
+
+        await ReloadAsync();
+    }
+
+    private async Task AssignCategoryAsync(Guid ideaId, string? categoryIdStr)
+    {
+        if (!Guid.TryParse(categoryIdStr, out var categoryId) || categoryId == Guid.Empty) return;
+        await IdeaService.UpdateCategoryAsync(ideaId, categoryId);
+
+        var idea = ideas.First(i => i.Id == ideaId);
+        idea.CategoryId = categoryId;
+        idea.Category = categories.First(c => c.Id == categoryId);
+
+        await ApplyFilterAsync();
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        var idea = ideas.First(i => i.Id == id);
+        var confirmed = await JS.InvokeAsync<bool>("confirm",
+            $"Delete this idea? This cannot be undone.");
+        if (!confirmed) return;
+        await IdeaService.DeleteAsync(id);
+        await ReloadAsync();
+    }
+
+    private async Task ToggleTimeSensitiveAsync(Guid id, bool value)
+    {
+        await IdeaService.SetTimeSensitiveAsync(id, value);
+    }
+}

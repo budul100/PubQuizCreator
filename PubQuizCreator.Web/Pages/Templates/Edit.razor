@@ -1,0 +1,144 @@
+﻿@page "/templates/{Id:guid}/edit"
+@using Microsoft.EntityFrameworkCore
+@using PubQuizCreator.Core
+@using PubQuizCreator.Core.Models
+@using PubQuizCreator.Services
+@inject CategoryService CategoryService
+@inject TemplateService TemplateService
+@inject StateService AppState
+@inject NavigationManager Nav
+
+<PageTitle>Edit Template</PageTitle>
+
+@if (template == null)
+{
+    <p class="text-muted">Loading…</p>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <input class="form-control form-control-lg w-auto" style="min-width: 260px;"
+               value="@template.Name"
+               @onchange="e => template.Name = e.Value?.ToString() ?? string.Empty"
+               @onblur="SaveNameAsync" />
+        <div class="text-muted small">@slots.Count slots</div>
+    </div>
+
+    <div class="list-group mb-3" id="slot-list">
+        @for (int i = 0; i < slots.Count; i++)
+        {
+            var slot = slots[i];
+            var idx = i;
+            <div class="list-group-item d-flex align-items-center gap-3"
+                 draggable="true"
+                 @ondragstart="() => dragFrom = idx"
+                 @ondragover="OnDragOver"
+                 @ondragover:preventDefault="true"
+                 @ondrop="() => DropSlot(idx)"
+                 style="cursor: grab;">
+                <span class="text-muted" style="cursor: grab;">☰</span>
+                <span class="text-muted small" style="width: 20px;">@(i + 1)</span>
+                <select class="form-select form-select-sm"
+                        value="@slot.CategoryId"
+                        @onchange="e => slot.CategoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : Guid.Empty">
+                    <option value="@Guid.Empty">— select —</option>
+                    @foreach (var cat in categories)
+                    {
+                        <option value="@cat.Id">@cat.Name</option>
+                    }
+                </select>
+                <button class="btn btn-outline-danger btn-sm" @onclick="() => slots.RemoveAt(idx)">✕</button>
+            </div>
+        }
+    </div>
+
+    <button class="btn btn-outline-primary btn-sm mb-4"
+            @onclick="() => slots.Add(new SlotRow())">
+        + Add slot
+    </button>
+
+    <hr />
+
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary" @onclick="SaveAsync" disabled="@saving">
+            @(saving ? "Saving…" : "Save")
+        </button>
+        <a class="btn btn-outline-secondary" href="/templates">Cancel</a>
+    </div>
+
+    @if (saveError != null)
+    {
+        <div class="alert alert-danger mt-3">@saveError</div>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private Template? template;
+    private List<Category> categories = [];
+    private List<SlotRow> slots = [];
+    private bool saving;
+    private string? saveError;
+    private int dragFrom = -1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.SetPageTitle("Edit Template");
+
+        categories = await CategoryService.GetAllAsync();
+        template = await TemplateService.GetAsync(Id);
+        
+        if (template == null) return;
+
+        slots = template.Slots
+            .OrderBy(s => s.Position)
+            .Select(s => new SlotRow { CategoryId = s.CategoryId })
+            .ToList();
+    }
+
+    private async Task SaveNameAsync()
+    {
+        if (template == null) return;
+        await TemplateService.RenameAsync(Id, template.Name);
+    }
+
+    private async Task SaveAsync()
+    {
+        saving = true;
+        saveError = null;
+        try
+        {
+            var ids = slots
+                .Where(s => s.CategoryId != Guid.Empty)
+                .Select(s => s.CategoryId)
+                .ToList();
+            await TemplateService.SaveSlotsAsync(Id, ids);
+            Nav.NavigateTo("/templates");
+        }
+        catch (Exception ex)
+        {
+            saveError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private void DropSlot(int dropTo)
+    {
+        if (dragFrom < 0 || dragFrom == dropTo) return;
+        var item = slots[dragFrom];
+        slots.RemoveAt(dragFrom);
+        slots.Insert(dropTo, item);
+        dragFrom = -1;
+    }
+
+    private void OnDragOver(DragEventArgs e) { }
+
+    private sealed class SlotRow
+    {
+        public Guid CategoryId { get; set; }
+    }
+}

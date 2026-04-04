@@ -1,0 +1,121 @@
+﻿@page "/quizzes"
+@using PubQuizCreator.Core.Models
+@using PubQuizCreator.Services
+@inject QuizService QuizService
+@inject StateService AppState
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Quizzes</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">Quizzes</h4>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm"
+                @onclick="() => SetTab(!showPast)">
+            @(showPast ? "Show Upcoming" : "Show Past")
+        </button>
+        @if (!showPast)
+        {
+            <button class="btn btn-primary btn-sm" @onclick="() => showCreate = true">+ New quiz</button>
+        }
+    </div>
+</div>
+
+@if (showCreate)
+{
+    <div class="card mb-4">
+        <div class="card-body d-flex flex-column gap-2">
+            <input class="form-control" placeholder="Title" @bind="newTitle" />
+            <input class="form-control" type="date"
+                   value="@newDate.ToString("yyyy-MM-dd")"
+                   @onchange="e => newDate = DateOnly.Parse(e.Value?.ToString() ?? string.Empty)" />
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary btn-sm"
+                        @onclick="CreateAsync"
+                        disabled="@(string.IsNullOrWhiteSpace(newTitle))">
+                    Create
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="() => showCreate = false">Cancel</button>
+            </div>
+        </div>
+    </div>
+}
+
+@{
+    var displayed = showPast ? past : upcoming;
+}
+
+@if (!displayed.Any())
+{
+    <p class="text-muted">No quizzes.</p>
+}
+else
+{
+    <div class="list-group">
+        @foreach (var q in displayed)
+        {
+            var totalSlots = q.Rounds.SelectMany(r => r.Slots).Count();
+            var open = q.Rounds.SelectMany(r => r.Slots).Count(s => s.QuestionId == null);
+            var (quizLabel, quizBadge) = totalSlots == 0
+                ? ("Empty", "bg-secondary")
+                : open == 0
+                    ? ("Complete", "bg-success")
+                    : ($"{open} open", "bg-warning text-dark");
+
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+                <a class="d-flex justify-content-between align-items-center flex-grow-1 text-decoration-none text-body"
+                   href="/quizzes/@q.Id">
+                    <div>
+                        <div class="fw-semibold">@q.Title</div>
+                        <small class="text-muted">@q.Date.ToString("dd.MM.yyyy")</small>
+                    </div>
+                    <span class="badge @quizBadge me-3">@quizLabel</span>
+                </a>
+                <div @onclick:stopPropagation="true">
+                    <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteAsync(q.Id)">✕</button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<Quiz> upcoming = [];
+    private List<Quiz> past = [];
+    private bool showPast = false;
+    private bool showCreate;
+    private string newTitle = "New Quiz";
+    private DateOnly newDate = DateOnly.FromDateTime(DateTime.Today);
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.SetPageTitle("Quizzes");
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        upcoming = await QuizService.GetUpcomingAsync();
+        past = await QuizService.GetPastAsync();
+    }
+
+    private void SetTab(bool pastTab) => showPast = pastTab;
+
+    private async Task CreateAsync()
+    {
+        var quiz = await QuizService.CreateAsync(newTitle, newDate);
+        Nav.NavigateTo($"/quizzes/{quiz.Id}");
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        var list = showPast ? past : upcoming;
+        var quiz = list.First(q => q.Id == id);
+        var confirmed = await JS.InvokeAsync<bool>("confirm",
+            $"Delete \"{quiz.Title}\"? This cannot be undone.");
+        if (!confirmed) return;
+        await QuizService.DeleteAsync(id);
+        await ReloadAsync();
+    }
+}

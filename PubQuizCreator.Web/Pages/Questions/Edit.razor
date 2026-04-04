@@ -1,0 +1,476 @@
+﻿@page "/questions/new"
+@page "/questions/{Id:guid}/edit"
+@using Microsoft.EntityFrameworkCore
+@using PubQuizCreator.Core
+@using PubQuizCreator.Core.Models
+@using PubQuizCreator.Core.Types
+@using PubQuizCreator.Services
+@inject QuizService QuizService
+@inject TemplateService TemplateService
+@inject CategoryService CategoryService
+@inject QuestionService QuestionService
+@inject StateService AppState
+@inject IConfiguration Configuration
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@implements IDisposable
+
+<PageTitle>@(IsNew ? "New Question" : "Edit Question")</PageTitle>
+
+<div class="d-flex gap-4 align-items-start">
+
+    <div style="flex: 1; min-width: 0;">
+        <h4 class="mb-3">@(IsNew ? "New Question" : "Edit Question")</h4>
+
+        <EditForm Model="model" OnValidSubmit="SaveAsync">
+            <DataAnnotationsValidator />
+
+            <div class="mb-3">
+                <label class="form-label">Category</label>
+                <select class="form-select" value="@model.CategoryId"
+                        @onchange="OnCategoryChanged">
+                    <option value="@Guid.Empty">— select —</option>
+                    @foreach (var cat in categories)
+                    {
+                        <option value="@cat.Id">@cat.Name</option>
+                    }
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">
+                    Short text
+                    <small class="text-muted">(for presentation)</small>
+                </label>
+                <textarea class="form-control" rows="2"
+                    value="@model.TextShort"
+                    @oninput="e => { model.TextShort = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
+            </div>
+
+            @{
+                var shortLen = model.TextShort?.Length ?? 0;
+                var warnClass = shortLen > QuizConstants.TextShortWarnLength ? "text-danger fw-semibold" : "text-muted";
+            }
+            <div class="d-flex justify-content-between align-items-center mt-1 mb-4">
+                <div class="d-flex gap-2">
+                    <a class="btn btn-outline-secondary btn-sm @(!CanGoogle ? "disabled" : "")"
+                       href="@($"https://www.google.com/search?q={Uri.EscapeDataString((model.TextShort + " " + model.Answer).Trim())}")"
+                       target="_blank"
+                       tabindex="@(!CanGoogle ? -1 : 0)"
+                       aria-disabled="@(!CanGoogle)"
+                       title="Search question + answer on Google">
+                        🔍 Google
+                    </a>
+                </div>
+                <div class="d-flex gap-3 align-items-center">
+                    <small class="@warnClass">
+                        @if (shortLen > QuizConstants.TextShortWarnLength)
+                        {
+                            <span>⚠ Too long for presentation — consider shortening.</span>
+                        }
+                    </small>
+                    <small class="@warnClass">@shortLen / @QuizConstants.TextShortWarnLength chars</small>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">
+                    Long text
+                    <small class="text-muted">(internal / moderator notes)</small>
+                </label>
+                    <textarea class="form-control" rows="5"
+                        value="@model.TextLong"
+                        @oninput="e => { model.TextLong = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Answer</label>
+                <input class="form-control"
+                    value="@model.Answer"
+                    @oninput="e => { model.Answer = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
+            </div>
+
+            <div class="d-flex gap-2 mb-4">
+                <button class="btn btn-outline-secondary btn-sm"
+                        type="button"
+                        disabled="@(!CanCheck)"
+                        @onclick="OpenAiAsync"
+                        title="Open fact-check prompt in AI">
+                    🤖 Ask AI
+                </button>
+                <button class="btn btn-outline-secondary btn-sm"
+                        type="button"
+                        disabled="@(!CanCheck)"
+                        @onclick="CopyAiPromptAsync"
+                        title="Copy fact-check prompt to clipboard">
+                    📋 Copy AI prompt
+                </button>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col">
+                    <label class="form-label">
+                        Media file <small class="text-muted">(filename, optional)</small>
+                    </label>
+                    <input class="form-control" @bind="model.MediaFile" />
+                </div>
+                <div class="col-auto">
+                    <label class="form-label">Media type</label>
+                    <select class="form-select" @bind="model.MediaType">
+                        <option value="@MediaType.None">—</option>
+                        <option value="@MediaType.Image">Image</option>
+                        <option value="@MediaType.Audio">Audio</option>
+                        <option value="@MediaType.Video">Video</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary" type="submit" disabled="@(!CanSave || saving)">
+                    @(saving ? "Saving…" : "Save question")
+                </button>
+                <a class="btn btn-outline-secondary" href="/questions">Cancel</a>
+            </div>
+
+            @if (saveError != null)
+            {
+                <div class="alert alert-danger mt-3">@saveError</div>
+            }
+        </EditForm>
+    </div>
+
+    <div style="width: 360px; flex-shrink: 0; position: sticky; top: 1rem;">
+
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center gap-2">
+                <span class="fw-semibold">Quiz progress</span>
+                <select class="form-select form-select-sm w-auto"
+                        value="@selectedQuizId"
+                        @onchange="OnQuizChanged">
+                    <option value="@Guid.Empty">— select quiz —</option>
+                    @foreach (var q in quizzes)
+                    {
+                        <option value="@q.Id">@q.Title (@q.Date.ToShortDateString())</option>
+                    }
+                </select>
+            </div>
+            <div class="card-body p-2">
+                @if (quizStats == null)
+                {
+                    <p class="text-muted small mb-0">Select a quiz to see open slots.</p>
+                }
+                else
+                {
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="small">Total open slots</span>
+                        <span class="badge @(quizStats.TotalOpen == 0 ? "bg-success" : "bg-warning text-dark") fs-6">
+                            @quizStats.TotalOpen
+                        </span>
+                    </div>
+
+                    @if (selectedCategoryStats != null)
+                    {
+                        <div class="d-flex justify-content-between align-items-center mb-2 p-1 rounded"
+                             style="background: #f8f9fa;">
+                            <span class="small">
+                                Open in <strong>@selectedCategoryStats.Category.Name</strong>
+                            </span>
+                            <span class="badge @(selectedCategoryStats.OpenSlots == 0 ? "bg-success" : "bg-danger") fs-6">
+                                @selectedCategoryStats.OpenSlots
+                            </span>
+                        </div>
+                    }
+
+                    <hr class="my-2" />
+
+                    @foreach (var cs in quizStats.ByCategory)
+                    {
+                        <div class="d-flex justify-content-between small">
+                            <span class="text-muted">@cs.Category.Name</span>
+                            <span>@cs.OpenSlots open</span>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header d-flex align-items-center gap-2 fw-semibold">
+                Similar questions
+                @if (searchingEmbedding)
+                {
+                    <span class="spinner-border spinner-border-sm text-secondary" />
+                }
+            </div>
+            <div class="card-body p-2">
+                @if (!similarQuestions.Any())
+                {
+                    <p class="text-muted small mb-0">
+                        @(hasSearched
+                            ? "No similar questions found."
+                            : "Start typing to search for duplicates.")
+                    </p>
+                }
+                else
+                {
+                    @foreach (var sq in similarQuestions
+                        .Where(sq => sq.Distance < QuizConstants.SimilarityThresholdMedium))
+                    {
+                        var borderClass = sq.Distance < QuizConstants.SimilarityThresholdHigh 
+                            ? "border-danger" 
+                            : "border-warning";
+                        var badgeClass = sq.Distance < QuizConstants.SimilarityThresholdHigh 
+                            ? "bg-danger" 
+                            : "bg-warning text-dark";
+                        var label = sq.Distance < QuizConstants.SimilarityThresholdHigh 
+                            ? "very similar" 
+                            : "similar";
+
+                        <div class="border rounded p-2 mb-2 @borderClass">
+                            <div class="small fw-semibold">@sq.TextShort</div>
+                            <div class="small text-muted">→ @sq.Answer</div>
+                            <div class="text-end mt-1">
+                                <span class="badge @badgeClass">@label</span>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@code {
+    [Parameter] public Guid? Id { get; set; }
+    [SupplyParameterFromQuery(Name = "categoryId")] public Guid? PreselectedCategoryId { get; set; }
+
+    private bool IsNew => Id == null;
+
+    private bool isInitialized;
+    private bool hasSearched;
+    private bool saving;
+    private bool searchingEmbedding;
+    private CategoryStats? selectedCategoryStats;
+    private Guid selectedQuizId;
+    private List<Category> categories = [];
+    private List<QuestionSimilar> similarQuestions = [];
+    private List<Quiz> quizzes = [];
+    private QuestionFormModel model = new();
+    private QuizStats? quizStats;
+    private string? saveError;
+    private Timer? debounceTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        string title = IsNew
+            ? "New Question"
+            : "Edit Question";
+
+        AppState.SetPageTitle(title);
+
+        categories = await CategoryService.GetAllAsync();
+        quizzes = await QuizService.GetUpcomingAsync();
+
+        // Default to nearest quiz
+        if (quizzes.FirstOrDefault() is { } next)
+        {
+            selectedQuizId = next.Id;
+            await LoadQuizStatsAsync();
+        }
+
+        if (!IsNew && await QuestionService.GetAsync(Id.Value) is { } q)
+            model = QuestionFormModel.From(q);
+
+        if (PreselectedCategoryId.HasValue && PreselectedCategoryId != Guid.Empty)
+            model.CategoryId = PreselectedCategoryId.Value;
+
+        isInitialized = true;
+    }
+
+    private void TriggerSimilaritySearch()
+    {
+        debounceTimer?.Dispose();
+        debounceTimer = new Timer(async _ =>
+        {
+            await RunSimilaritySearchAsync();
+            await InvokeAsync(StateHasChanged);
+        }, null, 800, Timeout.Infinite);
+    }
+
+    private void OnCategoryChanged(ChangeEventArgs e)
+    {
+        model.CategoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : Guid.Empty;
+        selectedCategoryStats = quizStats?.ByCategory
+            .FirstOrDefault(c => c.Category.Id == model.CategoryId);
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!isInitialized) return;
+
+        if (PreselectedCategoryId.HasValue && PreselectedCategoryId != Guid.Empty)
+            model.CategoryId = PreselectedCategoryId.Value;
+    }
+
+    private async Task OnQuizChanged(ChangeEventArgs e)
+    {
+        selectedQuizId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : Guid.Empty;
+        await LoadQuizStatsAsync();
+    }
+
+    private async Task LoadQuizStatsAsync()
+    {
+        quizStats = selectedQuizId != Guid.Empty
+            ? await QuizService.GetStatsAsync(selectedQuizId)
+            : null;
+
+        selectedCategoryStats = quizStats?.ByCategory
+            .FirstOrDefault(c => c.Category.Id == model.CategoryId);
+    }
+
+    private async Task RunSimilaritySearchAsync()
+    {
+        var text = $"{model.TextShort} {model.TextLong} {model.Answer}".Trim();
+        if (text.Length < 10) return;
+
+        searchingEmbedding = true;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            similarQuestions = await QuestionService.FindSimilarAsync(
+                text, 
+                Id ?? Guid.Empty, 
+                topN: 5);
+
+            hasSearched = true;
+        }
+        catch
+        {
+            // Ollama unavailable — fail silently, don't block saving
+        }
+        finally
+        {
+            searchingEmbedding = false;
+        }
+    }
+
+    private async Task OpenAiAsync()
+    {
+        var template = Configuration["Quiz:PromptTemplate"]
+            ?? "Category: {category}\nQuestion: {question}\nAnswer: {answer}";
+
+        var urlTemplate = Configuration["Quiz:AiUrl"]
+            ?? "https://www.perplexity.ai/search?q={prompt}";
+
+        var categoryName = categories.FirstOrDefault(c => c.Id == model.CategoryId)?.Name ?? "—";
+
+        var prompt = template
+            .Replace("{category}", categoryName)
+            .Replace("{question}", model.TextShort)
+            .Replace("{answer}", model.Answer);
+
+        var url = urlTemplate.Replace("{prompt}", Uri.EscapeDataString(prompt));
+
+        await JS.InvokeVoidAsync("open", url, "_blank");
+    }
+
+    private async Task CopyAiPromptAsync()
+    {
+        var template = Configuration["Quiz:PromptTemplate"]
+            ?? "Category: {category}\nQuestion: {question}\nAnswer: {answer}";
+
+        var categoryName = categories.FirstOrDefault(c => c.Id == model.CategoryId)?.Name ?? "—";
+
+        var prompt = template
+            .Replace("{category}", categoryName)
+            .Replace("{question}", model.TextShort)
+            .Replace("{answer}", model.Answer);
+
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", prompt);
+    }
+
+    private bool CanGoogle => !string.IsNullOrWhiteSpace(model.TextShort);
+
+    private bool CanCheck => !string.IsNullOrWhiteSpace(model.TextShort)
+        && !string.IsNullOrWhiteSpace(model.Answer);
+
+    private bool CanSave => model.CategoryId != Guid.Empty
+        && !string.IsNullOrWhiteSpace(model.TextShort) 
+        && !string.IsNullOrWhiteSpace(model.Answer);
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(model.Answer))
+        {
+            saveError = "Please enter an answer before saving.";
+            return;
+        }
+
+        if (model.CategoryId == Guid.Empty)
+        {
+            saveError = "Please select a category.";
+            return;
+        }
+
+        saving = true;
+        saveError = null;
+
+        try
+        {
+            var question = model.ToQuestion(Id);
+
+            if (IsNew) await QuestionService.CreateAsync(question);
+            else await QuestionService.UpdateAsync(question);
+
+            var nextCategoryId = model.CategoryId;
+            model = new QuestionFormModel { CategoryId = nextCategoryId };
+            similarQuestions = [];
+            hasSearched = false;
+
+            Nav.NavigateTo($"/questions/new?categoryId={nextCategoryId}");
+        }
+        catch (Exception ex)
+        {
+            saveError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    public void Dispose() => debounceTimer?.Dispose();
+
+    private sealed class QuestionFormModel
+    {
+        public string TextShort { get; set; } = "";
+        public string TextLong { get; set; } = "";
+        public string Answer { get; set; } = "";
+        public Guid CategoryId { get; set; }
+        public string? MediaFile { get; set; }
+        public MediaType MediaType { get; set; } = MediaType.None;
+
+        public static QuestionFormModel From(Question q) => new()
+        {
+            TextShort = q.TextShort,
+            TextLong = q.TextLong,
+            Answer = q.Answer,
+            CategoryId = q.CategoryId,
+            MediaFile = q.MediaFile,
+            MediaType = q.MediaType,
+        };
+
+        public Question ToQuestion(Guid? existingId) => new()
+        {
+            Id = existingId ?? Guid.NewGuid(),
+            TextShort = TextShort,
+            TextLong = TextLong,
+            Answer = Answer,
+            CategoryId = CategoryId,
+            MediaFile = MediaFile,
+            MediaType = MediaType,
+        };
+    }
+}

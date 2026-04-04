@@ -1,0 +1,113 @@
+﻿@page "/categories"
+@using PubQuizCreator.Core.Models
+@using PubQuizCreator.Services
+@inject CategoryService CategoryService
+@inject StateService AppState
+@inject IJSRuntime JS
+
+<PageTitle>Categories</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">Categories</h4>
+    <button class="btn btn-primary btn-sm" @onclick="() => showCreate = true">+ New category</button>
+</div>
+
+@if (showCreate)
+{
+    <div class="card mb-4">
+        <div class="card-body d-flex gap-2 align-items-center">
+            <input class="form-control" placeholder="Name" @bind="newName" />
+            <input type="color" class="form-control form-control-color" @bind="newColor" />
+            <button class="btn btn-primary btn-sm text-nowrap"
+                    @onclick="CreateAsync"
+                    disabled="@(string.IsNullOrWhiteSpace(newName))">
+                Add
+            </button>
+            <button class="btn btn-outline-secondary btn-sm text-nowrap"
+                    @onclick="() => showCreate = false">
+                Cancel
+            </button>
+        </div>
+    </div>
+}
+
+@if (!categories.Any())
+{
+    <p class="text-muted">No categories yet.</p>
+}
+else
+{
+    <div class="list-group">
+        @foreach (var cat in categories)
+        {
+            <div class="list-group-item d-flex align-items-center gap-3">
+                <input type="color"
+                       class="form-control form-control-color flex-shrink-0"
+                       value="@cat.ColorHex"
+                       @onchange="e => UpdateColorAsync(cat, e.Value?.ToString() ?? cat.ColorHex)" />
+                <input class="form-control"
+                       value="@cat.Name"
+                       @onchange="e => UpdateNameAsync(cat, e.Value?.ToString() ?? cat.Name)" />
+                <div class="d-flex gap-2" @onclick:stopPropagation="true">
+                    <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteAsync(cat.Id)">✕</button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<Category> categories = [];
+    private bool showCreate;
+    private string newName = "";
+    private string newColor = "#95a5a6";
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.SetPageTitle("Categories");
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+        => categories = await CategoryService.GetAllAsync();
+
+    private async Task CreateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(newName)) return;
+        await CategoryService.CreateAsync(newName.Trim(), newColor);
+        newName = "";
+        newColor = "#95a5a6";
+        showCreate = false;
+        await ReloadAsync();
+    }
+
+    private async Task UpdateNameAsync(Category cat, string name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name == cat.Name) return;
+        cat.Name = name;
+        await CategoryService.UpdateAsync(cat.Id, cat.Name, cat.ColorHex);
+    }
+
+    private async Task UpdateColorAsync(Category cat, string color)
+    {
+        cat.ColorHex = color;
+        await CategoryService.UpdateAsync(cat.Id, cat.Name, cat.ColorHex);
+        await ReloadAsync();
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        var cat = categories.First(c => c.Id == id);
+        if (await CategoryService.IsInUseAsync(id))
+        {
+            await JS.InvokeVoidAsync("alert",
+                $"\"{cat.Name}\" is in use and cannot be deleted.");
+            return;
+        }
+        var confirmed = await JS.InvokeAsync<bool>("confirm",
+            $"Delete \"{cat.Name}\"? This cannot be undone.");
+        if (!confirmed) return;
+        await CategoryService.DeleteAsync(id);
+        await ReloadAsync();
+    }
+}

@@ -1,0 +1,90 @@
+﻿@page "/templates"
+@using PubQuizCreator.Services
+@inject TemplateService TemplateService
+@inject StateService AppState
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Templates</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">Templates</h4>
+    <button class="btn btn-primary btn-sm" @onclick="() => showCreate = true">+ New template</button>
+</div>
+
+@if (showCreate)
+{
+    <div class="card mb-4">
+        <div class="card-body d-flex gap-2 align-items-center">
+            <input class="form-control" placeholder="Template name" @bind="newName" />
+            <button class="btn btn-primary btn-sm text-nowrap"
+                    @onclick="CreateAsync"
+                    disabled="@(string.IsNullOrWhiteSpace(newName))">
+                Create
+            </button>
+            <button class="btn btn-outline-secondary btn-sm text-nowrap"
+                    @onclick="() => { showCreate = false; newName = string.Empty; }">
+                Cancel
+            </button>
+        </div>
+    </div>
+}
+
+@if (!templates.Any())
+{
+    <p class="text-muted">No templates yet.</p>
+}
+else
+{
+    <div class="list-group">
+        @foreach (var t in templates)
+        {
+            <div class="list-group-item d-flex justify-content-between align-items-center"
+                 style="cursor: pointer;"
+                 @onclick="@(() => Nav.NavigateTo($"/templates/{t.Id}/edit"))">
+                <div>
+                    <div class="fw-semibold">@t.Name</div>
+                    <small class="text-muted">
+                        @t.Slots.Count slots
+                        @if (t.Slots.Count == 0)
+                        {
+                            <span class="badge bg-secondary ms-1">Empty</span>
+                        }
+                    </small>
+                </div>
+                <div class="d-flex gap-2" @onclick:stopPropagation="true">
+                    <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteAsync(t.Id)">✕</button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<PubQuizCreator.Core.Models.Template> templates = [];
+    private bool showCreate;
+    private string newName = "New Template";
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.SetPageTitle("Templates");
+        templates = await TemplateService.GetAllAsync();
+    }
+
+    private async Task CreateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(newName)) return;
+        var template = await TemplateService.CreateAsync(newName.Trim());
+        Nav.NavigateTo($"/templates/{template.Id}/edit");
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        var t = templates.First(x => x.Id == id);
+        var confirmed = await JS.InvokeAsync<bool>("confirm",
+            $"Delete template \"{t.Name}\"? This cannot be undone.");
+        if (!confirmed) return;
+        await TemplateService.DeleteAsync(id);
+        templates = await TemplateService.GetAllAsync();
+    }
+}
