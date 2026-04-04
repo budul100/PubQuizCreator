@@ -1,10 +1,11 @@
 @echo off
 setlocal
 
+set BACKUP_DIR=%HiDrive%\Veranstaltungen\PubQuiz\Backups
+
 set CONTAINER=pubquizcreator-db-1
 set DB=pubquiz
 set USER=pubquiz
-set BACKUP_DIR=%~dp0backups
 
 echo === PubQuizCreator: Restore ===
 echo.
