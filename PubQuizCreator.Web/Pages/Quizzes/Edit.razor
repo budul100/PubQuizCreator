@@ -56,7 +56,7 @@ else
     @* Rounds *@
     @foreach (var round in quiz.Rounds.OrderBy(r => r.Position))
     {
-        var r          = round;
+        var r = round;
         var openInRound = r.Slots.Count(s => s.QuestionId == null);
         var (roundLabel, roundBadge) = r.Slots.Count == 0
             ? ("Empty", "bg-secondary")
@@ -105,25 +105,22 @@ else
 
                         <span class="text-muted flex-shrink-0">☰</span>
 
-                        @* Category — 1/8 *@
                         <div style="flex: 1; min-width: 0;">
                             @{
                                 var catColor = s.Category?.ColorHex ?? "#95a5a6";
                             }
                             <span class="badge text-truncate d-inline-block"
-                                  style="max-width: 100%; background-color: @catColor; color: @catColor.TextColor();">
+                                  style="@($"max-width: 100%; background-color: {catColor}; color: {catColor.TextColor()};")">
                                 @s.Category?.Name
                             </span>
                         </div>
 
-                        @* Question — 4/8 *@
                         <div style="flex: 4; min-width: 0;">
                             <div class="small fw-semibold text-truncate">
                                 @(s.Question?.TextShort ?? "— no question assigned —")
                             </div>
                         </div>
 
-                        @* Answer — 3/8 *@
                         <div style="flex: 3; min-width: 0;">
                             @if (s.Question != null)
                             {
@@ -153,8 +150,59 @@ else
                         </div>
 
                     </div>
+
+                    @if (pickerSlot?.Id == s.Id)
+                    {
+                        <div class="list-group-item p-2 border-top bg-light">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="fw-semibold small">Assign question — @pickerSlot.Category?.Name</span>
+                                <button class="btn-close btn-sm" @onclick="() => pickerSlot = null" />
+                            </div>
+                            <input class="form-control form-control-sm mb-2"
+                                   placeholder="Search…"
+                                   value="@pickerSearch"
+                                   @oninput="e => { pickerSearch = e.Value?.ToString() ?? string.Empty; ApplyFilter(); }" />
+                            <div class="small text-muted mb-2">
+                                @pickerFiltered.Count of @pickerAll.Count in this category
+                            </div>
+                            <div class="list-group">
+                                @foreach (var q in pickerFiltered.Take(20))
+                                {
+                                    <button class="list-group-item list-group-item-action py-1"
+                                            @onclick="() => AssignAsync(q.Id)">
+                                        <div class="small fw-semibold">@q.TextShort</div>
+                                        <div class="small text-muted">→ @q.Answer</div>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
                 }
             </div>
+
+            @* ── Inline Add Slot ── *@
+            @if (addSlotRound?.Id == r.Id)
+            {
+                <div class="card-body border-top d-flex gap-2 align-items-center">
+                    <select class="form-select" @bind="addSlotCategoryId">
+                        <option value="@Guid.Empty">— select category —</option>
+                        @foreach (var cat in categories)
+                        {
+                            <option value="@cat.Id">@cat.Name</option>
+                        }
+                    </select>
+                    <button class="btn btn-success btn-sm text-nowrap"
+                            @onclick="ConfirmAddSlotAsync"
+                            disabled="@(addSlotCategoryId == Guid.Empty)">
+                        Add
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm text-nowrap"
+                            @onclick="() => addSlotRound = null">
+                        Cancel
+                    </button>
+                </div>
+            }
+
         </div>
     }
 
@@ -190,61 +238,6 @@ else
                         disabled="@(selectedTemplateId == Guid.Empty)">
                     Add round
                 </button>
-            </div>
-        </div>
-    }
-
-    @* Add slot panel *@
-    @if (addSlotRound != null)
-    {
-        <div class="card border-success mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <strong>Add slot to round @addSlotRound.Position</strong>
-                <button class="btn-close" @onclick="() => addSlotRound = null" />
-            </div>
-            <div class="card-body d-flex gap-2">
-                <select class="form-select" @bind="addSlotCategoryId">
-                    <option value="@Guid.Empty">— select category —</option>
-                    @foreach (var cat in categories)
-                    {
-                        <option value="@cat.Id">@cat.Name</option>
-                    }
-                </select>
-                <button class="btn btn-success btn-sm"
-                        @onclick="ConfirmAddSlotAsync"
-                        disabled="@(addSlotCategoryId == Guid.Empty)">
-                    Add
-                </button>
-            </div>
-        </div>
-    }
-
-    @* Question picker *@
-    @if (pickerSlot != null)
-    {
-        <div class="card border-primary mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <span class="fw-semibold">Assign question — @pickerSlot.Category?.Name</span>
-                <button class="btn-close" @onclick="() => pickerSlot = null" />
-            </div>
-            <div class="card-body p-2">
-                <input class="form-control form-control-sm mb-2"
-                       placeholder="Search…"
-                       value="@pickerSearch"
-                       @oninput="e => { pickerSearch = e.Value?.ToString() ?? string.Empty; ApplyFilter(); }" />
-                <div class="small text-muted mb-2">
-                    @pickerFiltered.Count of @pickerAll.Count in this category
-                </div>
-                <div class="list-group">
-                    @foreach (var q in pickerFiltered.Take(20))
-                    {
-                        <button class="list-group-item list-group-item-action"
-                                @onclick="() => AssignAsync(q.Id)">
-                            <div class="small fw-semibold">@q.TextShort</div>
-                            <div class="small text-muted">→ @q.Answer</div>
-                        </button>
-                    }
-                </div>
             </div>
         </div>
     }
