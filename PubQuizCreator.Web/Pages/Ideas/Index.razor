@@ -75,10 +75,8 @@
                             <div style="width: 130px; flex-shrink: 0;">
                                 @if (idea.Category != null)
                                 {
-                                    <span class="badge d-block text-truncate mb-1"
-                                          style="background-color: @categoryColor; color: @categoryColor.TextColor();">
-                                        @idea.Category.Name
-                                    </span>
+                                    <CategoryBadge ColorHex="@categoryColor" Name="@idea.Category.Name"
+                                                   CssClass="d-block text-truncate mb-1" />
                                 }
                                 else
                                 {

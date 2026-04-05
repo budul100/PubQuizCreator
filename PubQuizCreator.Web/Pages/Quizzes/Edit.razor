@@ -109,10 +109,9 @@ else
                             @{
                                 var catColor = s.Category?.ColorHex ?? "#95a5a6";
                             }
-                            <span class="badge text-truncate d-inline-block"
-                                  style="@($"max-width: 100%; background-color: {catColor}; color: {catColor.TextColor()};")">
-                                @s.Category?.Name
-                            </span>
+                            <CategoryBadge ColorHex="@catColor" Name="@(s.Category?.Name ?? "")"
+                                CssClass="text-truncate d-inline-block"
+                                Style="max-width: 100%;" />
                         </div>
 
                         <div style="flex: 4; min-width: 0;">

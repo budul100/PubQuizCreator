@@ -1,0 +1,15 @@
+﻿@using PubQuizCreator.Web.Helpers
+
+<span class="badge @CssClass"
+      style="background-color: @ColorHex; color: @ColorHex.TextColor(); @Style">
+    @Name
+    @ChildContent
+</span>
+
+@code {
+    [Parameter] public string ColorHex { get; set; } = "#95a5a6";
+    [Parameter] public string Name { get; set; } = "";
+    [Parameter] public string CssClass { get; set; } = "";
+    [Parameter] public string Style { get; set; } = "";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

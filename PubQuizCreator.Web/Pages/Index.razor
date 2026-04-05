@@ -45,11 +45,7 @@ else
                                     var color = row.Category.ColorHex;
                                     <tr>
                                         <td>
-                                            <span class="badge"
-                                                  style="@($"background-color: {color}; color: {color.TextColor()};")">
-                                                @row.Category.Name
-                                            </span>
-
+                                            <CategoryBadge ColorHex="@color" Name="@row.Category.Name" />
                                         </td>
                                         <td class="text-end fw-semibold">@row.IdeaCount</td>
                                     </tr>
@@ -84,10 +80,7 @@ else
                                     var color = row.Category.ColorHex;
                                     <tr>
                                         <td>
-                                            <span class="badge"
-                                                  style="background-color: @color; color: @color.TextColor();">
-                                                @row.Category.Name
-                                            </span>
+                                            <CategoryBadge ColorHex="@color" Name="@row.Category.Name" />
                                         </td>
                                         <td class="text-end fw-semibold">@row.AvailableQuestions</td>
                                     </tr>
@@ -160,11 +153,11 @@ else
                                 {
                                     var catColor = cs.Category?.ColorHex ?? "#95a5a6";
                                     var badgeStyle = cs.Open == 0 ? "opacity: 0.45;" : "";
-                                    <span class="badge d-inline-flex align-items-center gap-1"
-                                          style="@($"background-color: {catColor}; color: {catColor.TextColor()}; {badgeStyle}")">
-                                        @cs.Category?.Name
+                                    <CategoryBadge ColorHex="@catColor" Name="@(cs.Category?.Name ?? "")"
+                                                   CssClass="d-inline-flex align-items-center gap-1"
+                                                   Style="@badgeStyle">
                                         <span class="fw-bold">@cs.Open/@cs.Total</span>
-                                    </span>
+                                    </CategoryBadge>
                                 }
                             </div>
                         }

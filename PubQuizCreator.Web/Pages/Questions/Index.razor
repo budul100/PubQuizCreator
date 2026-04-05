@@ -94,9 +94,7 @@
                                     }
                                     else
                                     {
-                                        <span class="badge" style="background-color: @categoryColor; color: @categoryColor.TextColor();">
-                                            @q.Category?.Name
-                                        </span>
+                                        <CategoryBadge ColorHex="@categoryColor" Name="@(q.Category?.Name ?? "")" />
                                     }
                                 </td>
                                 <td>@q.TextShort</td>
