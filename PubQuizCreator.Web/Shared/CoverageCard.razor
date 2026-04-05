@@ -1,0 +1,62 @@
+﻿@using PubQuizCreator.Core.Models
+@using PubQuizCreator.Services
+@inject IServiceScopeFactory ScopeFactory
+
+<div class="card">
+    <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+        <span>Slot coverage</span>
+        @if (isLoading)
+        {
+            <span class="spinner-border spinner-border-sm text-secondary" />
+        }
+    </div>
+    <div class="card-body p-2">
+        @if (!isLoading && coverage.Count == 0)
+        {
+            <p class="text-muted small mb-0">No upcoming quizzes with open slots.</p>
+        }
+        else
+        {
+            @foreach (var item in coverage)
+            {
+                var color = item.Category.ColorHex;
+                var textColor = color.TextColor();
+                var badgeStyle = item.IsCovered
+                ? $"background-color: {color}; color: {textColor}; opacity: 0.35;"
+                : $"background-color: {color}; color: {textColor};";
+
+                <div class="mb-2">
+                    <span class="badge d-flex align-items-center justify-content-between gap-2 w-100"
+                          style="@badgeStyle">
+                        <span class="text-truncate">@item.Category.Name</span>
+                        <span class="text-nowrap @(!item.IsCovered ? "fw-bold" : "fw-normal")"
+                              style="opacity: 1;">
+                            @if (item.IsCovered)
+                            {
+                                <span>@item.AvailableQuestions/@item.TotalOpenSlots ✓</span>
+                            }
+                            else
+                            {
+                                <span>@item.AvailableQuestions/@item.TotalOpenSlots (−@item.Deficit)</span>
+                            }
+                        </span>
+                    </span>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private List<Coverage> coverage = [];
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Own scope to avoid DbContext concurrency with the parent page
+        await using var scope = ScopeFactory.CreateAsyncScope();
+        var service = scope.ServiceProvider.GetRequiredService<DashboardService>();
+        coverage = await service.GetUpcomingCoverageAsync();
+        isLoading = false;
+    }
+}
