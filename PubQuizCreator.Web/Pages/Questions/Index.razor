@@ -16,16 +16,17 @@
 
     <div style="flex: 1; min-width: 0;">
 
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4 class="mb-0">
-                Questions
+        <PageHeader Title="Questions">
+            <TitleSuffix>
                 @if (totalOpenSlots > 0)
                 {
-                    <span class="badge bg-warning text-dark ms-2">@totalOpenSlots open</span>
+                    <span class="badge bg-warning text-dark">@totalOpenSlots open</span>
                 }
-            </h4>
-            <a class="btn btn-primary btn-sm" href="/questions/new">+ New question</a>
-        </div>
+            </TitleSuffix>
+            <ChildContent>
+                <a class="btn btn-primary btn-sm" href="/questions/new">+ New question</a>
+            </ChildContent>
+        </PageHeader>
 
         <div class="d-flex gap-2 mb-3 align-items-center">
             <div class="form-check mb-0 text-nowrap">

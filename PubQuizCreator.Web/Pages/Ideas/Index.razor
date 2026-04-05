@@ -14,10 +14,14 @@
 
     <div style="flex: 1; min-width: 0;">
 
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4 class="mb-0">Ideas <span class="badge bg-secondary">@ideas.Count open</span></h4>
-            <a class="btn btn-primary btn-sm" href="/Ideas/new">+ New idea</a>
-        </div>
+        <PageHeader Title="Ideas">
+            <TitleSuffix>
+                <span class="badge bg-secondary">@ideas.Count open</span>
+            </TitleSuffix>
+            <ChildContent>
+                <a class="btn btn-primary btn-sm" href="/ideas/new">+ New idea</a>
+            </ChildContent>
+        </PageHeader>
 
         @* Filter *@
         <div class="d-flex gap-2 mb-3">
