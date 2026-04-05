@@ -1,0 +1,86 @@
+﻿@page "/ideas/new"
+@using PubQuizCreator.Core.Models
+@using PubQuizCreator.Services
+@inject IdeaService IdeaService
+@inject CategoryService CategoryService
+@inject StateService AppState
+
+<PageTitle>Capture Idea</PageTitle>
+
+<div style="max-width: 600px;">
+
+    <h4 class="mb-4">Capture Idea</h4>
+
+    @if (saved)
+    {
+        <div class="alert alert-success py-2">Idea saved!</div>
+    }
+
+    <div class="mb-3">
+        <label class="form-label">Idea</label>
+        <textarea class="form-control" rows="5" placeholder="What's on your mind…"
+                  @bind="text" @bind:event="oninput" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Category</label>
+        <select class="form-select"
+                value="@categoryId"
+                @onchange="e => categoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : Guid.Empty">
+            <option value="@Guid.Empty">— no category —</option>
+            @foreach (var cat in categories)
+            {
+                <option value="@cat.Id">@cat.Name</option>
+            }
+        </select>
+    </div>
+
+    <div class="mb-4">
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox"
+                   @bind="isTimeSensitive" id="chkTimeSensitive" />
+            <label class="form-check-label" for="chkTimeSensitive">Time-sensitive</label>
+        </div>
+    </div>
+
+    <div class="d-grid gap-2">
+        <button class="btn btn-primary btn-lg"
+                @onclick="SaveAsync"
+                disabled="@(string.IsNullOrWhiteSpace(text) || saving)">
+            @(saving ? "Saving…" : "Save idea")
+        </button>
+        <a class="btn btn-outline-secondary" href="/ideas">Go to ideas list</a>
+    </div>
+
+</div>
+
+@code {
+    private string text = "";
+    private Guid categoryId;
+    private bool isTimeSensitive;
+    private bool saving;
+    private bool saved;
+    private List<Category> categories = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.SetPageTitle("Capture Idea");
+        categories = (await CategoryService.GetAllAsync()).Where(c => !c.IsHidden).ToList();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(text)) return;
+
+        saving = true;
+        saved = false;
+
+        await IdeaService.CreateAsync(text.Trim(), categoryId == Guid.Empty ? null : categoryId, isTimeSensitive);
+
+        text = "";
+        categoryId = Guid.Empty;
+        isTimeSensitive = false;
+        saving = false;
+        saved = true;
+    }
+}

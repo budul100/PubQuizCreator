@@ -16,40 +16,7 @@
 
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h4 class="mb-0">Ideas <span class="badge bg-secondary">@ideas.Count open</span></h4>
-        </div>
-
-        @* Quick capture *@
-        <div class="card mb-4">
-            <div class="card-body">
-                <div class="d-flex flex-column gap-2">
-                    <textarea class="form-control" rows="3" placeholder="Dump your idea here…"
-                              value="@newText"
-                              @oninput="e => newText = e.Value?.ToString() ?? string.Empty" />
-                    <div class="d-flex gap-2 align-items-center">
-                        <select class="form-select form-select-sm"
-                                value="@newCategoryId"
-                                @onchange="e => newCategoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : Guid.Empty">
-                            <option value="@Guid.Empty">— no category —</option>
-                            @foreach (var cat in categories)
-                            {
-                                <option value="@cat.Id">@cat.Name</option>
-                            }
-                        </select>
-                        <div class="form-check mb-0 text-nowrap">
-                            <input class="form-check-input" type="checkbox"
-                                   @bind="newIsTimeSensitive" id="chkNewTimeSensitive" />
-                            <label class="form-check-label small" for="chkNewTimeSensitive">
-                                Time-sensitive
-                            </label>
-                        </div>
-                    </div>
-                    <button class="btn btn-primary"
-                            @onclick="AddIdeaAsync"
-                            disabled="@(string.IsNullOrWhiteSpace(newText))">
-                        Add idea
-                    </button>
-                </div>
-            </div>
+            <a class="btn btn-primary btn-sm" href="/Ideas/new">+ New idea</a>
         </div>
 
         @* Filter *@
@@ -172,16 +139,13 @@
 
 @code {
     private string searchText = "";
-    private string newText = "";
     private bool sortAscending = false;
-
     private bool isLoading = true;
+
     private List<Idea> ideas = [];
     private List<Idea> filtered = [];
     private List<Category> categories = [];
     private Guid selectedCategoryId;
-    private Guid newCategoryId;
-    private bool newIsTimeSensitive;
 
     private (Guid IdeaId, Guid? OldCategoryId)? lastAssignment;
     private Timer? undoTimer;
@@ -216,6 +180,8 @@
         isLoading = true;
         ideas = await IdeaService.GetOpenAsync();
         isLoading = false;
+        ApplyFilter();
+        StateHasChanged();
     }
 
     private void ApplyFilter()
@@ -235,17 +201,6 @@
             : q.OrderByDescending(i => i.IsTimeSensitive).ThenByDescending(i => i.CreatedAt).ToList();
     }
 
-    private async Task AddIdeaAsync()
-    {
-        if (string.IsNullOrWhiteSpace(newText)) return;
-        await IdeaService.CreateAsync(newText.Trim(), newCategoryId, newIsTimeSensitive);
-        newText = string.Empty;
-        newIsTimeSensitive = false;
-
-        await ReloadAsync();
-        ApplyFilter();
-    }
-
     private async Task DeleteAsync(Guid id)
     {
         var confirmed = await JS.InvokeAsync<bool>("confirm", "Delete this idea? This cannot be undone.");
@@ -254,7 +209,6 @@
         await IdeaService.DeleteAsync(id);
 
         await ReloadAsync();
-        ApplyFilter();
     }
 
     private async Task AssignCategoryAsync(Guid ideaId, string? categoryIdStr)
