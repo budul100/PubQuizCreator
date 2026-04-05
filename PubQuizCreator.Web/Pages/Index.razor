@@ -142,24 +142,13 @@ else
                         var categoryStats = stats.NextQuiz.Rounds
                             .SelectMany(r => r.Slots)
                             .GroupBy(s => s.Category)
-                            .Select(g => new { Category = g.Key, Open = g.Count(s => s.QuestionId == null), Total = g.Count() })
-                            .OrderBy(x => x.Category.Name)
+                            .Select(g => new SlotBadges.SlotCategoryStat(g.Key, g.Count(s => s.QuestionId == null), g.Count()))
+                            .OrderBy(x => x.Category?.Name)
                             .ToList();
 
                         @if (categoryStats.Any())
                         {
-                            <div class="d-flex flex-wrap gap-1">
-                                @foreach (var cs in categoryStats)
-                                {
-                                    var catColor = cs.Category?.ColorHex ?? "#95a5a6";
-                                    var badgeStyle = cs.Open == 0 ? "opacity: 0.45;" : "";
-                                    <CategoryBadge ColorHex="@catColor" Name="@(cs.Category?.Name ?? "")"
-                                                   CssClass="d-inline-flex align-items-center gap-1"
-                                                   Style="@badgeStyle">
-                                        <span class="fw-bold">@cs.Open/@cs.Total</span>
-                                    </CategoryBadge>
-                                }
-                            </div>
+                            <SlotBadges CategoryStats="@categoryStats" />
                         }
                     }
                 </div>
