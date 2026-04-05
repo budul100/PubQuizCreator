@@ -23,10 +23,10 @@
         public const int OllamaStatusPollIntervalSeconds = 30;
 
         // Similarity thresholds for "very similar" — likely duplicate
-        public const double SimilarityThresholdHigh = 0.3;
+        public const double SimilarityThresholdHigh = 0.2;
 
         // Similarity thresholds for "similar" — worth checking
-        public const double SimilarityThresholdMedium = 0.5;
+        public const double SimilarityThresholdMedium = 0.3;
 
         // Maximum recommended character length for the short question text (used in presentation).
         public const int TextShortWarnLength = 90;

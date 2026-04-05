@@ -268,9 +268,6 @@ namespace PubQuizCreator
                 result.Shapes[ShapesNumber]
                     .TextFrame.TextRange.Text = $"Frage {contentCount + 1}";
 
-                result.Shapes[ShapesNumber]
-                    .TextFrame.TextRange.Text = $"Frage {contentCount + 1}";
-
                 result.NotesPage.Shapes[2]
                     .TextFrame.TextRange.Text = question;
 

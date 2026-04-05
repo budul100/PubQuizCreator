@@ -68,7 +68,12 @@ namespace PubQuizCreator.Services
                 .ToList();
 
             var nextQuiz = await db.Quizzes
-                .Include(q => q.Rounds).ThenInclude(r => r.Slots)
+                .Include(q => q.Rounds)
+                    .ThenInclude(r => r.Slots)
+                        .ThenInclude(s => s.Category)
+                .Include(q => q.Rounds)
+                    .ThenInclude(r => r.Slots)
+                        .ThenInclude(s => s.Question)
                 .Where(q => q.Date >= today)
                 .OrderBy(q => q.Date)
                 .AsSplitQuery()
