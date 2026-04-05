@@ -9,7 +9,7 @@ using PubQuizCreator.Core.Types;
 using PubQuizCreator.Data;
 using PubQuizCreator.Services;
 
-internal class Program
+internal partial class Program
 {
     #region Private Fields
 
@@ -19,6 +19,12 @@ internal class Program
     #endregion Private Fields
 
     #region Private Methods
+
+    [GeneratedRegex(@" {2,}")]
+    private static partial Regex BlockRegex();
+
+    [GeneratedRegex(@"\[([^\]]+)\]")]
+    private static partial Regex BracketRegex();
 
     private static int Error(string msg)
     {
@@ -62,7 +68,7 @@ internal class Program
 
             // Resolve or create category
             var category = await db.Categories
-                .FirstOrDefaultAsync(c => c.Name.ToLower() == categoryName.ToLower());
+                .FirstOrDefaultAsync(c => c.Name.Equals(categoryName, StringComparison.CurrentCultureIgnoreCase));
 
             if (category == null)
             {
@@ -103,7 +109,7 @@ internal class Program
 
                 // Extract filename from [brackets] in long text
                 string? mediaFile = null;
-                var bracketMatch = Regex.Match(textLong, @"\[([^\]]+)\]");
+                var bracketMatch = BracketRegex().Match(textLong);
                 if (bracketMatch.Success)
                     mediaFile = bracketMatch.Groups[1].Value.Trim();
 
@@ -157,7 +163,7 @@ internal class Program
         if (!string.IsNullOrWhiteSpace(categoryName))
         {
             category = await db.Categories
-                .FirstOrDefaultAsync(c => c.Name.ToLower() == categoryName.ToLower());
+                .FirstOrDefaultAsync(c => c.Name.Equals(categoryName, StringComparison.CurrentCultureIgnoreCase));
 
             if (category == null)
             {
@@ -173,7 +179,7 @@ internal class Program
         var blocks = raw
             .Replace("\r\n", "\n")   // <-- normalize line endings first
             .Split("\n\n", StringSplitOptions.RemoveEmptyEntries)
-            .Select(b => Regex.Replace(b.Replace("\n", " "), @" {2,}", " ").Trim())
+            .Select(b => BlockRegex().Replace(b.Replace("\n", " "), " ").Trim())
             .Where(b => !string.IsNullOrWhiteSpace(b))
             .ToList();
 
@@ -210,7 +216,7 @@ internal class Program
         var blocks = raw
             .Replace("\r\n", "\n")
             .Split("\n\n", StringSplitOptions.RemoveEmptyEntries)
-            .Select(b => Regex.Replace(b.Replace("\n", " "), @" {2,}", " ").Trim())
+            .Select(b => BlockRegex().Replace(b.Replace("\n", " "), " ").Trim())
             .Where(b => !string.IsNullOrWhiteSpace(b))
             .ToList();
 
@@ -259,15 +265,6 @@ internal class Program
 
     private static async Task<int> Main(string[] args)
     {
-        var filePath = args[0];
-        if (!File.Exists(filePath))
-        {
-            Console.Error.WriteLine($"File not found: {filePath}");
-            return 1;
-        }
-
-        var ext = Path.GetExtension(filePath).ToLowerInvariant();
-
         // --- Setup (shared) ---
         var config = new ConfigurationBuilder()
             .AddJsonFile("appsettings.json")
@@ -290,6 +287,16 @@ internal class Program
         var sp = services.BuildServiceProvider();
         using var scope = sp.CreateScope();
 
+        // --reembed needs no file path
+        if (args.Contains("--reembed"))
+            return await ReEmbedAsync(scope);
+
+        // All other modes require a file path
+        var filePath = args.ElementAtOrDefault(0);
+        if (filePath == null || !File.Exists(filePath))
+            return Error($"File not found: {filePath ?? "(none)"}");
+
+        var ext = Path.GetExtension(filePath).ToLowerInvariant();
         var isUnusable = args.Contains("--unusable");
 
         return ext switch
@@ -299,6 +306,52 @@ internal class Program
             ".txt" => await ImportIdeasAsync(filePath, args.ElementAtOrDefault(1), scope),
             _ => Error($"Unsupported file type: {ext}")
         };
+    }
+
+    private static async Task<int> ReEmbedAsync(IServiceScope scope)
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var embeddingService = scope.ServiceProvider.GetRequiredService<IEmbeddingService>();
+
+        var questions = await db.Questions
+            .Where(q => q.Embedding == null)
+            .ToListAsync();
+
+        Console.WriteLine($"Found {questions.Count} questions without embedding.");
+
+        var ok = 0;
+        var failed = 0;
+
+        for (var i = 0; i < questions.Count; i++)
+        {
+            var q = questions[i];
+            var text = $"{q.TextShort} {q.TextLong} {q.Answer}".Trim();
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                Console.WriteLine($"  SKIP (no text): {q.Id}");
+                failed++;
+                continue;
+            }
+
+            try
+            {
+                var vector = await embeddingService.GetEmbeddingAsync(text);
+                q.Embedding = new Pgvector.Vector(vector);
+                await db.SaveChangesAsync();
+                ok++;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"  ERROR [{q.Id}]: {ex.Message}");
+                failed++;
+            }
+
+            Console.Write($"\r  Progress: {i + 1}/{questions.Count} — OK: {ok}, Failed: {failed}   ");
+        }
+
+        Console.WriteLine($"\nDone. OK: {ok}, Failed: {failed}");
+        return failed > 0 ? 1 : 0;
     }
 
     private static (string textShort, string answer) SplitQuestionAnswer(string block)

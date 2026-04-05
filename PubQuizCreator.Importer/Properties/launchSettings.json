@@ -1,0 +1,20 @@
+{
+  "profiles": {
+    "ReEmbed": {
+      "commandName": "Project",
+      "commandLineArgs": "--reembed"
+    },
+    "ImportExcel": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\path\\to\\import.xlsx"
+    },
+    "ImportUnusable": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\path\\to\\unusable.txt --unusable"
+    },
+    "ImportIdeas": {
+      "commandName": "Project",
+      "commandLineArgs": "C:\\path\\to\\ideas.txt Kategoriename"
+    }
+  }
+}
