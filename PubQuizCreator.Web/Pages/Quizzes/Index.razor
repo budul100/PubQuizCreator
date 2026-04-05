@@ -123,9 +123,10 @@ else
     {
         var list = showPast ? past : upcoming;
         var quiz = list.First(q => q.Id == id);
-        var confirmed = await JS.InvokeAsync<bool>("confirm",
-            $"Delete \"{quiz.Title}\"? This cannot be undone.");
+
+        var confirmed = await JS.ConfirmDeleteAsync(quiz.Title);
         if (!confirmed) return;
+
         await QuizService.DeleteAsync(id);
         await ReloadAsync();
     }

@@ -79,10 +79,11 @@ else
 
     private async Task DeleteAsync(Guid id)
     {
-        var t = templates.First(x => x.Id == id);
-        var confirmed = await JS.InvokeAsync<bool>("confirm",
-            $"Delete template \"{t.Name}\"? This cannot be undone.");
+        var template = templates.First(x => x.Id == id);
+
+        var confirmed = await JS.ConfirmDeleteAsync(template.Name);
         if (!confirmed) return;
+
         await TemplateService.DeleteAsync(id);
         templates = await TemplateService.GetAllAsync();
     }

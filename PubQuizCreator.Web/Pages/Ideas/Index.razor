@@ -54,10 +54,7 @@
 
         @if (isLoading)
         {
-            <div class="d-flex align-items-center gap-2 text-muted">
-                <div class="spinner-border spinner-border-sm" />
-                <span>Loading ideas…</span>
-            </div>
+            <LoadingSpinner Message="Loading ideas…" />
         }
         else
         {
@@ -205,11 +202,10 @@
 
     private async Task DeleteAsync(Guid id)
     {
-        var confirmed = await JS.InvokeAsync<bool>("confirm", "Delete this idea? This cannot be undone.");
+        var confirmed = await JS.ConfirmAsync("Delete this idea? This cannot be undone.");
         if (!confirmed) return;
 
         await IdeaService.DeleteAsync(id);
-
         await ReloadAsync();
     }
 

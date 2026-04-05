@@ -109,15 +109,16 @@ else
     private async Task DeleteAsync(Guid id)
     {
         var cat = categories.First(c => c.Id == id);
+
         if (await CategoryService.IsInUseAsync(id))
         {
-            await JS.InvokeVoidAsync("alert",
-                $"\"{cat.Name}\" is in use and cannot be deleted.");
+            await JS.AlertAsync($"\"{cat.Name}\" is in use and cannot be deleted.");
             return;
         }
-        var confirmed = await JS.InvokeAsync<bool>("confirm",
-            $"Delete \"{cat.Name}\"? This cannot be undone.");
+
+        var confirmed = await JS.ConfirmDeleteAsync(cat.Name);
         if (!confirmed) return;
+
         await CategoryService.DeleteAsync(id);
         await ReloadAsync();
     }

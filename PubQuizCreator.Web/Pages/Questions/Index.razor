@@ -53,10 +53,7 @@
 
         @if (isLoading)
         {
-            <div class="d-flex align-items-center gap-2 text-muted">
-                <div class="spinner-border spinner-border-sm" />
-                <span>Loading questions…</span>
-            </div>
+            <LoadingSpinner Message="Loading questions…" />
         }
         else
         {
@@ -220,9 +217,7 @@
     {
         var question = all.First(q => q.Id == id);
 
-        var confirmed = await JS.InvokeAsync<bool>(
-            "confirm",
-            $"Delete \"{question.TextShort}\"? This cannot be undone.");
+        var confirmed = await JS.ConfirmDeleteAsync(question.TextShort);
         if (!confirmed) return;
 
         await QuestionService.DeleteAsync(id);

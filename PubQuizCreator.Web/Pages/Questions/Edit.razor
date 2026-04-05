@@ -393,7 +393,7 @@
 
     private async Task MarkAsUnusableAsync()
     {
-        var confirmed = await JS.InvokeAsync<bool>("confirm",
+        var confirmed = await JS.ConfirmAsync(
             "Mark as unusable? The question will be saved and excluded from all lists, " +
             "but kept for duplicate detection.");
         if (!confirmed) return;
@@ -438,8 +438,7 @@
 
     private async Task DeleteAndGoBackAsync()
     {
-        var confirmed = await JS.InvokeAsync<bool>("confirm",
-            $"Delete \"{model.TextShort}\"? This cannot be undone.");
+        var confirmed = await JS.ConfirmDeleteAsync(model.TextShort);
         if (!confirmed) return;
 
         if (Id.HasValue)
