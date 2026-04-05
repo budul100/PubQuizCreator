@@ -16,6 +16,12 @@
 
         #region Public Properties
 
+        public string IdeasSearchText { get; set; } = "";
+
+        public Guid IdeasSelectedCategory { get; set; } = Guid.Empty;
+
+        public bool IdeasSortAscending { get; set; } = false;
+
         public bool OllamaOnline { get; private set; }
 
         public string PageTitle { get; private set; } = "";

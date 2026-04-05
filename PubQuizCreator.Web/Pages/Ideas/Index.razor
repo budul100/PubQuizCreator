@@ -173,9 +173,9 @@
 @code {
     private string searchText = "";
     private string newText = "";
+    private bool sortAscending = false;
 
     private bool isLoading = true;
-    private bool sortAscending = false;
     private List<Idea> ideas = [];
     private List<Idea> filtered = [];
     private List<Category> categories = [];
@@ -192,13 +192,17 @@
     {
         AppState.SetPageTitle("Ideas");
 
+        searchText = AppState.IdeasSearchText;
+        sortAscending = AppState.IdeasSortAscending;
+        selectedCategoryId = AppState.IdeasSelectedCategory;
+
         categories = (await CategoryService.GetAllAsync()).Where(c => !c.IsHidden).ToList();
         await ReloadAsync();
 
-        ApplyFilter();
-
-        if (ideas.Any(i => i.CategoryId == null))
+        if (selectedCategoryId == Guid.Empty && ideas.Any(i => i.CategoryId == null))
             selectedCategoryId = uncategorizedId;
+
+        ApplyFilter();
     }
 
     private void OnCategoryChanged(ChangeEventArgs e)
@@ -216,6 +220,8 @@
 
     private void ApplyFilter()
     {
+        SaveFilterState();
+
         var q = ideas
             .Where(i =>
                 selectedCategoryId == Guid.Empty ? true :
@@ -235,6 +241,7 @@
         await IdeaService.CreateAsync(newText.Trim(), newCategoryId, newIsTimeSensitive);
         newText = string.Empty;
         newIsTimeSensitive = false;
+
         await ReloadAsync();
         ApplyFilter();
     }
@@ -243,7 +250,9 @@
     {
         var confirmed = await JS.InvokeAsync<bool>("confirm", "Delete this idea? This cannot be undone.");
         if (!confirmed) return;
+
         await IdeaService.DeleteAsync(id);
+
         await ReloadAsync();
         ApplyFilter();
     }
@@ -292,6 +301,13 @@
         var idea = ideas.First(i => i.Id == id);
         idea.IsTimeSensitive = value;
         ApplyFilter();
+    }
+
+    private void SaveFilterState()
+    {
+        AppState.IdeasSearchText = searchText;
+        AppState.IdeasSortAscending = sortAscending;
+        AppState.IdeasSelectedCategory = selectedCategoryId;
     }
 
     public void Dispose() => undoTimer?.Dispose();
