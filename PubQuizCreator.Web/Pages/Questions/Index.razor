@@ -37,15 +37,15 @@
             </div>
 
             <select class="form-select form-select-sm w-auto"
-                    value="@selectedCategoryId"
+                    value="@GetCategorySelectValue()"
                     @onchange="OnCategoryChanged">
-                <option value="@Guid.Empty">All categories</option>
-                <option value="@allIncludingHiddenId">All incl. hidden</option>
+                <option value="all">All categories</option>
+                <option value="allWithHidden">All incl. hidden</option>
                 @foreach (var cat in categories)
                 {
                     <option value="@cat.Id">@cat.Name (@questionCountByCategory.GetValueOrDefault(cat.Id, 0))</option>
                 }
-                <option value="@unusableId">— Unusable —</option>
+                <option value="unusable">— Unusable —</option>
             </select>
 
             <input class="form-control form-control-sm" placeholder="Search…"
@@ -137,23 +137,23 @@
     [SupplyParameterFromQuery(Name = "showUsed")]
     public bool InitialShowUsed { get; set; }
 
+    private enum CategoryFilter { All, AllIncludingHidden, Unusable, Specific }
+    private CategoryFilter filterMode = CategoryFilter.All;
+    private Guid? filterCategoryId;
+
     private bool showUsed = false;
     private string searchText = "";
 
     private bool initialized = false;
     private bool isLoading = true;
-    
+
     private List<Category> categories = [];
     private List<QuestionRow> all = [];
     private List<QuestionRow> filtered = [];
     private Dictionary<Guid, int> questionCountByCategory = [];
     private Guid? lastCategoryId;
-    private Guid selectedCategoryId;
     private int totalOpenSlots;
     private int total;
-
-    private static readonly Guid allIncludingHiddenId = Guid.Parse("00000000-0000-0000-0000-000000000002");
-    private static readonly Guid unusableId = Guid.Parse("00000000-0000-0000-0000-000000000003");
 
     protected override async Task OnInitializedAsync()
     {
@@ -187,7 +187,10 @@
             .ToDictionary(g => g.Key, g => g.Count());
 
         if (InitialCategoryId.HasValue && InitialCategoryId != Guid.Empty)
-            selectedCategoryId = InitialCategoryId.Value;
+        {
+            filterMode = CategoryFilter.Specific;
+            filterCategoryId = InitialCategoryId.Value;
+        }
 
         if (InitialShowUsed)
             showUsed = true;
@@ -205,15 +208,34 @@
         if (InitialCategoryId == lastCategoryId) return;
 
         lastCategoryId = InitialCategoryId;
-        selectedCategoryId = InitialCategoryId ?? Guid.Empty;
-        showUsed = InitialShowUsed;
 
+        if (InitialCategoryId.HasValue && InitialCategoryId != Guid.Empty)
+        {
+            filterMode = CategoryFilter.Specific;
+            filterCategoryId = InitialCategoryId.Value;
+        }
+        else
+        {
+            filterMode = CategoryFilter.All;
+            filterCategoryId = null;
+        }
+
+        showUsed = InitialShowUsed;
         await ApplyFilterAsync();
     }
 
     private async Task OnCategoryChanged(ChangeEventArgs e)
     {
-        selectedCategoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : Guid.Empty;
+        var val = e.Value?.ToString();
+        (filterMode, filterCategoryId) = val switch
+        {
+            "all" => (CategoryFilter.All, (Guid?)null),
+            "allWithHidden" => (CategoryFilter.AllIncludingHidden, null),
+            "unusable" => (CategoryFilter.Unusable, null),
+            _ => Guid.TryParse(val, out var id)
+                              ? (CategoryFilter.Specific, id)
+                              : (CategoryFilter.All, null)
+        };
         await ApplyFilterAsync();
     }
 
@@ -223,15 +245,15 @@
         StateHasChanged();
         await Task.Yield();
 
-        var isUnusableView = selectedCategoryId == unusableId;
-
         filtered = all
-            .Where(q =>
-                isUnusableView ? q.IsUnusable :
-                selectedCategoryId == allIncludingHiddenId ? !q.IsUnusable :
-                selectedCategoryId == Guid.Empty ? (!q.IsUnusable && q.Category?.IsHidden != true) :
-                (!q.IsUnusable && q.Category?.Id == selectedCategoryId))
-            .Where(q => isUnusableView || showUsed || (q.UsedInQuiz == null && !q.WasUsed))
+            .Where(q => filterMode switch
+            {
+                CategoryFilter.Unusable => q.IsUnusable,
+                CategoryFilter.AllIncludingHidden => !q.IsUnusable,
+                CategoryFilter.Specific => !q.IsUnusable && q.Category?.Id == filterCategoryId,
+                _ => !q.IsUnusable && q.Category?.IsHidden != true
+            })
+            .Where(q => filterMode == CategoryFilter.Unusable || showUsed || (q.UsedInQuiz == null && !q.WasUsed))
             .Where(q => string.IsNullOrWhiteSpace(searchText)
                 || q.TextShort.Contains(searchText, StringComparison.OrdinalIgnoreCase)
                 || q.Answer.Contains(searchText, StringComparison.OrdinalIgnoreCase))
@@ -243,6 +265,14 @@
 
         isLoading = false;
     }
+
+    private string GetCategorySelectValue() => filterMode switch
+    {
+        CategoryFilter.AllIncludingHidden => "allWithHidden",
+        CategoryFilter.Unusable => "unusable",
+        CategoryFilter.Specific => filterCategoryId?.ToString() ?? "all",
+        _ => "all"
+    };
 
     private async Task DeleteAsync(Guid id)
     {

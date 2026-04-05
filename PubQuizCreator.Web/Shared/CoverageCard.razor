@@ -1,6 +1,6 @@
 ﻿@using PubQuizCreator.Core.Models
 @using PubQuizCreator.Services
-@inject IServiceScopeFactory ScopeFactory
+@inject DashboardService DashboardService
 
 <div class="card">
     <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
@@ -72,10 +72,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await using var scope = ScopeFactory.CreateAsyncScope();
-
-        var service = scope.ServiceProvider.GetRequiredService<DashboardService>();
-        coverage = await service.GetUpcomingCoverageAsync();
+        coverage = await DashboardService.GetUpcomingCoverageAsync();
 
         isLoading = false;
     }

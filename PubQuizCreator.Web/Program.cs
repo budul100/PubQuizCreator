@@ -35,7 +35,7 @@ internal class Program
             .AddServerSideBlazor();
 
         builder.Services
-            .AddDbContext<AppDbContext>(options => options.UseNpgsql(
+            .AddDbContextFactory<AppDbContext>(options => options.UseNpgsql(
                 connectionString: builder.Configuration.GetConnectionString("Default"),
                 npgsqlOptionsAction: o => o.UseVector()));
 

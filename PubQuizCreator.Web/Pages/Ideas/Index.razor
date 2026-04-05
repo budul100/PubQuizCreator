@@ -23,13 +23,12 @@
             </ChildContent>
         </PageHeader>
 
-        @* Filter *@
         <div class="d-flex gap-2 mb-3">
             <select class="form-select form-select-sm w-auto"
-                    value="@selectedCategoryId"
+                    value="@GetCategorySelectValue()"
                     @onchange="OnCategoryChanged">
-                <option value="@Guid.Empty">All categories</option>
-                <option value="@uncategorizedId">— uncategorized —</option>
+                <option value="all">All categories</option>
+                <option value="uncategorized">— uncategorized —</option>
                 @foreach (var cat in categories)
                 {
                     <option value="@cat.Id">@cat.Name</option>
@@ -144,12 +143,13 @@
     private List<Idea> ideas = [];
     private List<Idea> filtered = [];
     private List<Category> categories = [];
-    private Guid selectedCategoryId;
+
+    private enum IdeaCategoryFilter { All, Uncategorized, Specific }
+    private IdeaCategoryFilter filterMode = IdeaCategoryFilter.All;
+    private Guid? filterCategoryId;
 
     private (Guid IdeaId, Guid? OldCategoryId)? lastAssignment;
     private Timer? undoTimer;
-
-    private static readonly Guid uncategorizedId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
     protected override async Task OnInitializedAsync()
     {
@@ -157,26 +157,41 @@
 
         searchText = AppState.IdeasSearchText;
         sortAscending = AppState.IdeasSortAscending;
-        selectedCategoryId = AppState.IdeasSelectedCategory;
+
+        var savedId = AppState.IdeasSelectedCategory;
+        if (savedId != Guid.Empty)
+        {
+            filterMode = IdeaCategoryFilter.Specific;
+            filterCategoryId = savedId;
+        }
 
         categories = (await CategoryService.GetAllAsync()).Where(c => !c.IsHidden).ToList();
         await ReloadAsync();
 
-        if (selectedCategoryId == Guid.Empty && ideas.Any(i => i.CategoryId == null))
-            selectedCategoryId = uncategorizedId;
+        if (filterMode == IdeaCategoryFilter.All && ideas.Any(i => i.CategoryId == null))
+            filterMode = IdeaCategoryFilter.Uncategorized;
 
         ApplyFilter();
     }
 
     private void OnCoverageFilterAsync(Guid categoryId)
     {
-        selectedCategoryId = categoryId;
+        filterMode = IdeaCategoryFilter.Specific;
+        filterCategoryId = categoryId;
         ApplyFilter();
     }
 
     private void OnCategoryChanged(ChangeEventArgs e)
     {
-        selectedCategoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : Guid.Empty;
+        var val = e.Value?.ToString();
+        (filterMode, filterCategoryId) = val switch
+        {
+            "all" => (IdeaCategoryFilter.All, (Guid?)null),
+            "uncategorized" => (IdeaCategoryFilter.Uncategorized, null),
+            _ => Guid.TryParse(val, out var id)
+                                ? (IdeaCategoryFilter.Specific, id)
+                                : (IdeaCategoryFilter.All, null)
+        };
         ApplyFilter();
     }
 
@@ -194,10 +209,12 @@
         SaveFilterState();
 
         var q = ideas
-            .Where(i =>
-                selectedCategoryId == Guid.Empty ? true :
-                selectedCategoryId == uncategorizedId ? i.CategoryId == null :
-                i.CategoryId == selectedCategoryId)
+            .Where(i => filterMode switch
+            {
+                IdeaCategoryFilter.Uncategorized => i.CategoryId == null,
+                IdeaCategoryFilter.Specific => i.CategoryId == filterCategoryId,
+                _ => true
+            })
             .Where(i => string.IsNullOrWhiteSpace(searchText)
                      || i.Text.Contains(searchText, StringComparison.OrdinalIgnoreCase));
 
@@ -205,6 +222,13 @@
             ? q.OrderByDescending(i => i.IsTimeSensitive).ThenBy(i => i.CreatedAt).ToList()
             : q.OrderByDescending(i => i.IsTimeSensitive).ThenByDescending(i => i.CreatedAt).ToList();
     }
+
+    private string GetCategorySelectValue() => filterMode switch
+    {
+        IdeaCategoryFilter.Uncategorized => "uncategorized",
+        IdeaCategoryFilter.Specific => filterCategoryId?.ToString() ?? "all",
+        _ => "all"
+    };
 
     private async Task DeleteAsync(Guid id)
     {
@@ -265,7 +289,9 @@
     {
         AppState.IdeasSearchText = searchText;
         AppState.IdeasSortAscending = sortAscending;
-        AppState.IdeasSelectedCategory = selectedCategoryId;
+        AppState.IdeasSelectedCategory = filterMode == IdeaCategoryFilter.Specific
+            ? filterCategoryId ?? Guid.Empty
+            : Guid.Empty;
     }
 
     public void Dispose() => undoTimer?.Dispose();

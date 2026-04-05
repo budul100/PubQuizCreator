@@ -4,12 +4,14 @@ using PubQuizCreator.Data;
 
 namespace PubQuizCreator.Services
 {
-    public class DashboardService(AppDbContext db)
+    public class DashboardService(IDbContextFactory<AppDbContext> dbFactory)
     {
         #region Public Methods
 
         public async Task<DashboardStats> GetStatsAsync(CancellationToken ct = default)
         {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
             var today = DateOnly.FromDateTime(DateTime.Today);
 
             var visibleCategories = await db.Categories
@@ -95,6 +97,8 @@ namespace PubQuizCreator.Services
 
         public async Task<List<Coverage>> GetUpcomingCoverageAsync(CancellationToken ct = default)
         {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
             var today = DateOnly.FromDateTime(DateTime.Today);
 
             var upcomingSlots = await db.QuizSlots
