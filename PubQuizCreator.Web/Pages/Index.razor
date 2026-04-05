@@ -3,8 +3,10 @@
 @using PubQuizCreator.Services
 @inject DashboardService DashboardService
 @inject StateService AppState
+@inject NavigationManager Nav
+@inject IJSRuntime JS
 
-<PageTitle>Dashboard</PageTitle>
+<PageTitle>Pub Quiz Master</PageTitle>
 
 @if (stats == null)
 {
@@ -190,5 +192,14 @@ else
     {
         AppState.SetPageTitle("Dashboard");
         stats = await DashboardService.GetStatsAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        var width = await JS.InvokeAsync<int>("eval", "window.innerWidth");
+        if (width < 641)
+            Nav.NavigateTo("/ideas/new");
     }
 }
