@@ -34,13 +34,16 @@
                        @bind:after="ApplyFilterAsync" />
                 <label class="form-check-label small">Show useds</label>
             </div>
+
             <select class="form-select form-select-sm w-auto" @onchange="OnCategoryChanged">
                 <option value="@Guid.Empty">All categories</option>
+                <option value="@allIncludingHiddenId">All incl. hidden</option>
                 @foreach (var cat in categories)
                 {
                     <option value="@cat.Id">@cat.Name (@questionCountByCategory.GetValueOrDefault(cat.Id, 0))</option>
                 }
             </select>
+
             <input class="form-control form-control-sm" placeholder="Search…"
                 value="@searchText"
                 @oninput="async e => { searchText = e.Value?.ToString() ?? string.Empty; await ApplyFilterAsync(); }" />
@@ -133,6 +136,8 @@
     private int total;
     private Guid selectedCategoryId;
 
+    private static readonly Guid allIncludingHiddenId = Guid.Parse("00000000-0000-0000-0000-000000000002");
+
     protected override async Task OnInitializedAsync()
     {
         AppState.SetPageTitle("Questions");
@@ -180,11 +185,14 @@
         await Task.Yield();
 
         filtered = all
-            .Where(q => selectedCategoryId == Guid.Empty || q.Category?.Id == selectedCategoryId)
+            .Where(q =>
+                selectedCategoryId == allIncludingHiddenId ? true :
+                selectedCategoryId == Guid.Empty ? q.Category?.IsHidden != true :
+                q.Category?.Id == selectedCategoryId)
             .Where(q => showUsed || (q.UsedInQuiz == null && !q.WasUsed))
             .Where(q => string.IsNullOrWhiteSpace(searchText)
-                     || q.TextShort.Contains(searchText, StringComparison.OrdinalIgnoreCase)
-                     || q.Answer.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+                || q.TextShort.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                || q.Answer.Contains(searchText, StringComparison.OrdinalIgnoreCase))
             .OrderBy(q => q.LastUsedDate.HasValue ? 0 : q.WasUsed ? 1 : 2)
             .ThenByDescending(q => q.LastUsedDate ?? DateOnly.MinValue)
             .ThenBy(q => q.Category?.Name ?? "")
