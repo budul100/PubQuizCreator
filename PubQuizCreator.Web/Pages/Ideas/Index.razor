@@ -6,6 +6,7 @@
 @inject CategoryService CategoryService
 @inject StateService AppState
 @inject IJSRuntime JS
+@implements IDisposable
 
 <PageTitle>Ideas</PageTitle>
 
@@ -20,14 +21,7 @@
             <textarea class="form-control" rows="3" placeholder="Dump your idea here…"
                       value="@newText"
                       @oninput="e => newText = e.Value?.ToString() ?? string.Empty" />
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox"
-                       @bind="newIsTimeSensitive" id="chkNewTimeSensitive" />
-                <label class="form-check-label small" for="chkNewTimeSensitive">
-                    Time-sensitive
-                </label>
-            </div>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 align-items-center">
                 <select class="form-select form-select-sm"
                         value="@newCategoryId"
                         @onchange="e => newCategoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : Guid.Empty">
@@ -37,12 +31,19 @@
                         <option value="@cat.Id">@cat.Name</option>
                     }
                 </select>
-                <button class="btn btn-primary btn-sm text-nowrap"
-                        @onclick="AddIdeaAsync"
-                        disabled="@(string.IsNullOrWhiteSpace(newText))">
-                    + Add
-                </button>
+                <div class="form-check mb-0 text-nowrap">
+                    <input class="form-check-input" type="checkbox"
+                           @bind="newIsTimeSensitive" id="chkNewTimeSensitive" />
+                    <label class="form-check-label small" for="chkNewTimeSensitive">
+                        Time-sensitive
+                    </label>
+                </div>
             </div>
+            <button class="btn btn-primary"
+                    @onclick="AddIdeaAsync"
+                    disabled="@(string.IsNullOrWhiteSpace(newText))">
+                Add idea
+            </button>
         </div>
     </div>
 </div>
@@ -61,12 +62,20 @@
     </select>
     <input class="form-control form-control-sm" placeholder="Search…"
            value="@searchText"
-           @oninput="async e => { searchText = e.Value?.ToString() ?? string.Empty; await ApplyFilterAsync(); }" />
+           @oninput="async e => { searchText = e.Value?.ToString() ?? string.Empty; ApplyFilter(); }" />
     <button class="btn btn-outline-secondary btn-sm text-nowrap"
-            @onclick="async () => { sortAscending = !sortAscending; await ApplyFilterAsync(); }">
+            @onclick="async () => { sortAscending = !sortAscending; ApplyFilter(); }">
         📅 @(sortAscending ? "↑" : "↓")
     </button>
 </div>
+
+@if (lastAssignment != null)
+{
+    <div class="alert alert-info d-flex align-items-center gap-2 py-2">
+        <span>Category assigned.</span>
+        <button class="btn btn-sm btn-outline-secondary" @onclick="UndoAssignAsync">Undo</button>
+    </div>
+}
 
 @if (isLoading)
 {
@@ -135,7 +144,7 @@ else
                             <span class="oi oi-magnifying-glass" />
                         </a>
                         <a class="btn btn-outline-primary btn-sm"
-                           href="/ideas/@idea.Id/edit"
+                           href="/questions/new?ideaId=@idea.Id"
                            title="Turn into question">
                             <span class="oi oi-arrow-right" />
                         </a>
@@ -165,34 +174,39 @@ else
     private Guid newCategoryId;
     private bool newIsTimeSensitive;
     
+    private (Guid IdeaId, Guid? OldCategoryId)? lastAssignment;
+    private Timer? undoTimer;
+
     private static readonly Guid uncategorizedId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
     protected override async Task OnInitializedAsync()
     {
         AppState.SetPageTitle("Ideas");
 
-        categories = await CategoryService.GetAllAsync();
+        categories = (await CategoryService.GetAllAsync()).Where(c => !c.IsHidden).ToList();
         await ReloadAsync();
+
+        ApplyFilter();
 
         if (ideas.Any(i => i.CategoryId == null))
             selectedCategoryId = uncategorizedId;
-
-        await ApplyFilterAsync();
     }
 
-    private async Task OnCategoryChanged(ChangeEventArgs e)
+    private void OnCategoryChanged(ChangeEventArgs e)
     {
         selectedCategoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : Guid.Empty;
-        await ApplyFilterAsync();
+        ApplyFilter();
     }
 
-    private async Task ApplyFilterAsync()
+    private async Task ReloadAsync()
     {
         isLoading = true;
+        ideas = await IdeaService.GetOpenAsync();
+        isLoading = false;
+    }
 
-        StateHasChanged();
-        await Task.Yield();
-
+    private void ApplyFilter()
+    {
         var q = ideas
             .Where(i =>
                 selectedCategoryId == Guid.Empty ? true :
@@ -202,15 +216,8 @@ else
                      || i.Text.Contains(searchText, StringComparison.OrdinalIgnoreCase));
 
         filtered = sortAscending
-            ? q.OrderBy(i => i.CreatedAt).ToList()
-            : q.OrderByDescending(i => i.CreatedAt).ToList();
-
-        isLoading = false;
-    }
-
-    private async Task ReloadAsync()
-    {
-        ideas = await IdeaService.GetOpenAsync();
+            ? q.OrderByDescending(i => i.IsTimeSensitive).ThenBy(i => i.CreatedAt).ToList()
+            : q.OrderByDescending(i => i.IsTimeSensitive).ThenByDescending(i => i.CreatedAt).ToList();
     }
 
     private async Task AddIdeaAsync()
@@ -222,18 +229,7 @@ else
         newIsTimeSensitive = false;
 
         await ReloadAsync();
-    }
-
-    private async Task AssignCategoryAsync(Guid ideaId, string? categoryIdStr)
-    {
-        if (!Guid.TryParse(categoryIdStr, out var categoryId) || categoryId == Guid.Empty) return;
-        await IdeaService.UpdateCategoryAsync(ideaId, categoryId);
-
-        var idea = ideas.First(i => i.Id == ideaId);
-        idea.CategoryId = categoryId;
-        idea.Category = categories.First(c => c.Id == categoryId);
-
-        await ApplyFilterAsync();
+        ApplyFilter();
     }
 
     private async Task DeleteAsync(Guid id)
@@ -242,12 +238,66 @@ else
         var confirmed = await JS.InvokeAsync<bool>("confirm",
             $"Delete this idea? This cannot be undone.");
         if (!confirmed) return;
+
         await IdeaService.DeleteAsync(id);
         await ReloadAsync();
+
+        ApplyFilter();
+    }
+
+    private async Task AssignCategoryAsync(Guid ideaId, string? categoryIdStr)
+    {
+        if (!Guid.TryParse(categoryIdStr, out var categoryId) || categoryId == Guid.Empty) return;
+
+        var idea = ideas.First(i => i.Id == ideaId);
+
+        // Remember previous state
+        lastAssignment = (ideaId, idea.CategoryId);
+
+        await IdeaService.UpdateCategoryAsync(ideaId, categoryId);
+        idea.CategoryId = categoryId;
+        idea.Category = categories.First(c => c.Id == categoryId);
+
+        ApplyFilter();
+
+        // Auto-hide undo after 5s
+        undoTimer?.Dispose();
+        undoTimer = new Timer(async _ =>
+        {
+            lastAssignment = null;
+            await InvokeAsync(StateHasChanged);
+        }, null, 5000, Timeout.Infinite);
+    }
+
+    private async Task UndoAssignAsync()
+    {
+        if (lastAssignment == null) return;
+        var (ideaId, oldCategoryId) = lastAssignment.Value;
+
+        await IdeaService.UpdateCategoryAsync(ideaId, oldCategoryId);
+
+        var idea = ideas.First(i => i.Id == ideaId);
+        idea.CategoryId = oldCategoryId;
+        idea.Category = oldCategoryId == null ? null : categories.FirstOrDefault(c => c.Id == oldCategoryId);
+
+        lastAssignment = null;
+        undoTimer?.Dispose();
+
+        ApplyFilter();
     }
 
     private async Task ToggleTimeSensitiveAsync(Guid id, bool value)
     {
         await IdeaService.SetTimeSensitiveAsync(id, value);
+
+        var idea = ideas.First(i => i.Id == id);
+        idea.IsTimeSensitive = value;
+
+        ApplyFilter();
+    }
+
+    public void Dispose()
+    {
+        undoTimer?.Dispose();
     }
 }

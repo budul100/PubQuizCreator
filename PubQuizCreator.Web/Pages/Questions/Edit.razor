@@ -5,7 +5,9 @@
 @using PubQuizCreator.Core.Models
 @using PubQuizCreator.Core.Types
 @using PubQuizCreator.Services
+@using System.Text.RegularExpressions
 @inject QuizService QuizService
+@inject IdeaService IdeaService
 @inject TemplateService TemplateService
 @inject CategoryService CategoryService
 @inject QuestionService QuestionService
@@ -20,6 +22,15 @@
 <div class="d-flex gap-4 align-items-start">
 
     <div style="flex: 1; min-width: 0;">
+
+        @if (ideaText != null)
+        {
+            <div class="alert alert-secondary mb-3">
+                <strong>Original idea:</strong><br />
+                @ideaText
+            </div>
+        }
+
         <h4 class="mb-3">@(IsNew ? "New Question" : "Edit Question")</h4>
 
         <EditForm Model="model" OnValidSubmit="SaveAsync">
@@ -241,6 +252,7 @@
 
 @code {
     [Parameter] public Guid? Id { get; set; }
+    [SupplyParameterFromQuery(Name = "ideaId")] public Guid? IdeaId { get; set; }
     [SupplyParameterFromQuery(Name = "categoryId")] public Guid? PreselectedCategoryId { get; set; }
 
     private bool IsNew => Id == null;
@@ -249,6 +261,7 @@
     private bool hasSearched;
     private bool saving;
     private bool searchingEmbedding;
+    private string? ideaText;
     private CategoryStats? selectedCategoryStats;
     private Guid selectedQuizId;
     private List<Category> categories = [];
@@ -282,6 +295,31 @@
 
         if (PreselectedCategoryId.HasValue && PreselectedCategoryId != Guid.Empty)
             model.CategoryId = PreselectedCategoryId.Value;
+
+        if (IdeaId.HasValue && IdeaId != Guid.Empty)
+        {
+            var idea = await IdeaService.GetAsync(IdeaId.Value);
+            if (idea != null)
+            {
+                // Normalize: collapse all whitespace/newlines to single space
+                var normalized = Regex.Replace(idea.Text.Trim(), @"\s+", " ");
+
+                // Split on first ! or ? — question part → TextShort, remainder → Answer
+                var match = Regex.Match(normalized, @"^(.+[!?])\s*(.+)$");
+                if (match.Success)
+                {
+                    model.TextShort = match.Groups[1].Value.Trim();
+                    model.Answer = match.Groups[2].Value.Trim();
+                }
+                else
+                {
+                    model.TextShort = normalized;
+                }
+
+                model.CategoryId = idea.CategoryId ?? Guid.Empty;
+                ideaText = idea.Text;
+            }
+        }
 
         isInitialized = true;
     }
@@ -425,7 +463,15 @@
             similarQuestions = [];
             hasSearched = false;
 
-            Nav.NavigateTo($"/questions/new?categoryId={nextCategoryId}");
+            if (IdeaId.HasValue && IdeaId != Guid.Empty)
+            {
+                await IdeaService.MarkProcessedAsync(IdeaId.Value);
+                Nav.NavigateTo("/ideas");
+            }
+            else
+            {
+                Nav.NavigateTo($"/questions/new?categoryId={nextCategoryId}");
+            }
         }
         catch (Exception ex)
         {
