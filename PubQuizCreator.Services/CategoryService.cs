@@ -29,8 +29,13 @@ namespace PubQuizCreator.Services
             .ThenBy(c => c.Name)
             .ToListAsync(ct);
 
-        public async Task<bool> IsInUseAsync(Guid id, CancellationToken ct = default) =>
-            await db.Questions.AnyAsync(q => q.CategoryId == id, ct) ||
+        public async Task<Dictionary<Guid, int>> GetQuestionCountsAsync(CancellationToken ct = default) => await db.Questions
+            .Where(q => q.CategoryId != null)
+            .GroupBy(q => q.CategoryId)
+            .Select(g => new { CategoryId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.CategoryId!.Value, x => x.Count, ct);
+
+        public async Task<bool> IsInUseAsync(Guid id, CancellationToken ct = default) => await db.Questions.AnyAsync(q => q.CategoryId == id, ct) ||
             await db.QuizSlots.AnyAsync(s => s.CategoryId == id, ct) ||
             await db.TemplateSlots.AnyAsync(s => s.CategoryId == id, ct) ||
             await db.Ideas.AnyAsync(i => i.CategoryId == id, ct);

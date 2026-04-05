@@ -36,7 +36,9 @@
                 <label class="form-check-label small">Show used</label>
             </div>
 
-            <select class="form-select form-select-sm w-auto" @onchange="OnCategoryChanged">
+            <select class="form-select form-select-sm w-auto"
+                    value="@selectedCategoryId"
+                    @onchange="OnCategoryChanged">
                 <option value="@Guid.Empty">All categories</option>
                 <option value="@allIncludingHiddenId">All incl. hidden</option>
                 @foreach (var cat in categories)
@@ -129,6 +131,12 @@
 </div>
 
 @code {
+    [SupplyParameterFromQuery(Name = "categoryId")]
+    public Guid? InitialCategoryId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "showUsed")]
+    public bool InitialShowUsed { get; set; }
+
     private bool showUsed = false;
     private string searchText = "";
 
@@ -174,6 +182,12 @@
             .Where(q => !q.IsUnusable)
             .GroupBy(q => q.Category?.Id ?? Guid.Empty)
             .ToDictionary(g => g.Key, g => g.Count());
+
+        if (InitialCategoryId.HasValue && InitialCategoryId != Guid.Empty)
+            selectedCategoryId = InitialCategoryId.Value;
+
+        if (InitialShowUsed)
+            showUsed = true;
 
         await ApplyFilterAsync();
 
