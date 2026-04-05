@@ -125,7 +125,7 @@
     </div>
 
     <div style="width: 300px; flex-shrink: 0; position: sticky; top: 1rem;">
-        <CoverageCard />
+        <CoverageCard NavigateToQuestions="true" />
     </div>
 
 </div>
@@ -140,14 +140,17 @@
     private bool showUsed = false;
     private string searchText = "";
 
+    private bool initialized = false;
+    private bool isLoading = true;
+    
     private List<Category> categories = [];
     private List<QuestionRow> all = [];
     private List<QuestionRow> filtered = [];
     private Dictionary<Guid, int> questionCountByCategory = [];
-    private bool isLoading = true;
+    private Guid? lastCategoryId;
+    private Guid selectedCategoryId;
     private int totalOpenSlots;
     private int total;
-    private Guid selectedCategoryId;
 
     private static readonly Guid allIncludingHiddenId = Guid.Parse("00000000-0000-0000-0000-000000000002");
     private static readonly Guid unusableId = Guid.Parse("00000000-0000-0000-0000-000000000003");
@@ -192,6 +195,20 @@
         await ApplyFilterAsync();
 
         isLoading = false;
+        lastCategoryId = InitialCategoryId;
+        initialized = true;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!initialized) return;
+        if (InitialCategoryId == lastCategoryId) return;
+
+        lastCategoryId = InitialCategoryId;
+        selectedCategoryId = InitialCategoryId ?? Guid.Empty;
+        showUsed = InitialShowUsed;
+
+        await ApplyFilterAsync();
     }
 
     private async Task OnCategoryChanged(ChangeEventArgs e)

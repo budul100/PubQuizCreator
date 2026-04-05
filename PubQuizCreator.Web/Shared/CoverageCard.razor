@@ -24,23 +24,38 @@
                 var badgeStyle = item.IsCovered
                 ? $"background-color: {color}; color: {textColor}; opacity: 0.35;"
                 : $"background-color: {color}; color: {textColor};";
+                var badgeClass = "badge d-flex align-items-center justify-content-between gap-2 w-100";
+                var countContent = item.IsCovered
+                ? $"{item.AvailableQuestions}/{item.TotalOpenSlots} ✓"
+                : $"{item.AvailableQuestions}/{item.TotalOpenSlots} (−{item.Deficit})";
+                var countClass = !item.IsCovered ? "fw-bold text-nowrap" : "fw-normal text-nowrap";
 
                 <div class="mb-2">
-                    <span class="badge d-flex align-items-center justify-content-between gap-2 w-100"
-                          style="@badgeStyle">
-                        <span class="text-truncate">@item.Category.Name</span>
-                        <span class="text-nowrap @(!item.IsCovered ? "fw-bold" : "fw-normal")"
-                              style="opacity: 1;">
-                            @if (item.IsCovered)
-                            {
-                                <span>@item.AvailableQuestions/@item.TotalOpenSlots ✓</span>
-                            }
-                            else
-                            {
-                                <span>@item.AvailableQuestions/@item.TotalOpenSlots (−@item.Deficit)</span>
-                            }
+                    @if (NavigateToQuestions)
+                    {
+                        <a href="/questions?categoryId=@item.Category.Id&showUsed=false"
+                           class="@badgeClass text-decoration-none"
+                           style="@badgeStyle cursor: pointer;">
+                            <span class="text-truncate">@item.Category.Name</span>
+                            <span class="@countClass" style="opacity: 1;">@countContent</span>
+                        </a>
+                    }
+                    else if (OnCategorySelected.HasDelegate)
+                    {
+                        <span class="@badgeClass"
+                              style="@badgeStyle cursor: pointer;"
+                              @onclick="() => OnCategorySelected.InvokeAsync(item.Category.Id)">
+                            <span class="text-truncate">@item.Category.Name</span>
+                            <span class="@countClass" style="opacity: 1;">@countContent</span>
                         </span>
-                    </span>
+                    }
+                    else
+                    {
+                        <span class="@badgeClass" style="@badgeStyle">
+                            <span class="text-truncate">@item.Category.Name</span>
+                            <span class="@countClass" style="opacity: 1;">@countContent</span>
+                        </span>
+                    }
                 </div>
             }
         }
@@ -48,15 +63,20 @@
 </div>
 
 @code {
-    private List<Coverage> coverage = [];
+    [Parameter] public bool NavigateToQuestions { get; set; } = false;
+    [Parameter] public EventCallback<Guid> OnCategorySelected { get; set; }
+
     private bool isLoading = true;
+
+    private List<Coverage> coverage = [];
 
     protected override async Task OnInitializedAsync()
     {
-        // Own scope to avoid DbContext concurrency with the parent page
         await using var scope = ScopeFactory.CreateAsyncScope();
+
         var service = scope.ServiceProvider.GetRequiredService<DashboardService>();
         coverage = await service.GetUpcomingCoverageAsync();
+
         isLoading = false;
     }
 }

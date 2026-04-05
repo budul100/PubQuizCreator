@@ -131,7 +131,7 @@
     </div>
 
     <div style="width: 300px; flex-shrink: 0; position: sticky; top: 1rem;">
-        <CoverageCard />
+        <CoverageCard OnCategorySelected="OnCoverageFilterAsync" />
     </div>
 
 </div>
@@ -165,6 +165,12 @@
         if (selectedCategoryId == Guid.Empty && ideas.Any(i => i.CategoryId == null))
             selectedCategoryId = uncategorizedId;
 
+        ApplyFilter();
+    }
+
+    private void OnCoverageFilterAsync(Guid categoryId)
+    {
+        selectedCategoryId = categoryId;
         ApplyFilter();
     }
 
