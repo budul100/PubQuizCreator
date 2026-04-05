@@ -51,26 +51,14 @@
                 var shortLen = model.TextShort?.Length ?? 0;
                 var warnClass = shortLen > QuizConstants.TextShortWarnLength ? "text-danger fw-semibold" : "text-muted";
             }
-            <div class="d-flex justify-content-between align-items-center mt-1 mb-4">
-                <div class="d-flex gap-2">
-                    <a class="btn btn-outline-secondary btn-sm @(!CanGoogle ? "disabled" : "")"
-                       href="@($"https://www.google.com/search?q={Uri.EscapeDataString((model.TextShort + " " + model.Answer).Trim())}")"
-                       target="_blank"
-                       tabindex="@(!CanGoogle ? -1 : 0)"
-                       aria-disabled="@(!CanGoogle)"
-                       title="Search question + answer on Google">
-                        🔍 Google
-                    </a>
-                </div>
-                <div class="d-flex gap-3 align-items-center">
-                    <small class="@warnClass">
-                        @if (shortLen > QuizConstants.TextShortWarnLength)
-                        {
-                            <span>⚠ Too long for presentation — consider shortening.</span>
-                        }
-                    </small>
-                    <small class="@warnClass">@shortLen / @QuizConstants.TextShortWarnLength chars</small>
-                </div>
+            <div class="d-flex gap-3 align-items-center">
+                <small class="@warnClass">
+                    @if (shortLen > QuizConstants.TextShortWarnLength)
+                    {
+                        <span>⚠ Too long for presentation — consider shortening.</span>
+                    }
+                </small>
+                <small class="@warnClass">@shortLen / @QuizConstants.TextShortWarnLength chars</small>
             </div>
 
             <div class="mb-3">
@@ -91,6 +79,16 @@
             </div>
 
             <div class="d-flex gap-2 mb-4">
+                <div class="d-flex gap-2">
+                    <a class="btn btn-outline-secondary btn-sm @(!CanCheck ? "disabled" : "")"
+                       href="@($"https://www.google.com/search?q={Uri.EscapeDataString((model.TextShort + " " + model.Answer).Trim())}")"
+                       target="_blank"
+                       tabindex="@(!CanCheck ? -1 : 0)"
+                       aria-disabled="@(!CanCheck)"
+                       title="Search question + answer on Google">
+                        🔍 Google
+                    </a>
+                </div>
                 <button class="btn btn-outline-secondary btn-sm"
                         type="button"
                         disabled="@(!CanCheck)"
@@ -391,10 +389,8 @@
         await JS.InvokeVoidAsync("navigator.clipboard.writeText", prompt);
     }
 
-    private bool CanGoogle => !string.IsNullOrWhiteSpace(model.TextShort);
-
     private bool CanCheck => !string.IsNullOrWhiteSpace(model.TextShort)
-        && !string.IsNullOrWhiteSpace(model.Answer);
+        || !string.IsNullOrWhiteSpace(model.Answer);
 
     private bool CanSave => model.CategoryId != Guid.Empty
         && !string.IsNullOrWhiteSpace(model.TextShort) 

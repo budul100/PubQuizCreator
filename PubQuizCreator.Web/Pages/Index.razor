@@ -1,4 +1,192 @@
 ﻿@page "/"
-<PageTitle>Pub Quiz Creator</PageTitle>
-<h4>Welcome</h4>
-<p class="text-muted">Use the navigation to manage questions, ideas, quizzes and templates.</p>
+@using PubQuizCreator.Core.Models
+@using PubQuizCreator.Services
+@inject DashboardService DashboardService
+@inject StateService AppState
+
+<PageTitle>Dashboard</PageTitle>
+
+@if (stats == null)
+{
+    <div class="d-flex align-items-center gap-2 text-muted">
+        <div class="spinner-border spinner-border-sm" />
+        <span>Loading…</span>
+    </div>
+}
+else
+{
+    <div class="row g-3">
+
+        @* ── Ideas ──────────────────────────────────────────────────────────── *@
+        <div class="col-12 col-lg-4">
+            <div class="card h-100">
+                <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                    <span>Ideas</span>
+                    @if (stats.IdeasWithoutCategory > 0)
+                    {
+                        <span class="badge bg-warning text-dark" title="Ideas without category">
+                            @stats.IdeasWithoutCategory uncategorized
+                        </span>
+                    }
+                </div>
+                <div class="card-body p-0">
+                    @if (!stats.IdeasByCategory.Any())
+                    {
+                        <p class="text-muted p-3 mb-0">No categorized ideas.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm mb-0">
+                            <tbody>
+                                @foreach (var row in stats.IdeasByCategory)
+                                {
+                                    var color = row.Category.ColorHex;
+                                    <tr>
+                                        <td>
+                                            <span class="badge"
+                                                  style="@($"background-color: {color}; color: {color.TextColor()};")">
+                                                @row.Category.Name
+                                            </span>
+
+                                        </td>
+                                        <td class="text-end fw-semibold">@row.IdeaCount</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+                <div class="card-footer">
+                    <a class="btn btn-outline-primary btn-sm" href="/ideas">Open ideas</a>
+                </div>
+            </div>
+        </div>
+
+        @* ── Questions ───────────────────────────────── *@
+        <div class="col-12 col-lg-4">
+            <div class="card h-100">
+                <div class="card-header fw-semibold">Questions</div>
+                <div class="card-body p-0">
+                    @if (!stats.QuestionsByCategory.Any())
+                    {
+                        <p class="text-muted p-3 mb-0">No available questions — time to write some.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-sm mb-0">
+                            <tbody>
+                                @foreach (var row in stats.QuestionsByCategory)
+                                {
+                                    var color = row.Category.ColorHex;
+                                    <tr>
+                                        <td>
+                                            <span class="badge"
+                                                  style="background-color: @color; color: @color.TextColor();">
+                                                @row.Category.Name
+                                            </span>
+                                        </td>
+                                        <td class="text-end fw-semibold">@row.AvailableQuestions</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+                <div class="card-footer">
+                    <a class="btn btn-outline-primary btn-sm" href="/questions">Open questions</a>
+                </div>
+            </div>
+        </div>
+
+        @* ── Next Quiz ──────────────────────────────────────────────────────────── *@
+        <div class="col-12 col-lg-4">
+            <div class="card h-100">
+                <div class="card-header fw-semibold">Next Quiz</div>
+                <div class="card-body">
+                    @if (stats.NextQuiz == null)
+                    {
+                        <p class="text-muted mb-0">No upcoming quizzes.</p>
+                    }
+                    else
+                    {
+                        <div class="fw-semibold">@stats.NextQuiz.Title</div>
+                        <div class="text-muted small mb-3">@stats.NextQuiz.Date.ToString("dd.MM.yyyy")</div>
+
+                        @if (stats.NextQuizTotalSlots == 0)
+                        {
+                            <span class="badge bg-secondary">No slots yet</span>
+                        }
+                        else if (stats.NextQuizOpenSlots == 0)
+                        {
+                            <span class="badge bg-success fs-6">Complete</span>
+                        }
+                        else
+                        {
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <span class="badge bg-warning text-dark fs-6">
+                                    @stats.NextQuizOpenSlots open
+                                </span>
+                                <span class="text-muted small">of @stats.NextQuizTotalSlots slots</span>
+                            </div>
+                            <div class="progress mb-3" style="height: 8px;">
+                                @{
+                                    var filled = stats.NextQuizTotalSlots - stats.NextQuizOpenSlots;
+                                    var pct = (int)(100.0 * filled / stats.NextQuizTotalSlots);
+                                }
+                                <div class="progress-bar bg-success"
+                                     style="@($"width: {pct}%")"
+                                     role="progressbar"
+                                     aria-valuenow="@pct"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100" />
+                            </div>
+                        }
+
+                        var categoryStats = stats.NextQuiz.Rounds
+                            .SelectMany(r => r.Slots)
+                            .GroupBy(s => s.Category)
+                            .Select(g => new { Category = g.Key, Open = g.Count(s => s.QuestionId == null), Total = g.Count() })
+                            .OrderBy(x => x.Category.Name)
+                            .ToList();
+
+                        @if (categoryStats.Any())
+                        {
+                            <div class="d-flex flex-wrap gap-1">
+                                @foreach (var cs in categoryStats)
+                                {
+                                    var catColor = cs.Category?.ColorHex ?? "#95a5a6";
+                                    var badgeStyle = cs.Open == 0 ? "opacity: 0.45;" : "";
+                                    <span class="badge d-inline-flex align-items-center gap-1"
+                                          style="@($"background-color: {catColor}; color: {catColor.TextColor()}; {badgeStyle}")">
+                                        @cs.Category?.Name
+                                        <span class="fw-bold">@cs.Open/@cs.Total</span>
+                                    </span>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
+                @if (stats.NextQuiz != null)
+                {
+                    <div class="card-footer">
+                        <a class="btn btn-outline-primary btn-sm"
+                           href="/quizzes/@stats.NextQuiz.Id">
+                            Open quiz
+                        </a>
+                    </div>
+                }
+            </div>
+        </div>
+
+    </div>
+}
+
+@code {
+    private DashboardStats? stats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.SetPageTitle("Dashboard");
+        stats = await DashboardService.GetStatsAsync();
+    }
+}

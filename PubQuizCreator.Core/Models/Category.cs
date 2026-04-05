@@ -10,6 +10,8 @@
 
         public Guid Id { get; set; } = Guid.NewGuid();
 
+        public bool IsHidden { get; set; } = false;
+        
         public string Name { get; set; } = "";
 
         #endregion Public Properties

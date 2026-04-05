@@ -63,18 +63,44 @@ else
                     ? ("Complete", "bg-success")
                     : ($"{open} open", "bg-warning text-dark");
 
-            <div class="list-group-item d-flex justify-content-between align-items-center">
-                <a class="d-flex justify-content-between align-items-center flex-grow-1 text-decoration-none text-body"
-                   href="/quizzes/@q.Id">
-                    <div>
-                        <div class="fw-semibold">@q.Title</div>
-                        <small class="text-muted">@q.Date.ToString("dd.MM.yyyy")</small>
+            // Per-category open slots — only categories actually used in this quiz
+            var categoryStats = q.Rounds
+            .SelectMany(r => r.Slots)
+            .GroupBy(s => s.Category)
+            .Select(g => new { Category = g.Key, Open = g.Count(s => s.QuestionId == null), Total = g.Count() })
+            .OrderBy(x => x.Category.Name)
+            .ToList();
+
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-center">
+                    <a class="d-flex justify-content-between align-items-center flex-grow-1 text-decoration-none text-body"
+                       href="/quizzes/@q.Id">
+                        <div>
+                            <div class="fw-semibold">@q.Title</div>
+                            <small class="text-muted">@q.Date.ToString("dd.MM.yyyy")</small>
+                        </div>
+                        <span class="badge @quizBadge me-3">@quizLabel</span>
+                    </a>
+                    <div @onclick:stopPropagation="true">
+                        <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteAsync(q.Id)">✕</button>
                     </div>
-                    <span class="badge @quizBadge me-3">@quizLabel</span>
-                </a>
-                <div @onclick:stopPropagation="true">
-                    <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteAsync(q.Id)">✕</button>
                 </div>
+
+                @if (!showPast && categoryStats.Any())
+                {
+                    <div class="d-flex flex-wrap gap-1 mt-2">
+                        @foreach (var cs in categoryStats)
+                        {
+                            var catColor = cs.Category?.ColorHex ?? "#95a5a6";
+                            var badgeStyle = cs.Open == 0 ? "opacity: 0.45;" : "";
+                            <span class="badge d-inline-flex align-items-center gap-1"
+                                  style="@($"background-color: {catColor}; color: {catColor.TextColor()}; {badgeStyle}")">
+                                @cs.Category?.Name
+                                <span class="fw-bold">@cs.Open/@cs.Total</span>
+                            </span>
+                        }
+                    </div>
+                }
             </div>
         }
     </div>

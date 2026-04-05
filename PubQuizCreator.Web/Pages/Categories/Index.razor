@@ -48,6 +48,12 @@ else
                 <input class="form-control"
                        value="@cat.Name"
                        @onchange="e => UpdateNameAsync(cat, e.Value?.ToString() ?? cat.Name)" />
+                <div class="form-check form-switch mb-0 flex-shrink-0" style="min-width: 110px;">
+                    <input class="form-check-input" type="checkbox"
+                           checked="@cat.IsHidden"
+                           @onchange="e => UpdateHiddenAsync(cat, (bool)(e.Value ?? false))" />
+                    <label class="form-check-label small text-muted">Hidden</label>
+                </div>
                 <div class="d-flex gap-2" @onclick:stopPropagation="true">
                     <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteAsync(cat.Id)">✕</button>
                 </div>
@@ -85,14 +91,20 @@ else
     {
         if (string.IsNullOrWhiteSpace(name) || name == cat.Name) return;
         cat.Name = name;
-        await CategoryService.UpdateAsync(cat.Id, cat.Name, cat.ColorHex);
+        await CategoryService.UpdateAsync(cat.Id, cat.Name, cat.ColorHex, cat.IsHidden);
     }
 
     private async Task UpdateColorAsync(Category cat, string color)
     {
         cat.ColorHex = color;
-        await CategoryService.UpdateAsync(cat.Id, cat.Name, cat.ColorHex);
+        await CategoryService.UpdateAsync(cat.Id, cat.Name, cat.ColorHex, cat.IsHidden);
         await ReloadAsync();
+    }
+
+    private async Task UpdateHiddenAsync(Category cat, bool isHidden)
+    {
+        cat.IsHidden = isHidden;
+        await CategoryService.UpdateAsync(cat.Id, cat.Name, cat.ColorHex, cat.IsHidden);
     }
 
     private async Task DeleteAsync(Guid id)

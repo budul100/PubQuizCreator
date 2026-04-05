@@ -33,12 +33,14 @@ namespace PubQuizCreator.Services
             await db.TemplateSlots.AnyAsync(s => s.CategoryId == id, ct) ||
             await db.Ideas.AnyAsync(i => i.CategoryId == id, ct);
 
-        public async Task UpdateAsync(Guid id, string name, string colorHex, CancellationToken ct = default)
+        public async Task UpdateAsync(Guid id, string name, string colorHex, bool isHidden = false,
+            CancellationToken ct = default)
         {
             var category = await db.Categories.FindAsync([id], ct);
             if (category == null) return;
             category.Name = name;
             category.ColorHex = colorHex;
+            category.IsHidden = isHidden;
             await db.SaveChangesAsync(ct);
         }
 

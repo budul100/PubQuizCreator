@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PubQuizCreator.Core;
 using PubQuizCreator.Core.Interfaces;
-using PubQuizCreator.Core.Models;
 using PubQuizCreator.Data;
 using PubQuizCreator.Services;
 
@@ -9,7 +8,7 @@ internal class Program
 {
     #region Private Methods
 
-    private static async Task Main(string[] args)
+    private static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +26,8 @@ internal class Program
             .AddScoped<StateService>();
         builder.Services
             .AddScoped<PrintService>();
+        builder.Services
+            .AddScoped<DashboardService>();
 
         builder.Services
             .AddRazorPages();
