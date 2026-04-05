@@ -25,7 +25,9 @@ namespace PubQuizCreator.Services
         }
 
         public async Task<List<Category>> GetAllAsync(CancellationToken ct = default) => await db.Categories
-            .OrderBy(c => c.Name).ToListAsync(ct);
+            .OrderBy(c => c.IsHidden)
+            .ThenBy(c => c.Name)
+            .ToListAsync(ct);
 
         public async Task<bool> IsInUseAsync(Guid id, CancellationToken ct = default) =>
             await db.Questions.AnyAsync(q => q.CategoryId == id, ct) ||
