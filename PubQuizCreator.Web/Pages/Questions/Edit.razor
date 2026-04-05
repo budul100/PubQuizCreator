@@ -29,6 +29,13 @@
             </div>
         }
 
+        @if (model.IsUnusable)
+        {
+            <div class="alert alert-warning mb-3">
+                This question is marked as <strong>unusable</strong> and is excluded from all lists.
+            </div>
+        }
+
         <h4 class="mb-3">@(IsNew ? "New Question" : "Edit Question")</h4>
 
         <EditForm Model="model" OnValidSubmit="SaveAsync">
@@ -36,9 +43,9 @@
 
             <div class="mb-3">
                 <label class="form-label">Category</label>
-                <select class="form-select" value="@model.CategoryId"
+                <select class="form-select" value="@(model.CategoryId?.ToString() ?? string.Empty)"
                         @onchange="OnCategoryChanged">
-                    <option value="@Guid.Empty">— select —</option>
+                    <option value="">— select —</option>
                     @foreach (var cat in categories)
                     {
                         <option value="@cat.Id">@cat.Name</option>
@@ -60,7 +67,7 @@
                 var shortLen = model.TextShort?.Length ?? 0;
                 var warnClass = shortLen > QuizConstants.TextShortWarnLength ? "text-danger fw-semibold" : "text-muted";
             }
-            <div class="d-flex gap-3 align-items-center">
+            <div class="d-flex gap-3 align-items-center mb-3">
                 <small class="@warnClass">
                     @if (shortLen > QuizConstants.TextShortWarnLength)
                     {
@@ -130,11 +137,34 @@
                 </div>
             </div>
 
-            <div class="d-flex gap-2">
-                <button class="btn btn-primary" type="submit" disabled="@(!CanSave || saving)">
-                    @(saving ? "Saving…" : "Save question")
-                </button>
-                <a class="btn btn-outline-secondary" href="/questions">Cancel</a>
+            <div class="d-flex gap-2 flex-wrap">
+                @if (!model.IsUnusable)
+                {
+                    <button class="btn btn-primary" type="submit" disabled="@(!CanSave || saving)">
+                        @(saving ? "Saving…" : "Save question")
+                    </button>
+                    <a class="btn btn-outline-secondary" href="/questions">Cancel</a>
+                    <button class="btn btn-outline-warning ms-auto"
+                            type="button"
+                            disabled="@(string.IsNullOrWhiteSpace(model.TextShort) || saving)"
+                            @onclick="MarkAsUnusableAsync"
+                            title="Save as unusable — excluded from all lists, but kept for similarity search">
+                        ⚠ Mark as unusable
+                    </button>
+                }
+                else
+                {
+                    <button class="btn btn-outline-secondary"
+                            type="button"
+                            disabled="@saving"
+                            @onclick="MarkAsUsableAsync">
+                        ↩ Mark as usable
+                    </button>
+                    <button class="btn btn-outline-danger ms-auto" type="button"
+                            @onclick="DeleteAndGoBackAsync">
+                        Delete
+                    </button>
+                }
             </div>
 
             @if (saveError != null)
@@ -162,25 +192,17 @@
                 @if (!similarQuestions.Any())
                 {
                     <p class="text-muted small mb-0">
-                        @(hasSearched
-                                            ? "No similar questions found."
-                                            : "Start typing to search for duplicates.")
-                </p>
-                                }
+                        @(hasSearched ? "No similar questions found." : "Start typing to search for duplicates.")
+                    </p>
+                }
                 else
                 {
                     @foreach (var sq in similarQuestions
                                     .Where(sq => sq.Distance < QuizConstants.SimilarityThresholdMedium))
                     {
-                        var borderClass = sq.Distance < QuizConstants.SimilarityThresholdHigh
-                        ? "border-danger"
-                        : "border-warning";
-                        var badgeClass = sq.Distance < QuizConstants.SimilarityThresholdHigh
-                        ? "bg-danger"
-                        : "bg-warning text-dark";
-                        var label = sq.Distance < QuizConstants.SimilarityThresholdHigh
-                        ? "very similar"
-                        : "similar";
+                        var borderClass = sq.Distance < QuizConstants.SimilarityThresholdHigh ? "border-danger" : "border-warning";
+                        var badgeClass = sq.Distance < QuizConstants.SimilarityThresholdHigh ? "bg-danger" : "bg-warning text-dark";
+                        var label = sq.Distance < QuizConstants.SimilarityThresholdHigh ? "very similar" : "similar";
 
                         <div class="border rounded p-2 mb-2 @borderClass">
                             <div class="small fw-semibold">@sq.TextShort</div>
@@ -243,7 +265,7 @@
                 {
                     model.TextShort = normalized;
                 }
-                model.CategoryId = idea.CategoryId ?? Guid.Empty;
+                model.CategoryId = idea.CategoryId;
                 ideaText = idea.Text;
             }
         }
@@ -259,7 +281,7 @@
     }
 
     private void OnCategoryChanged(ChangeEventArgs e)
-        => model.CategoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : Guid.Empty;
+        => model.CategoryId = Guid.TryParse(e.Value?.ToString(), out var id) && id != Guid.Empty ? id : null;
 
     private void TriggerSimilaritySearch()
     {
@@ -281,10 +303,7 @@
 
         try
         {
-            similarQuestions = await QuestionService.FindSimilarAsync(
-                text,
-                Id ?? Guid.Empty,
-                topN: 5);
+            similarQuestions = await QuestionService.FindSimilarAsync(text, Id ?? Guid.Empty, topN: 5);
             hasSearched = true;
         }
         catch
@@ -327,22 +346,13 @@
     private bool CanCheck => !string.IsNullOrWhiteSpace(model.TextShort)
         || !string.IsNullOrWhiteSpace(model.Answer);
 
-    private bool CanSave => model.CategoryId != Guid.Empty
-        && !string.IsNullOrWhiteSpace(model.TextShort)
+    private bool CanSave => !string.IsNullOrWhiteSpace(model.TextShort)
+        && model.CategoryId.HasValue
         && !string.IsNullOrWhiteSpace(model.Answer);
 
     private async Task SaveAsync()
     {
-        if (string.IsNullOrWhiteSpace(model.Answer))
-        {
-            saveError = "Please enter an answer before saving.";
-            return;
-        }
-        if (model.CategoryId == Guid.Empty)
-        {
-            saveError = "Please select a category.";
-            return;
-        }
+        if (!CanSave) return;
 
         saving = true;
         saveError = null;
@@ -365,7 +375,8 @@
             }
             else
             {
-                Nav.NavigateTo($"/questions/new?categoryId={nextCategoryId}");
+                var query = nextCategoryId.HasValue ? $"?categoryId={nextCategoryId}" : "";
+                Nav.NavigateTo($"/questions/new{query}");
             }
         }
         catch (Exception ex)
@@ -378,6 +389,63 @@
         }
     }
 
+    private async Task MarkAsUnusableAsync()
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm",
+            "Mark as unusable? The question will be saved and excluded from all lists, " +
+            "but kept for duplicate detection.");
+        if (!confirmed) return;
+
+        saving = true;
+        saveError = null;
+
+        try
+        {
+            model.IsUnusable = true;
+            model.WasUsed = true;
+
+            var question = model.ToQuestion(Id);
+            if (IsNew) await QuestionService.CreateAsync(question);
+            else await QuestionService.UpdateAsync(question);
+
+            if (IdeaId.HasValue && IdeaId != Guid.Empty)
+                await IdeaService.MarkProcessedAsync(IdeaId.Value);
+
+            Nav.NavigateTo("/questions");
+        }
+        catch (Exception ex)
+        {
+            model.IsUnusable = false;
+            model.WasUsed = false;
+            saveError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task MarkAsUsableAsync()
+    {
+        model.IsUnusable = false;
+        model.WasUsed = false;
+        // User still needs to fill Category + Answer and save normally
+        await Task.CompletedTask;
+        StateHasChanged();
+    }
+
+    private async Task DeleteAndGoBackAsync()
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm",
+            $"Delete \"{model.TextShort}\"? This cannot be undone.");
+        if (!confirmed) return;
+
+        if (Id.HasValue)
+            await QuestionService.DeleteAsync(Id.Value);
+
+        Nav.NavigateTo("/questions");
+    }
+
     public void Dispose() => debounceTimer?.Dispose();
 
     private sealed class QuestionFormModel
@@ -385,9 +453,11 @@
         public string TextShort { get; set; } = "";
         public string TextLong { get; set; } = "";
         public string Answer { get; set; } = "";
-        public Guid CategoryId { get; set; }
+        public Guid? CategoryId { get; set; }
         public string? MediaFile { get; set; }
         public MediaType MediaType { get; set; } = MediaType.None;
+        public bool IsUnusable { get; set; } = false;
+        public bool WasUsed { get; set; } = false;
 
         public static QuestionFormModel From(Question q) => new()
         {
@@ -397,6 +467,8 @@
             CategoryId = q.CategoryId,
             MediaFile = q.MediaFile,
             MediaType = q.MediaType,
+            IsUnusable = q.IsUnusable,
+            WasUsed = q.WasUsed,
         };
 
         public Question ToQuestion(Guid? existingId) => new()
@@ -408,6 +480,8 @@
             CategoryId = CategoryId,
             MediaFile = MediaFile,
             MediaType = MediaType,
+            IsUnusable = IsUnusable,
+            WasUsed = WasUsed,
         };
     }
 }

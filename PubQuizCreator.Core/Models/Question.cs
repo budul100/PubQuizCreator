@@ -11,13 +11,15 @@ namespace PubQuizCreator.Core.Models
 
         public Category? Category { get; set; }
 
-        public Guid CategoryId { get; set; }
+        public Guid? CategoryId { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public Vector? Embedding { get; set; }
 
         public Guid Id { get; set; } = Guid.NewGuid();
+
+        public bool IsUnusable { get; set; } = false;
 
         public string? MediaFile { get; set; }
 

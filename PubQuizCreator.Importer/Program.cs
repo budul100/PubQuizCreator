@@ -201,6 +201,62 @@ internal class Program
         return 0;
     }
 
+    private static async Task<int> ImportUnusableAsync(string path, IServiceScope scope)
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var questionService = scope.ServiceProvider.GetRequiredService<QuestionService>();
+
+        var raw = await File.ReadAllTextAsync(path);
+        var blocks = raw
+            .Replace("\r\n", "\n")
+            .Split("\n\n", StringSplitOptions.RemoveEmptyEntries)
+            .Select(b => Regex.Replace(b.Replace("\n", " "), @" {2,}", " ").Trim())
+            .Where(b => !string.IsNullOrWhiteSpace(b))
+            .ToList();
+
+        Console.WriteLine($"Found {blocks.Count} unusable questions in file.");
+
+        var imported = 0;
+        var skipped = 0;
+
+        foreach (var block in blocks)
+        {
+            var (textShort, answer) = SplitQuestionAnswer(block);
+
+            var question = new Question
+            {
+                TextShort = textShort,
+                TextLong = "",
+                Answer = answer,
+                IsUnusable = true,
+                WasUsed = true,
+                CategoryId = null,
+            };
+
+            try
+            {
+                await questionService.CreateAsync(question);
+                Console.WriteLine($"  + {textShort[..Math.Min(80, textShort.Length)]}");
+                imported++;
+            }
+            catch (HttpRequestException)
+            {
+                db.Questions.Add(question);
+                await db.SaveChangesAsync();
+                Console.WriteLine($"  + {textShort[..Math.Min(80, textShort.Length)]} (no embedding)");
+                imported++;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"  ERROR: {ex.Message}");
+                skipped++;
+            }
+        }
+
+        Console.WriteLine($"\nDone. Imported: {imported}, Skipped/Errors: {skipped}");
+        return 0;
+    }
+
     private static async Task<int> Main(string[] args)
     {
         var filePath = args[0];
@@ -234,12 +290,40 @@ internal class Program
         var sp = services.BuildServiceProvider();
         using var scope = sp.CreateScope();
 
+        var isUnusable = args.Contains("--unusable");
+
         return ext switch
         {
             ".xlsx" => await ImportExcelAsync(filePath, scope),
+            ".txt" when isUnusable => await ImportUnusableAsync(filePath, scope),
             ".txt" => await ImportIdeasAsync(filePath, args.ElementAtOrDefault(1), scope),
             _ => Error($"Unsupported file type: {ext}")
         };
+    }
+
+    private static (string textShort, string answer) SplitQuestionAnswer(string block)
+    {
+        // "Question = Answer"
+        var eqIdx = block.IndexOf(" = ", StringComparison.Ordinal);
+        if (eqIdx > 0)
+            return (block[..eqIdx].Trim(), block[(eqIdx + 3)..].Trim());
+
+        // "Question? Answer"
+        var qIdx = block.LastIndexOf('?');
+        if (qIdx >= 0 && qIdx < block.Length - 2)
+        {
+            var after = block[(qIdx + 1)..].Trim();
+            if (!string.IsNullOrWhiteSpace(after))
+                return (block[..(qIdx + 1)].Trim(), after);
+        }
+
+        // "Question. Answer" — only if sentence before dot is long enough
+        var dotIdx = block.IndexOf(". ", StringComparison.Ordinal);
+        if (dotIdx > 15)
+            return (block[..(dotIdx + 1)].Trim(), block[(dotIdx + 2)..].Trim());
+
+        // No split found — whole block is the question, answer empty
+        return (block, "");
     }
 
     #endregion Private Methods

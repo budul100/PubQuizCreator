@@ -3,6 +3,11 @@
     "WSL": {
       "commandName": "WSL2",
       "distributionName": ""
+    },
+    "Profil \"1\"": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Users\\mgr\\Entwicklung\\Events\\PubQuizCreator\\PubQuizCreator.Importer\\bin\\Debug\\net9.0\\PubQuizCreator.Importer.exe",
+      "commandLineArgs": "C:\\Users\\mgr\\HiDrive\\Veranstaltungen\\PubQuiz\\Fragen\\Ideen\\PubQuiz_Fragen__NichtNutzbar.txt --unusable"
     }
   }
 }

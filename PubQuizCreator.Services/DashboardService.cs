@@ -25,13 +25,17 @@ namespace PubQuizCreator.Services
 
             var availableCounts = await db.Questions
                 .Where(q => !q.WasUsed
+                    && !q.IsUnusable
                     && !assignedIds.Contains(q.Id)
+                    && q.CategoryId != null
                     && !q.Category!.IsHidden)
                 .GroupBy(q => q.CategoryId)
                 .Select(g => new { CategoryId = g.Key, Count = g.Count() })
                 .ToListAsync(ct);
 
-            var availableCountMap = availableCounts.ToDictionary(x => x.CategoryId, x => x.Count);
+            var availableCountMap = availableCounts
+                .Where(x => x.CategoryId.HasValue)
+                .ToDictionary(x => x.CategoryId!.Value, x => x.Count);
 
             var questionsByCategory = visibleCategories
                 .Select(c => new QuestionStats
@@ -88,7 +92,6 @@ namespace PubQuizCreator.Services
         {
             var today = DateOnly.FromDateTime(DateTime.Today);
 
-            // Load all slots in upcoming quizzes (lean projection)
             var upcomingSlots = await db.QuizSlots
                 .Where(s => s.Round.Quiz.Date >= today)
                 .Select(s => new { s.CategoryId, s.QuestionId })
@@ -99,29 +102,30 @@ namespace PubQuizCreator.Services
 
             var categoryIds = upcomingSlots.Select(s => s.CategoryId).Distinct().ToHashSet();
 
-            // Questions already assigned to upcoming quizzes — exclude from "available"
             var assignedIds = upcomingSlots
                 .Where(s => s.QuestionId != null)
                 .Select(s => s.QuestionId!.Value)
                 .ToHashSet();
 
-            // Open slots (no question yet) per category
             var openSlotsByCategory = upcomingSlots
                 .Where(s => s.QuestionId == null)
                 .GroupBy(s => s.CategoryId)
                 .ToDictionary(g => g.Key, g => g.Count());
 
-            // Available questions per category
             var availableCounts = await db.Questions
-                .Where(q => categoryIds.Contains(q.CategoryId)
+                .Where(q => q.CategoryId.HasValue
+                    && categoryIds.Contains(q.CategoryId.Value)
                     && !q.WasUsed
+                    && !q.IsUnusable
                     && !assignedIds.Contains(q.Id)
                     && !q.Category!.IsHidden)
                 .GroupBy(q => q.CategoryId)
                 .Select(g => new { CategoryId = g.Key, Count = g.Count() })
                 .ToListAsync(ct);
 
-            var availableMap = availableCounts.ToDictionary(x => x.CategoryId, x => x.Count);
+            var availableMap = availableCounts
+                .Where(x => x.CategoryId.HasValue)
+                .ToDictionary(x => x.CategoryId!.Value, x => x.Count);
 
             var categories = await db.Categories
                 .Where(c => categoryIds.Contains(c.Id) && !c.IsHidden)
