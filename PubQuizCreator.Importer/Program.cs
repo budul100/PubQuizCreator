@@ -1,13 +1,14 @@
-﻿using System.Text.RegularExpressions;
+﻿using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using ClosedXML.Excel;
 using PubQuizCreator.Core.Interfaces;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Core.Types;
 using PubQuizCreator.Data;
 using PubQuizCreator.Services;
+using System.Text.RegularExpressions;
 
 internal partial class Program
 {
@@ -130,14 +131,6 @@ internal partial class Program
                     Console.WriteLine($"  + [{mediaType,-5}] {textShort[..Math.Min(60, textShort.Length)]}");
                     totalImported++;
                 }
-                catch (HttpRequestException)
-                {
-                    // Ollama unavailable — save without embedding, can be regenerated later
-                    db.Questions.Add(question);
-                    await db.SaveChangesAsync();
-                    Console.WriteLine($"  + [{mediaType,-5}] {textShort[..Math.Min(60, textShort.Length)]} (no embedding)");
-                    totalImported++;
-                }
                 catch (Exception ex)
                 {
                     Console.Error.WriteLine($"  ERROR on row {row.RowNumber()}: {ex.Message}");
@@ -243,13 +236,6 @@ internal partial class Program
             {
                 await questionService.CreateAsync(question);
                 Console.WriteLine($"  + {textShort[..Math.Min(80, textShort.Length)]}");
-                imported++;
-            }
-            catch (HttpRequestException)
-            {
-                db.Questions.Add(question);
-                await db.SaveChangesAsync();
-                Console.WriteLine($"  + {textShort[..Math.Min(80, textShort.Length)]} (no embedding)");
                 imported++;
             }
             catch (Exception ex)
