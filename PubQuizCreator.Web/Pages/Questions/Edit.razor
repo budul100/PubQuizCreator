@@ -429,7 +429,7 @@
             if (IdeaId.HasValue && IdeaId != Guid.Empty)
                 await IdeaService.MarkProcessedAsync(IdeaId.Value);
 
-            Nav.NavigateTo("/questions");
+            Nav.NavigateTo(IdeaId.HasValue && IdeaId != Guid.Empty ? "/ideas" : "/questions");
         }
         catch (Exception ex)
         {
