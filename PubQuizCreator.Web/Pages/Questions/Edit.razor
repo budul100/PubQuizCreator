@@ -9,7 +9,8 @@
 @inject IdeaService IdeaService
 @inject CategoryService CategoryService
 @inject QuestionService QuestionService
-@inject StateService AppState
+@inject MediaService MediaService
+@inject StateService StateService
 @inject IConfiguration Configuration
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -17,7 +18,7 @@
 
 <PageTitle>@(IsNew ? "New Question" : "Edit Question")</PageTitle>
 
-<div class="d-flex gap-4 align-items-start">
+<div class="d-flex gap-4 align-items-start mb-5">
 
     <div style="flex: 1; min-width: 0;">
 
@@ -96,79 +97,103 @@
                        @oninput="e => { model.Answer = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
             </div>
 
-            <div class="d-flex gap-2 mb-4">
-                <a class="btn btn-outline-secondary btn-sm @(!CanCheck ? "disabled" : "")"
-                   href="@($"https://www.google.com/search?q={Uri.EscapeDataString((model.TextShort + " " + model.Answer).Trim())}")"
-                   target="_blank"
-                   tabindex="@(!CanCheck ? -1 : 0)"
-                   aria-disabled="@(!CanCheck)"
-                   title="Search question + answer on Google">
-                    🔍 Google
-                </a>
-                <button class="btn btn-outline-secondary btn-sm"
-                        type="button"
-                        disabled="@(!CanCheck)"
-                        @onclick="OpenAiAsync"
-                        title="Open fact-check prompt in AI">
-                    🤖 Ask AI
-                </button>
-                <button class="btn btn-outline-secondary btn-sm"
-                        type="button"
-                        disabled="@(!CanCheck)"
-                        @onclick="CopyAiPromptAsync"
-                        title="Copy fact-check prompt to clipboard">
-                    📋 Copy AI prompt
-                </button>
-            </div>
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Media</label>
 
-            <div class="row mb-3">
-                <div class="col">
-                    <label class="form-label">
-                        Media file <small class="text-muted">(filename, optional)</small>
-                    </label>
-                    <input class="form-control" @bind="model.MediaFile" />
-                </div>
-                <div class="col-auto">
-                    <label class="form-label">Media type</label>
-                    <select class="form-select" @bind="model.MediaType">
-                        <option value="@MediaType.None">—</option>
-                        <option value="@MediaType.Image">Image</option>
-                        <option value="@MediaType.Audio">Audio</option>
-                        <option value="@MediaType.Video">Video</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="d-flex gap-2 flex-wrap">
-                @if (!model.IsUnusable)
+                @* Preview of currently stored file *@
+                @if (!string.IsNullOrEmpty(model.MediaFile))
                 {
-                    <button class="btn btn-primary" type="submit" disabled="@(!CanSave || saving)">
-                        @(saving ? "Saving…" : "Save question")
-                    </button>
-
-                    <a class="btn btn-outline-secondary" href="@(IdeaId.HasValue && IdeaId != Guid.Empty ? "/ideas" : "/questions")">Cancel</a>
-
-                    <button class="btn btn-outline-warning ms-auto"
-                            type="button"
-                            disabled="@(string.IsNullOrWhiteSpace(model.TextShort) || saving)"
-                            @onclick="MarkAsUnusableAsync"
-                            title="Save as unusable — excluded from all lists, but kept for similarity search">
-                        ⚠ Mark as unusable
-                    </button>
+                    <div class="mb-2">
+                        @if (model.MediaType == MediaType.Image)
+                        {
+                            <img src="@MediaService.GetUrl(model.MediaFile)"
+                                 class="img-fluid rounded border"
+                                 style="max-height: 220px;" />
+                        }
+                        else if (model.MediaType == MediaType.Audio)
+                        {
+                            <audio controls src="@MediaService.GetUrl(model.MediaFile)" class="w-100" />
+                        }
+                        else if (model.MediaType == MediaType.Video)
+                        {
+                            <video controls src="@MediaService.GetUrl(model.MediaFile)"
+                                   class="img-fluid rounded border"
+                                   style="max-height: 220px;" />
+                        }
+                        <div class="d-flex align-items-center gap-2 mt-2">
+                            <small class="text-muted text-truncate" style="max-width: 300px;">@model.MediaFile</small>
+                            <button type="button" class="btn btn-outline-danger btn-sm"
+                                    @onclick="RemoveMediaAsync">
+                                Remove media
+                            </button>
+                        </div>
+                    </div>
                 }
-                else
+
+                @* File picker *@
+                <InputFile OnChange="OnFileSelected"
+                           accept="image/*,audio/*,video/*"
+                           class="form-control" />
+                @if (pendingFile != null)
                 {
+                    <small class="text-muted">
+                        Selected: @pendingFile.Name &nbsp;(@(pendingFile.Size / 1024) KB)
+                        — type auto-detected as <strong>@model.MediaType</strong>
+                    </small>
+                }
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mt-4">
+
+                <div class="d-flex gap-2">
+                    <a class="btn btn-outline-secondary @(!CanCheck ? "disabled" : "")"
+                       href="@($"https://www.google.com/search?q={Uri.EscapeDataString((model.TextShort + " " + model.Answer).Trim())}")"
+                       target="_blank"
+                       tabindex="@(!CanCheck ? -1 : 0)"
+                       aria-disabled="@(!CanCheck)"
+                       title="Search on Google">
+                        🔍 Google
+                    </a>
                     <button class="btn btn-outline-secondary"
                             type="button"
-                            disabled="@saving"
-                            @onclick="MarkAsUsableAsync">
-                        ↩ Mark as usable
+                            disabled="@(!CanCheck)"
+                            @onclick="OpenAiPromptAsync"
+                            title="Run fact-check prompt in AI">
+                        🤖 Ask AI
                     </button>
-                    <button class="btn btn-outline-danger ms-auto" type="button"
-                            @onclick="DeleteAndGoBackAsync">
-                        Delete
-                    </button>
-                }
+                </div>
+
+                <div class="d-flex gap-2">
+                    @if (!model.IsUnusable)
+                    {
+                        <button class="btn btn-primary" type="submit" disabled="@(!CanSave || saving)">
+                            @(saving ? "Saving…" : "Save question")
+                        </button>
+                        <a class="btn btn-outline-secondary" href="@(IdeaId.HasValue && IdeaId != Guid.Empty ? "/ideas" : "/questions")">Cancel</a>
+                        <button class="btn btn-outline-warning"
+                                type="button"
+                                disabled="@(string.IsNullOrWhiteSpace(model.TextShort) || saving)"
+                                @onclick="MarkAsUnusableAsync"
+                                title="Save as unusable — excluded from all lists, but kept for similarity search">
+                            ⚠ Mark as unusable
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-outline-secondary"
+                                type="button"
+                                disabled="@saving"
+                                @onclick="MarkAsUsableAsync">
+                            ↩ Mark as usable
+                        </button>
+                        <button class="btn btn-outline-danger"
+                                type="button"
+                                @onclick="DeleteAndGoBackAsync">
+                            Delete
+                        </button>
+                    }
+                </div>
+
             </div>
 
             @if (saveError != null)
@@ -204,10 +229,11 @@
     private QuestionFormModel model = new();
     private string? saveError;
     private Timer? debounceTimer;
+    private IBrowserFile? pendingFile;
 
     protected override async Task OnInitializedAsync()
     {
-        AppState.SetPageTitle(IsNew ? "New Question" : "Edit Question");
+        StateService.SetPageTitle(IsNew ? "New Question" : "Edit Question");
 
         categories = await CategoryService.GetAllAsync();
 
@@ -252,6 +278,20 @@
     private void OnCategoryChanged(ChangeEventArgs e) 
         => model.CategoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id.NullIfEmpty() : null;
 
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        pendingFile = e.File;
+
+        // Auto-detect media type from MIME type
+        model.MediaType = e.File.ContentType switch
+        {
+            var ct when ct.StartsWith("image/") => MediaType.Image,
+            var ct when ct.StartsWith("audio/") => MediaType.Audio,
+            var ct when ct.StartsWith("video/") => MediaType.Video,
+            _ => MediaType.None
+        };
+    }
+
     private void TriggerSimilaritySearch()
     {
         debounceTimer?.Dispose();
@@ -285,22 +325,7 @@
         }
     }
 
-    private async Task OpenAiAsync()
-    {
-        var template = Configuration["Quiz:PromptTemplate"]
-            ?? "Category: {category}\nQuestion: {question}\nAnswer: {answer}";
-        var urlTemplate = Configuration["Quiz:AiUrl"]
-            ?? "https://www.perplexity.ai/search?q={prompt}";
-        var categoryName = categories.FirstOrDefault(c => c.Id == model.CategoryId)?.Name ?? "—";
-        var prompt = template
-            .Replace("{category}", categoryName)
-            .Replace("{question}", model.TextShort)
-            .Replace("{answer}", model.Answer);
-        var url = urlTemplate.Replace("{prompt}", Uri.EscapeDataString(prompt));
-        await JS.InvokeVoidAsync("open", url, "_blank");
-    }
-
-    private async Task CopyAiPromptAsync()
+    private async Task OpenAiPromptAsync()
     {
         var template = Configuration["Quiz:PromptTemplate"]
             ?? "Category: {category}\nQuestion: {question}\nAnswer: {answer}";
@@ -312,9 +337,9 @@
 
         await JS.InvokeVoidAsync("navigator.clipboard.writeText", prompt);
 
-        var copyUrl = Configuration["Quiz:AiCopyUrl"];
-        if (!string.IsNullOrWhiteSpace(copyUrl))
-            await JS.InvokeVoidAsync("open", copyUrl, "_blank");
+        var aiUrl = Configuration["Quiz:AiUrl"];
+        if (!string.IsNullOrWhiteSpace(aiUrl))
+            await JS.InvokeVoidAsync("open", aiUrl, "_blank");
     }
 
     private bool CanCheck => !string.IsNullOrWhiteSpace(model.TextShort)
@@ -333,6 +358,17 @@
 
         try
         {
+            // Upload pending file to disk before persisting metadata
+            if (pendingFile != null)
+            {
+                // Delete old file if being replaced
+                if (!string.IsNullOrEmpty(model.MediaFile))
+                    MediaService.Delete(model.MediaFile);
+
+                await using var stream = pendingFile.OpenReadStream(maxAllowedSize: 20 * 1024 * 1024);
+                model.MediaFile = await MediaService.SaveAsync(stream, pendingFile.Name);
+            }
+
             var question = model.ToQuestion(Id);
             if (IsNew) await QuestionService.CreateAsync(question);
             else await QuestionService.UpdateAsync(question);
@@ -423,6 +459,16 @@
             await QuestionService.DeleteAsync(Id.Value);
 
         Nav.NavigateTo("/questions");
+    }
+
+    private void RemoveMediaAsync()
+    {
+        if (!string.IsNullOrEmpty(model.MediaFile))
+            MediaService.Delete(model.MediaFile);
+
+        model.MediaFile = null;
+        model.MediaType = MediaType.None;
+        pendingFile = null;
     }
 
     public void Dispose() => debounceTimer?.Dispose();

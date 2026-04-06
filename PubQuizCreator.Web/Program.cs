@@ -27,16 +27,23 @@ internal class Program
             .AddScoped<StateService>();
         builder.Services
             .AddScoped<DashboardService>();
+        builder.Services
+            .AddScoped<MediaService>();
+
+        builder.Services
+            .AddDbContextFactory<AppDbContext>(options => options.UseNpgsql(
+                connectionString: builder.Configuration.GetConnectionString("Default"),
+                npgsqlOptionsAction: o => o.UseVector()));
 
         builder.Services
             .AddRazorPages();
         builder.Services
             .AddServerSideBlazor();
 
-        builder.Services
-            .AddDbContextFactory<AppDbContext>(options => options.UseNpgsql(
-                connectionString: builder.Configuration.GetConnectionString("Default"),
-                npgsqlOptionsAction: o => o.UseVector()));
+        builder.Services.AddSignalR(options =>
+        {
+            options.MaximumReceiveMessageSize = 20 * 1024 * 1024; // 20 MB
+        });
 
         var uriString = builder.Configuration["Ollama:BaseUrl"]
             ?? throw new InvalidOperationException("Ollama:BaseUrl is not configured.");
@@ -66,6 +73,14 @@ internal class Program
         app.UseHttpsRedirection();
         app.UseStaticFiles();
         app.UseRouting();
+
+        var mediaPath = MediaService.GetStoragePath(builder.Configuration);
+
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(mediaPath),
+            RequestPath = "/media"
+        });
 
         app.MapBlazorHub();
         app.MapGet(

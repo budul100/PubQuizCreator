@@ -1,5 +1,6 @@
 ﻿@page "/questions"
 @using PubQuizCreator.Core.Models
+@using PubQuizCreator.Core.Types 
 @using PubQuizCreator.Services
 @inject StateService AppState
 @inject QuestionService QuestionService
@@ -95,7 +96,22 @@
                                         <CategoryBadge ColorHex="@categoryColor" Name="@(q.Category?.Name ?? "")" />
                                     }
                                 </td>
-                                <td>@q.TextShort</td>
+
+                                <td>
+                                    @q.TextShort
+                                    @if (q.MediaType != MediaType.None)
+                                    {
+                                        var icon = q.MediaType switch
+                                        {
+                                            MediaType.Image => "🖼",
+                                            MediaType.Audio => "🎵",
+                                            MediaType.Video => "🎬",
+                                            _ => ""
+                                        };
+                                        <span class="ms-1 text-muted" title="@q.MediaType.ToString()">@icon</span>
+                                    }
+                                </td>
+
                                 <td class="text-muted">@q.Answer</td>
                                 <td>
                                     @if (q.UsedInQuiz != null)
@@ -172,7 +188,8 @@
             q.WasUsed,
             q.IsUnusable,
             usageInfo.GetValueOrDefault(q.Id)?.QuizInfo,
-            usageInfo.GetValueOrDefault(q.Id)?.LastUsedDate
+            usageInfo.GetValueOrDefault(q.Id)?.LastUsedDate,
+            q.MediaType
         )).ToList();
 
         total = all.Count;
@@ -300,5 +317,6 @@
         bool WasUsed,
         bool IsUnusable,
         string? UsedInQuiz,
-        DateOnly? LastUsedDate);
+        DateOnly? LastUsedDate,
+        MediaType MediaType);
 }

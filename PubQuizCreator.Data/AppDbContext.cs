@@ -35,6 +35,13 @@ namespace PubQuizCreator.Data
             modelBuilder.Entity<Question>()
                 .Property(q => q.Embedding)
                 .HasColumnType("vector(768)");
+
+            modelBuilder.Entity<Question>()
+                .HasOne(q => q.Category)
+                .WithMany()
+                .HasForeignKey(q => q.CategoryId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.SetNull);
         }
 
         #endregion Protected Methods
