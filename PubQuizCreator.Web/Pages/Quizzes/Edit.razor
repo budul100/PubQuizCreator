@@ -1,5 +1,6 @@
 ﻿@page "/quizzes/{Id:guid}"
 @using PubQuizCreator.Core.Models
+@using PubQuizCreator.Core.Types 
 @using PubQuizCreator.Services
 @inject QuizService QuizService
 @inject TemplateService TemplateService
@@ -105,27 +106,43 @@ else
                                                Style="max-width: 100%;" />
                             </div>
 
-                            <div style="flex: 4; min-width: 0;">
-                                <div class="small fw-semibold text-truncate">
-                                    @(s.Question?.TextShort ?? "— no question assigned —")
+                            <div style="flex: 4; min-width: 0; cursor: pointer;"
+                                 @onclick="() => OpenPicker(s)"
+                                 @onclick:stopPropagation="true">
+                                <div class="small fw-semibold text-truncate @(s.Question == null ? "text-muted fst-italic" : "")">
+                                    @(s.Question?.TextShort ?? "— click to assign —")
+                                    @if (s.Question?.MediaType is { } mt && mt != MediaType.None)
+                                    {
+                                        var icon = mt switch
+                                        {
+                                            MediaType.Image => "🖼",
+                                            MediaType.Audio => "🎵",
+                                            MediaType.Video => "🎬",
+                                            _ => ""
+                                        };
+                                        <span class="ms-1 text-muted" title="@mt.ToString()">@icon</span>
+                                    }
                                 </div>
                             </div>
 
-                            <div style="flex: 3; min-width: 0;">
+                            <div style="flex: 3; min-width: 0; cursor: pointer;"
+                                 @onclick="() => OpenPicker(s)"
+                                 @onclick:stopPropagation="true">
                                 @if (s.Question != null)
                                 {
                                     <div class="small text-muted text-truncate">@s.Question.Answer</div>
                                 }
                             </div>
 
-                            <div class="d-flex gap-1 flex-shrink-0">
-                                <button class="btn btn-outline-primary btn-sm"
-                                        title="@(s.Question != null ? "Change question" : "Assign question")"
-                                        @onclick="() => OpenPicker(s)">
-                                    <span class="oi @(s.Question != null ? "oi-pencil" : "oi-plus")" />
-                                </button>
+                            <div class="d-flex gap-1 flex-shrink-0" @onclick:stopPropagation="true">
                                 @if (s.Question != null)
                                 {
+                                    <a class="btn btn-outline-secondary btn-sm"
+                                       title="Edit question"
+                                       href="/questions/@s.Question.Id/edit?returnUrl=/quizzes/@Id">
+                                        <span class="oi oi-pencil" />
+                                    </a>
+
                                     <button class="btn btn-outline-secondary btn-sm"
                                             title="Unassign question"
                                             @onclick="() => UnassignAsync(s.Id)">
@@ -306,7 +323,6 @@ else
         await QuizService.RemoveRoundAsync(roundId);
         await ReloadAsync();
     }
-
 
     private void ToggleRound(Guid roundId)
     {

@@ -271,7 +271,7 @@
                 CategoryFilter.Specific => !q.IsUnusable && q.Category?.Id == filterCategoryId,
                 _ => !q.IsUnusable && q.Category?.IsHidden != true
             })
-            .Where(q => filterMode == CategoryFilter.Unusable || showUsed || (q.UsedInQuiz == null && !q.WasUsed))
+            .Where(q => filterMode == CategoryFilter.Unusable || showUsed || !q.WasUsed)
             .Where(q => string.IsNullOrWhiteSpace(searchText)
                 || q.TextShort.Contains(searchText, StringComparison.OrdinalIgnoreCase)
                 || q.Answer.Contains(searchText, StringComparison.OrdinalIgnoreCase))

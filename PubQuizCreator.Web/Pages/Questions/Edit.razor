@@ -169,7 +169,12 @@
                         <button class="btn btn-primary" type="submit" disabled="@(!CanSave || saving)">
                             @(saving ? "Saving…" : "Save question")
                         </button>
-                        <a class="btn btn-outline-secondary" href="@(IdeaId.HasValue && IdeaId != Guid.Empty ? "/ideas" : "/questions")">Cancel</a>
+
+                        <a class="btn btn-outline-secondary"
+                           href="@(IdeaId.HasValue && IdeaId != Guid.Empty ? "/ideas" : ReturnUrl ?? "/questions")">
+                            Cancel
+                        </a>
+
                         <button class="btn btn-outline-warning"
                                 type="button"
                                 disabled="@(string.IsNullOrWhiteSpace(model.TextShort) || saving)"
@@ -214,8 +219,10 @@
 
 @code {
     [Parameter] public Guid? Id { get; set; }
+
     [SupplyParameterFromQuery(Name = "ideaId")] public Guid? IdeaId { get; set; }
     [SupplyParameterFromQuery(Name = "categoryId")] public Guid? PreselectedCategoryId { get; set; }
+    [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
 
     private bool IsNew => Id == null;
 
@@ -374,7 +381,7 @@
             else await QuestionService.UpdateAsync(question);
 
             StateService.NotifyDataChanged();
-            
+
             var nextCategoryId = model.CategoryId;
             model = new QuestionFormModel { CategoryId = nextCategoryId };
             similarQuestions = [];
@@ -393,8 +400,7 @@
             }
             else
             {
-                // Came from Index → back to Index
-                Nav.NavigateTo("/questions");
+                Nav.NavigateTo(ReturnUrl ?? "/questions");
             }
         }
         catch (Exception ex)
@@ -429,7 +435,11 @@
             if (IdeaId.HasValue && IdeaId != Guid.Empty)
                 await IdeaService.MarkProcessedAsync(IdeaId.Value);
 
-            Nav.NavigateTo(IdeaId.HasValue && IdeaId != Guid.Empty ? "/ideas" : "/questions");
+            var url = IdeaId.HasValue && IdeaId != Guid.Empty 
+                ? "/ideas" 
+                : ReturnUrl ?? "/questions";
+
+            Nav.NavigateTo(url);
         }
         catch (Exception ex)
         {
@@ -460,7 +470,7 @@
         if (Id.HasValue)
             await QuestionService.DeleteAsync(Id.Value);
 
-        Nav.NavigateTo("/questions");
+        Nav.NavigateTo(ReturnUrl ?? "/questions");
     }
 
     private void RemoveMediaAsync()
