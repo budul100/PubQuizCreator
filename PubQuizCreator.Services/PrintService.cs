@@ -30,7 +30,7 @@ namespace PubQuizCreator.Services
         private static void CreateFooter(RowDescriptor row, int pageNum, int pageTotal)
         {
             row.RelativeItem().Text($"Page {pageNum} of {pageTotal}");
-            row.RelativeItem().AlignRight().Text("I = Image, A = Audio, V = Video");
+            row.RelativeItem().AlignRight().Text("P = Picture, A = Audio, V = Video");
         }
 
         private static void CreateQuestions(TableDescriptor table, IEnumerable<QuizSlot> slots)
