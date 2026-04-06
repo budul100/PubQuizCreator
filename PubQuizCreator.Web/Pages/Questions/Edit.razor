@@ -65,16 +65,16 @@
 
             @{
                 var shortLen = model.TextShort?.Length ?? 0;
-                var warnClass = shortLen > QuizConstants.TextShortWarnLength ? "text-danger fw-semibold" : "text-muted";
+                var warnClass = shortLen > Constants.TextShortWarnLength ? "text-danger fw-semibold" : "text-muted";
             }
             <div class="d-flex gap-3 align-items-center mb-3">
                 <small class="@warnClass">
-                    @if (shortLen > QuizConstants.TextShortWarnLength)
+                    @if (shortLen > Constants.TextShortWarnLength)
                     {
                         <span>⚠ Too long for presentation — consider shortening.</span>
                     }
                 </small>
-                <small class="@warnClass">@shortLen / @QuizConstants.TextShortWarnLength chars</small>
+                <small class="@warnClass">@shortLen / @Constants.TextShortWarnLength chars</small>
             </div>
 
             <div class="mb-3">
@@ -194,7 +194,7 @@
                 else
                 {
                     var visibleSimilar = similarQuestions
-                        .Where(sq => sq.Distance < QuizConstants.SimilarityThresholdMedium)
+                        .Where(sq => sq.Distance < Constants.SimilarityThresholdMedium)
                         .ToList();
 
                     @if (!visibleSimilar.Any())
@@ -207,9 +207,9 @@
                     {
                         @foreach (var sq in visibleSimilar)
                         {
-                            var borderClass = sq.Distance < QuizConstants.SimilarityThresholdHigh ? "border-danger" : "border-warning";
-                            var badgeClass  = sq.Distance < QuizConstants.SimilarityThresholdHigh ? "bg-danger" : "bg-warning text-dark";
-                            var label       = sq.Distance < QuizConstants.SimilarityThresholdHigh ? "very similar" : "similar";
+                            var borderClass = sq.Distance < Constants.SimilarityThresholdHigh ? "border-danger" : "border-warning";
+                            var badgeClass  = sq.Distance < Constants.SimilarityThresholdHigh ? "bg-danger" : "bg-warning text-dark";
+                            var label       = sq.Distance < Constants.SimilarityThresholdHigh ? "very similar" : "similar";
 
                             <div class="border rounded p-2 mb-2 @borderClass">
                                 <div class="small fw-semibold">@sq.TextShort</div>

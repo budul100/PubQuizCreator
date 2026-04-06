@@ -1,6 +1,6 @@
 ﻿namespace PubQuizCreator.Core
 {
-    public static class QuizConstants
+    public static class Constants
     {
         // Similarities are based on L2 (Euclidean) distance with nomic-embed-text (768 dimensions).
         // Lower = more similar. Range is roughly 0.0 (identical) to ~1.5 (unrelated).
@@ -9,9 +9,6 @@
 
         // Default Ollama embedding model. Can be overridden via appsettings.json (Ollama:EmbeddingModel).
         public const string DefaultEmbeddingModel = "nomic-embed-text";
-
-        //Default number of rounds when creating a new template.
-        public const int DefaultRoundCount = 4;
 
         // Timeout for Ollama embedding requests (model may need a moment to load).
         public const int OllamaEmbeddingTimeoutSeconds = 10;

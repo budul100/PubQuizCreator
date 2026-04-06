@@ -44,13 +44,13 @@ internal class Program
         builder.Services.AddHttpClient<IEmbeddingService, OllamaService>(client =>
         {
             client.BaseAddress = new Uri(uriString);
-            client.Timeout = TimeSpan.FromSeconds(QuizConstants.OllamaEmbeddingTimeoutSeconds);
+            client.Timeout = TimeSpan.FromSeconds(Constants.OllamaEmbeddingTimeoutSeconds);
         });
 
         builder.Services.AddHttpClient("OllamaHealth", client =>
         {
             client.BaseAddress = new Uri(uriString);
-            client.Timeout = TimeSpan.FromSeconds(QuizConstants.OllamaHealthTimeoutSeconds);
+            client.Timeout = TimeSpan.FromSeconds(Constants.OllamaHealthTimeoutSeconds);
         });
 
         QuestPDF.Settings.License = LicenseType.Community;

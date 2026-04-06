@@ -32,7 +32,7 @@
         AppState.OnChange += OnAppStateChanged;
         await AppState.CheckOllamaAsync();
 
-        timer = new PeriodicTimer(TimeSpan.FromSeconds(QuizConstants.OllamaStatusPollIntervalSeconds));
+        timer = new PeriodicTimer(TimeSpan.FromSeconds(Constants.OllamaStatusPollIntervalSeconds));
         _ = PollOllamaAsync();
     }
 
