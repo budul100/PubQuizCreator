@@ -2,8 +2,8 @@
 {
     public static class Constants
     {
-        // Similarities are based on L2 (Euclidean) distance with nomic-embed-text (768 dimensions).
-        // Lower = more similar. Range is roughly 0.0 (identical) to ~1.5 (unrelated).
+        // Similarities based on L2 distance with mxbai-embed-large (1024 dimensions).
+        // Range is roughly 0.0 (identical) to ~1.1 (unrelated).
 
         #region Public Fields
 
@@ -19,9 +19,6 @@
         // Header font size if not defined in app settings.
         public const float FontSizeHeader = 11f;
 
-        // Number of elements shown in list views.
-        public const int PageSize = 50;
-
         // Timeout for Ollama embedding requests (model may need a moment to load).
         public const int OllamaEmbeddingTimeoutSeconds = 10;
 
@@ -31,11 +28,14 @@
         // Interval for polling Ollama availability in the top bar (seconds).
         public const int OllamaStatusPollIntervalSeconds = 30;
 
+        // Number of elements shown in list views.
+        public const int PageSize = 50;
+
         // Similarity thresholds for "very similar" — likely duplicate
-        public const double SimilarityThresholdHigh = 0.2;
+        public const double SimilarityThresholdHigh = 0.55;
 
         // Similarity thresholds for "similar" — worth checking
-        public const double SimilarityThresholdMedium = 0.3;
+        public const double SimilarityThresholdMedium = 0.70;
 
         // Maximum recommended character length for the short question text (used in presentation).
         public const int TextShortWarnLength = 90;
