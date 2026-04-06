@@ -143,7 +143,9 @@
                     <button class="btn btn-primary" type="submit" disabled="@(!CanSave || saving)">
                         @(saving ? "Saving…" : "Save question")
                     </button>
-                    <a class="btn btn-outline-secondary" href="/questions">Cancel</a>
+
+                    <a class="btn btn-outline-secondary" href="@(IdeaId.HasValue && IdeaId != Guid.Empty ? "/ideas" : "/questions")">Cancel</a>
+
                     <button class="btn btn-outline-warning ms-auto"
                             type="button"
                             disabled="@(string.IsNullOrWhiteSpace(model.TextShort) || saving)"
