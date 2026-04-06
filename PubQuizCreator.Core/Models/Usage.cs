@@ -1,0 +1,1 @@
+﻿public record Usage(string QuizInfo, DateOnly LastUsedDate);

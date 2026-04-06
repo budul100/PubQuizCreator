@@ -162,8 +162,7 @@
         categories = await CategoryService.GetAllAsync();
 
         var questions = await QuestionService.GetAllAsync();
-        var usageMap = await QuestionService.GetUsageMapAsync();
-        var usageDateMap = await QuestionService.GetUsageDateMapAsync();
+        var usageInfo = await QuestionService.GetUsageInfoMapAsync();
 
         all = questions.Select(q => new QuestionRow(
             q.Id,
@@ -172,8 +171,8 @@
             q.Category,
             q.WasUsed,
             q.IsUnusable,
-            usageMap.GetValueOrDefault(q.Id),
-            usageDateMap.GetValueOrDefault(q.Id)
+            usageInfo.GetValueOrDefault(q.Id)?.QuizInfo,
+            usageInfo.GetValueOrDefault(q.Id)?.LastUsedDate
         )).ToList();
 
         total = all.Count;

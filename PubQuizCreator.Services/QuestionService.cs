@@ -141,24 +141,7 @@ namespace PubQuizCreator.Services
                 .ToListAsync(ct);
         }
 
-        public async Task<Dictionary<Guid, DateOnly>> GetUsageDateMapAsync(CancellationToken ct = default)
-        {
-            await using var db = await dbFactory.CreateDbContextAsync(ct);
-
-            var slots = await db.QuizSlots
-                .Where(s => s.QuestionId != null)
-                .Include(s => s.Round).ThenInclude(r => r.Quiz)
-                .Select(s => new { s.QuestionId, s.Round.Quiz.Date })
-                .ToListAsync(ct);
-
-            return slots
-                .GroupBy(x => x.QuestionId!.Value)
-                .ToDictionary(
-                    g => g.Key,
-                    g => g.Max(x => x.Date));
-        }
-
-        public async Task<Dictionary<Guid, string>> GetUsageMapAsync(CancellationToken ct = default)
+        public async Task<Dictionary<Guid, Usage>> GetUsageInfoMapAsync(CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -172,7 +155,9 @@ namespace PubQuizCreator.Services
                 .GroupBy(x => x.QuestionId!.Value)
                 .ToDictionary(
                     g => g.Key,
-                    g => string.Join(", ", g.Select(x => $"{x.Title} ({x.Date:dd.MM.yyyy})").Distinct()));
+                    g => new Usage(
+                        QuizInfo: string.Join(", ", g.Select(x => $"{x.Title} ({x.Date:dd.MM.yyyy})").Distinct()),
+                        LastUsedDate: g.Max(x => x.Date)));
         }
 
         public async Task UpdateAsync(Question question, CancellationToken ct = default)
