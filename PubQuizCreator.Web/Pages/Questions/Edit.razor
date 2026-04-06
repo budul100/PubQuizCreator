@@ -176,53 +176,9 @@
 
     <div style="width: 300px; flex-shrink: 0; position: sticky; top: 1rem;">
 
-        <div class="card">
-            <div class="card-header d-flex align-items-center gap-2 fw-semibold">
-                Similar questions
-                @if (searchingEmbedding)
-                {
-                    <span class="spinner-border spinner-border-sm text-secondary" />
-                }
-            </div>
-            <div class="card-body p-2">
-                @if (!similarQuestions.Any())
-                {
-                    <p class="text-muted small mb-0">
-                        @(hasSearched ? "No similar questions found." : "Start typing to search for duplicates.")
-                    </p>
-                }
-                else
-                {
-                    var visibleSimilar = similarQuestions
-                        .Where(sq => sq.Distance < Constants.SimilarityThresholdMedium)
-                        .ToList();
-
-                    @if (!visibleSimilar.Any())
-                    {
-                        <p class="text-muted small mb-0">
-                            @(hasSearched ? "No similar questions found." : "Start typing to search for duplicates.")
-                        </p>
-                    }
-                    else
-                    {
-                        @foreach (var sq in visibleSimilar)
-                        {
-                            var borderClass = sq.Distance < Constants.SimilarityThresholdHigh ? "border-danger" : "border-warning";
-                            var badgeClass  = sq.Distance < Constants.SimilarityThresholdHigh ? "bg-danger" : "bg-warning text-dark";
-                            var label       = sq.Distance < Constants.SimilarityThresholdHigh ? "very similar" : "similar";
-
-                            <div class="border rounded p-2 mb-2 @borderClass">
-                                <div class="small fw-semibold">@sq.TextShort</div>
-                                <div class="small text-muted">→ @sq.Answer</div>
-                                <div class="text-end mt-1">
-                                    <span class="badge @badgeClass">@label</span>
-                                </div>
-                            </div>
-                        }
-                    }
-                }
-            </div>
-        </div>
+        <SimilarsCard SimilarQuestions="@similarQuestions"
+            IsSearching="@searchingEmbedding"
+            HasSearched="@hasSearched" />
 
     </div>
 </div>
@@ -321,6 +277,7 @@
         finally
         {
             searchingEmbedding = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
