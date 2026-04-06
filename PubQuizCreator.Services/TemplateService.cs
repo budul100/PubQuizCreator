@@ -30,6 +30,32 @@ namespace PubQuizCreator.Services
             await db.SaveChangesAsync(ct);
         }
 
+        public async Task<Template> DuplicateAsync(Guid id, CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            var source = await db.Templates
+                .Include(t => t.Slots)
+                .FirstOrDefaultAsync(t => t.Id == id, ct)
+                ?? throw new InvalidOperationException($"Template {id} not found.");
+
+            var copy = new Template { Name = source.Name + " (Copy)" };
+            db.Templates.Add(copy);
+
+            foreach (var slot in source.Slots.OrderBy(s => s.Position))
+            {
+                db.TemplateSlots.Add(new TemplateSlot
+                {
+                    TemplateId = copy.Id,
+                    CategoryId = slot.CategoryId,
+                    Position = slot.Position
+                });
+            }
+
+            await db.SaveChangesAsync(ct);
+            return copy;
+        }
+
         public async Task<List<Template>> GetAllAsync(CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);

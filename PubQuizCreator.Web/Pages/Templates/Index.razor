@@ -52,7 +52,16 @@ else
                     </small>
                 </div>
                 <div class="d-flex gap-2" @onclick:stopPropagation="true">
-                    <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteAsync(t.Id)">✕</button>
+                    <button class="btn btn-outline-secondary btn-sm"
+                        title="Duplicate"
+                        @onclick="() => DuplicateAsync(t.Id)">
+                        ⧉
+                    </button>
+                    <button class="btn btn-outline-danger btn-sm"
+                        title="Delete"
+                        @onclick="() => DeleteAsync(t.Id)">
+                        ✕
+                    </button>
                 </div>
             </div>
         }
@@ -86,5 +95,11 @@ else
 
         await TemplateService.DeleteAsync(id);
         templates = await TemplateService.GetAllAsync();
+    }
+
+    private async Task DuplicateAsync(Guid id)
+    {
+        var copy = await TemplateService.DuplicateAsync(id);
+        Nav.NavigateTo($"/templates/{copy.Id}/edit");
     }
 }
