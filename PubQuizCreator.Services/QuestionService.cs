@@ -215,8 +215,7 @@ namespace PubQuizCreator.Services
 
         #region Private Methods
 
-        private static string BuildEmbeddingInput(Question q) =>
-            $"{q.TextShort} {q.TextLong} {q.Answer}".Trim();
+        private static string BuildEmbeddingInput(Question q) => $"{q.TextShort} {q.Answer}".Trim();
 
         #endregion Private Methods
     }
