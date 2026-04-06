@@ -3,6 +3,7 @@ using PubQuizCreator.Core;
 using PubQuizCreator.Core.Interfaces;
 using PubQuizCreator.Data;
 using PubQuizCreator.Services;
+using QuestPDF.Infrastructure;
 
 internal class Program
 {
@@ -54,6 +55,8 @@ internal class Program
             client.Timeout = TimeSpan.FromSeconds(QuizConstants.OllamaHealthTimeoutSeconds);
         });
 
+        QuestPDF.Settings.License = LicenseType.Community;
+        
         var app = builder.Build();
 
         if (!app.Environment.IsDevelopment())
@@ -83,7 +86,7 @@ internal class Program
         var quiz = await quizService.GetDetailAsync(id);
         if (quiz == null) return Results.NotFound();
 
-        var bytes = pdfExport.ExportQuiz(quiz);
+        var bytes = PrintService.ExportQuiz(quiz);
         var filename = $"quiz_{quiz.Date:yyyy-MM-dd}.pdf";
         return Results.File(bytes, "application/pdf", filename);
     }

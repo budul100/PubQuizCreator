@@ -10,10 +10,8 @@ namespace PubQuizCreator.Services
     {
         #region Public Methods
 
-        public byte[] ExportQuiz(Quiz quiz)
+        public static byte[] ExportQuiz(Quiz quiz)
         {
-            QuestPDF.Settings.License = LicenseType.Community;
-
             var rounds = quiz.Rounds.OrderBy(r => r.Position).ToList();
             var totalPages = rounds.Count;
 
