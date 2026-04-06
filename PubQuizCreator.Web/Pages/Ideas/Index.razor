@@ -1,6 +1,7 @@
 ﻿@page "/ideas"
 @using Microsoft.EntityFrameworkCore
 @using PubQuizCreator.Core.Models
+@using PubQuizCreator.Core.Helpers
 @using PubQuizCreator.Services
 @inject IdeaService IdeaService
 @inject CategoryService CategoryService
@@ -241,12 +242,13 @@
 
     private async Task AssignCategoryAsync(Guid ideaId, string? categoryIdStr)
     {
-        if (!Guid.TryParse(categoryIdStr, out var categoryId) || categoryId == Guid.Empty) return;
+        if (!Guid.TryParse(categoryIdStr, out var categoryId)) return;
 
         var idea = ideas.First(i => i.Id == ideaId);
         lastAssignment = (ideaId, idea.CategoryId);
 
-        await IdeaService.UpdateCategoryAsync(ideaId, categoryId);
+        await IdeaService.UpdateCategoryAsync(ideaId, categoryId.NullIfEmpty());
+
         idea.CategoryId = categoryId;
         idea.Category = categories.First(c => c.Id == categoryId);
 

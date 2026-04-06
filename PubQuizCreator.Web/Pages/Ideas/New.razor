@@ -1,5 +1,6 @@
 ﻿@page "/ideas/new"
 @using PubQuizCreator.Core.Models
+@using PubQuizCreator.Core.Helpers
 @using PubQuizCreator.Services
 @inject IdeaService IdeaService
 @inject CategoryService CategoryService
@@ -75,7 +76,7 @@
         saving = true;
         saved = false;
 
-        await IdeaService.CreateAsync(text.Trim(), categoryId == Guid.Empty ? null : categoryId, isTimeSensitive);
+        await IdeaService.CreateAsync(text.Trim(), categoryId.NullIfEmpty(), isTimeSensitive);
 
         text = "";
         categoryId = Guid.Empty;

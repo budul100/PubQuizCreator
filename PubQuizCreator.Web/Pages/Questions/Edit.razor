@@ -2,6 +2,7 @@
 @page "/questions/{Id:guid}/edit"
 @using Microsoft.EntityFrameworkCore
 @using PubQuizCreator.Core
+@using PubQuizCreator.Core.Helpers
 @using PubQuizCreator.Core.Models
 @using PubQuizCreator.Core.Types
 @using PubQuizCreator.Services
@@ -272,12 +273,13 @@
     protected override void OnParametersSet()
     {
         if (!isInitialized) return;
+
         if (PreselectedCategoryId.HasValue && PreselectedCategoryId != Guid.Empty)
             model.CategoryId = PreselectedCategoryId.Value;
     }
 
-    private void OnCategoryChanged(ChangeEventArgs e)
-        => model.CategoryId = Guid.TryParse(e.Value?.ToString(), out var id) && id != Guid.Empty ? id : null;
+    private void OnCategoryChanged(ChangeEventArgs e) 
+        => model.CategoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id.NullIfEmpty() : null;
 
     private void TriggerSimilaritySearch()
     {

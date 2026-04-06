@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Data;
+using PubQuizCreator.Core.Helpers;
 
 namespace PubQuizCreator.Services
 {
@@ -16,7 +17,7 @@ namespace PubQuizCreator.Services
             var idea = new Idea
             {
                 Text = text,
-                CategoryId = categoryId == Guid.Empty ? null : categoryId,
+                CategoryId = categoryId.NullIfEmpty(),
                 IsTimeSensitive = isTimeSensitive
             };
 
@@ -84,7 +85,8 @@ namespace PubQuizCreator.Services
 
             var idea = await db.Ideas.FindAsync([id], ct)
                 ?? throw new InvalidOperationException("Idea not found.");
-            idea.CategoryId = categoryId == Guid.Empty ? null : categoryId;
+
+            idea.CategoryId = categoryId.NullIfEmpty();
             await db.SaveChangesAsync(ct);
         }
 
