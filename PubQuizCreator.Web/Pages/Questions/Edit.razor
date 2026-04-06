@@ -1,6 +1,5 @@
 ﻿@page "/questions/new"
 @page "/questions/{Id:guid}/edit"
-@using Microsoft.EntityFrameworkCore
 @using PubQuizCreator.Core
 @using PubQuizCreator.Core.Helpers
 @using PubQuizCreator.Core.Models
@@ -294,7 +293,6 @@
     private async Task RunSimilaritySearchAsync()
     {
         var text = $"{model.TextShort} {model.TextLong} {model.Answer}".Trim();
-        if (text.Length < 10) return;
 
         searchingEmbedding = true;
         await InvokeAsync(StateHasChanged);

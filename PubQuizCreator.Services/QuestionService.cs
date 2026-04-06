@@ -57,6 +57,9 @@ namespace PubQuizCreator.Services
         public async Task<List<QuestionSimilar>> FindSimilarAsync(string text, Guid excludeId, int topN = 5,
             CancellationToken ct = default)
         {
+            if (string.IsNullOrWhiteSpace(text) || text.Length < 10)
+                return [];
+
             var vector = await embeddingService.GetEmbeddingAsync(text, ct);
             var queryVector = new Vector(vector);
 

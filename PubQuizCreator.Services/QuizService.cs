@@ -131,42 +131,6 @@ namespace PubQuizCreator.Services
                 .ToListAsync(ct);
         }
 
-        public async Task<QuizStats?> GetStatsAsync(Guid quizId, CancellationToken ct = default)
-        {
-            await using var db = await dbFactory.CreateDbContextAsync(ct);
-
-            var quiz = await db.Quizzes
-                .Include(q => q.Rounds)
-                    .ThenInclude(r => r.Slots)
-                        .ThenInclude(s => s.Category)
-                .Include(q => q.Rounds)
-                    .ThenInclude(r => r.Slots)
-                        .ThenInclude(s => s.Question)
-                .AsSplitQuery()
-                .FirstOrDefaultAsync(q => q.Id == quizId, ct);
-
-            if (quiz == null) return null;
-
-            var allSlots = quiz.Rounds.SelectMany(r => r.Slots).ToList();
-
-            var byCategory = allSlots
-                .GroupBy(s => s.Category)
-                .Select(g => new CategoryStats
-                {
-                    Category = g.Key,
-                    TotalSlots = g.Count(),
-                    OpenSlots = g.Count(s => s.QuestionId == null)
-                })
-                .ToList();
-
-            return new QuizStats
-            {
-                TotalSlots = allSlots.Count,
-                TotalOpen = allSlots.Count(s => s.QuestionId == null),
-                ByCategory = byCategory
-            };
-        }
-
         public async Task<int> GetTotalOpenSlotsAsync(CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
