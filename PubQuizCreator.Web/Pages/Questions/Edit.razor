@@ -65,7 +65,9 @@
 
             @{
                 var shortLen = model.TextShort?.Length ?? 0;
-                var warnClass = shortLen > Constants.TextShortWarnLength ? "text-danger fw-semibold" : "text-muted";
+
+                var warnLength = Configuration.GetValue<int>("Quiz:TextShortWarnLength", Constants.TextShortWarnLength);
+                var warnClass = shortLen > warnLength ? "text-danger fw-semibold" : "text-muted";
             }
             <div class="d-flex gap-3 align-items-center mb-3">
                 <small class="@warnClass">
@@ -74,7 +76,7 @@
                         <span>⚠ Too long for presentation — consider shortening.</span>
                     }
                 </small>
-                <small class="@warnClass">@shortLen / @Constants.TextShortWarnLength chars</small>
+                <small class="@warnClass">@shortLen / @warnLength chars</small>
             </div>
 
             <div class="mb-3">
@@ -307,7 +309,12 @@
             .Replace("{category}", categoryName)
             .Replace("{question}", model.TextShort)
             .Replace("{answer}", model.Answer);
+
         await JS.InvokeVoidAsync("navigator.clipboard.writeText", prompt);
+
+        var copyUrl = Configuration["Quiz:AiCopyUrl"];
+        if (!string.IsNullOrWhiteSpace(copyUrl))
+            await JS.InvokeVoidAsync("open", copyUrl, "_blank");
     }
 
     private bool CanCheck => !string.IsNullOrWhiteSpace(model.TextShort)
