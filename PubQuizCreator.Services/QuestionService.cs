@@ -11,6 +11,10 @@ namespace PubQuizCreator.Services
     {
         #region Public Methods
 
+        public static string BuildEmbeddingInput(Question q) =>
+            string.Join(" ", new[] { q.TextShort.Trim(), q.Answer.Trim() }
+                .Where(s => !string.IsNullOrEmpty(s)));
+
         public async Task<Question> CreateAsync(Question question, CancellationToken ct = default)
         {
             if (!question.IsUnusable)
@@ -196,11 +200,5 @@ namespace PubQuizCreator.Services
         }
 
         #endregion Public Methods
-
-        #region Private Methods
-
-        private static string BuildEmbeddingInput(Question q) => $"{q.TextShort} {q.Answer}".Trim();
-
-        #endregion Private Methods
     }
 }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using PubQuizCreator.Core;
 using PubQuizCreator.Core.Models;
 
 namespace PubQuizCreator.Data
@@ -34,7 +35,7 @@ namespace PubQuizCreator.Data
 
             modelBuilder.Entity<Question>()
                 .Property(q => q.Embedding)
-                .HasColumnType("vector(768)");
+                .HasColumnType($"vector({Constants.EmbeddingDimensions})");
 
             modelBuilder.Entity<Question>()
                 .HasOne(q => q.Category)

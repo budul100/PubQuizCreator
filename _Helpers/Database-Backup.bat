@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-set BACKUP_DIR=%HiDrive%\Veranstaltungen\PubQuiz\Backups
+set BACKUP_DIR=%HiDrive%\Veranstaltungen\PubQuiz\Archiv\Backups
 
 set CONTAINER=pubquizcreator-db-1
 set DB=pubquiz

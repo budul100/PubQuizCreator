@@ -8,7 +8,10 @@
         #region Public Fields
 
         // Default Ollama embedding model. Can be overridden via appsettings.json (Ollama:EmbeddingModel).
-        public const string DefaultEmbeddingModel = "nomic-embed-text";
+        public const string DefaultEmbeddingModel = "mxbai-embed-large";
+
+        // Number of dimensions for the embedding model. Must match the model used in Ollama and the database column type.
+        public const int EmbeddingDimensions = 1024;
 
         // Default font size if not defined in app settings.
         public const float FontSizeDefault = 8f;

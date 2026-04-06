@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ClosedXML.Excel;
-using DocumentFormat.OpenXml.Spreadsheet;
 using PubQuizCreator.Core.Interfaces;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Core.Types;
@@ -45,7 +44,7 @@ internal partial class Program
         var categoryService = scope.ServiceProvider.GetRequiredService<CategoryService>();
 
         var allCategories = await categoryService.GetAllAsync();
-        
+
         using var workbook = new XLWorkbook(path);
 
         var totalRows = workbook.Worksheets
@@ -249,7 +248,8 @@ internal partial class Program
     {
         // --- Setup (shared) ---
         var config = new ConfigurationBuilder()
-            .AddJsonFile("appsettings.json")
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: false)
             .Build();
 
         var services = new ServiceCollection();
@@ -310,12 +310,12 @@ internal partial class Program
 
         for (var i = 0; i < questions.Count; i++)
         {
-            var q = questions[i];
-            var text = $"{q.TextShort} {q.TextLong} {q.Answer}".Trim();
+            var question = questions[i];
+            var text = QuestionService.BuildEmbeddingInput(question);
 
             if (string.IsNullOrWhiteSpace(text))
             {
-                Console.WriteLine($"  SKIP (no text): {q.Id}");
+                Console.WriteLine($"  SKIP (no text): {question.Id}");
                 failed++;
                 continue;
             }
@@ -323,13 +323,13 @@ internal partial class Program
             try
             {
                 var vector = await embeddingService.GetEmbeddingAsync(text);
-                q.Embedding = new Pgvector.Vector(vector);
+                question.Embedding = new Pgvector.Vector(vector);
                 await db.SaveChangesAsync();
                 ok++;
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"  ERROR [{q.Id}]: {ex.Message}");
+                Console.Error.WriteLine($"  ERROR [{question.Id}]: {ex.Message}");
                 failed++;
             }
 
