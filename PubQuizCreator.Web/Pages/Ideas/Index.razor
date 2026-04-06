@@ -1,4 +1,5 @@
 ﻿@page "/ideas"
+@using PubQuizCreator.Core
 @using PubQuizCreator.Core.Models
 @using PubQuizCreator.Core.Helpers
 @using PubQuizCreator.Services
@@ -57,7 +58,9 @@
         }
         else
         {
-            <div class="mb-2 text-muted small">Showing @filtered.Count of @ideas.Count</div>
+            <div class="mb-2 text-muted small">
+                Showing @paged.Count of @filtered.Count ideas (@ideas.Count total)
+            </div>
 
             @if (!filtered.Any())
             {
@@ -66,7 +69,7 @@
             else
             {
                 <div class="list-group">
-                    @foreach (var idea in filtered)
+                    @foreach (var idea in paged)
                     {
                         var categoryColor = idea.Category?.ColorHex ?? "#ffffff";
 
@@ -124,6 +127,11 @@
                         </div>
                     }
                 </div>
+
+                <ContentPager TotalItems="filtered.Count"
+                       PageSize="Constants.PageSize"
+                       CurrentPage="currentPage"
+                       PageChanged="OnPageChanged" />
             }
         }
 
@@ -138,8 +146,11 @@
 @code {
     private string searchText = "";
     private bool sortAscending = false;
-    private bool isLoading = true;
 
+    private bool isLoading = true;
+    private int currentPage = 1;
+
+    private List<Idea> paged = [];
     private List<Idea> ideas = [];
     private List<Idea> filtered = [];
     private List<Category> categories = [];
@@ -172,6 +183,13 @@
             filterMode = IdeaCategoryFilter.Uncategorized;
 
         ApplyFilter();
+    }
+
+    private void OnPageChanged(int page)
+    {
+        currentPage = page;
+        ApplyPaging();
+        StateHasChanged();
     }
 
     private void OnCoverageFilterAsync(Guid categoryId)
@@ -221,6 +239,17 @@
         filtered = sortAscending
             ? q.OrderByDescending(i => i.IsTimeSensitive).ThenBy(i => i.CreatedAt).ToList()
             : q.OrderByDescending(i => i.IsTimeSensitive).ThenByDescending(i => i.CreatedAt).ToList();
+
+        currentPage = 1;
+        ApplyPaging();
+    }
+
+    private void ApplyPaging()
+    {
+        paged = filtered
+            .Skip((currentPage - 1) * Constants.PageSize)
+            .Take(Constants.PageSize)
+            .ToList();
     }
 
     private string GetCategorySelectValue() => filterMode switch

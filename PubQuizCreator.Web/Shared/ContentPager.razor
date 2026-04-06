@@ -1,0 +1,35 @@
+﻿<!-- Renders pagination controls. Resets to page 1 on filter changes via CurrentPage binding. -->
+
+<nav aria-label="Pagination" class="d-flex align-items-center gap-2 mt-2">
+    <button class="btn btn-outline-secondary btn-sm"
+        disabled="@(CurrentPage <= 1)"
+        @onclick="() => PageChanged.InvokeAsync(CurrentPage - 1)">‹</button>
+
+    @for (int i = StartPage; i <= EndPage; i++)
+    {
+        var page = i;
+        var btnClass = page == CurrentPage ? "btn btn-sm btn-primary" : "btn btn-sm btn-outline-secondary";
+        <button class="@btnClass" @onclick="() => PageChanged.InvokeAsync(page)">
+            @(page)
+        </button>
+    }
+
+    <button class="btn btn-outline-secondary btn-sm"
+            disabled="@(CurrentPage >= TotalPages)"
+            @onclick="() => PageChanged.InvokeAsync(CurrentPage + 1)">›</button>
+
+    <span class="text-muted small ms-1">@TotalItems items</span>
+</nav>
+
+@code {
+    [Parameter, EditorRequired] public int TotalItems { get; set; }
+    [Parameter, EditorRequired] public int PageSize { get; set; }
+    [Parameter, EditorRequired] public int CurrentPage { get; set; }
+    [Parameter, EditorRequired] public EventCallback<int> PageChanged { get; set; }
+
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling((double)TotalItems / PageSize));
+
+    // Show max 5 page buttons around current page
+    private int StartPage => Math.Max(1, CurrentPage - 2);
+    private int EndPage => Math.Min(TotalPages, StartPage + 4);
+}

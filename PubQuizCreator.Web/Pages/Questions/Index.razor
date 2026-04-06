@@ -1,4 +1,5 @@
 ﻿@page "/questions"
+@using PubQuizCreator.Core
 @using PubQuizCreator.Core.Models
 @using PubQuizCreator.Core.Types 
 @using PubQuizCreator.Services
@@ -59,7 +60,7 @@
         else
         {
             <div class="mb-2 text-muted small">
-                Showing @filtered.Count of @total questions
+                Showing @paged.Count of @filtered.Count questions (@total total)
             </div>
 
             @if (!filtered.Any())
@@ -79,60 +80,65 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var q in filtered)
+                        @foreach (var question in paged)
                         {
-                            var categoryColor = q.Category?.ColorHex ?? "#aaaaaa";
-                            var editUrl = $"/questions/{q.Id}/edit";
-                            var rowStyle = q.IsUnusable ? "opacity: 0.55;" : "";
+                            var categoryColor = question.Category?.ColorHex ?? "#aaaaaa";
+                            var editUrl = $"/questions/{question.Id}/edit";
+                            var rowStyle = question.IsUnusable ? "opacity: 0.55;" : "";
 
                             <tr style="cursor: pointer; @rowStyle" @onclick="() => Nav.NavigateTo(editUrl)">
                                 <td>
-                                    @if (q.IsUnusable)
+                                    @if (question.IsUnusable)
                                     {
                                         <span class="badge bg-secondary">unusable</span>
                                     }
                                     else
                                     {
-                                        <CategoryBadge ColorHex="@categoryColor" Name="@(q.Category?.Name ?? "")" />
+                                        <CategoryBadge ColorHex="@categoryColor" Name="@(question.Category?.Name ?? "")" />
                                     }
                                 </td>
 
                                 <td>
-                                    @q.TextShort
-                                    @if (q.MediaType != MediaType.None)
+                                    @question.TextShort
+                                    @if (question.MediaType != MediaType.None)
                                     {
-                                        var icon = q.MediaType switch
+                                        var icon = question.MediaType switch
                                         {
                                             MediaType.Image => "🖼",
                                             MediaType.Audio => "🎵",
                                             MediaType.Video => "🎬",
                                             _ => ""
                                         };
-                                        <span class="ms-1 text-muted" title="@q.MediaType.ToString()">@icon</span>
+                                        <span class="ms-1 text-muted" title="@question.MediaType.ToString()">@icon</span>
                                     }
                                 </td>
 
-                                <td class="text-muted">@q.Answer</td>
+                                <td class="text-muted">@question.Answer</td>
                                 <td>
-                                    @if (q.UsedInQuiz != null)
+                                    @if (question.UsedInQuiz != null)
                                     {
-                                        <small class="text-muted">@q.UsedInQuiz</small>
+                                        <small class="text-muted">@question.UsedInQuiz</small>
                                     }
-                                    else if (q.WasUsed && !q.IsUnusable)
+                                    else if (question.WasUsed && !question.IsUnusable)
                                     {
                                         <small class="text-muted fst-italic">previously used</small>
                                     }
                                 </td>
                                 <td @onclick:stopPropagation="true">
-                                    @if (q.UsedInQuiz == null)
+                                    @if (question.UsedInQuiz == null)
                                     {
-                                        <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteAsync(q.Id)">✕</button>
+                                        <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteAsync(question.Id)">✕</button>
                                     }
                                 </td>
                             </tr>
                         }
                     </tbody>
                 </table>
+
+                <ContentPager TotalItems="filtered.Count"
+                   PageSize="Constants.PageSize"
+                   CurrentPage="currentPage"
+                   PageChanged="OnPageChanged" />
             }
         }
 
@@ -160,7 +166,9 @@
 
     private bool initialized = false;
     private bool isLoading = true;
+    private int currentPage = 1;
 
+    private List<QuestionRow> paged = [];
     private List<Category> categories = [];
     private List<QuestionRow> all = [];
     private List<QuestionRow> filtered = [];
@@ -238,6 +246,12 @@
         await ApplyFilterAsync();
     }
 
+    private void OnPageChanged(int page)
+    {
+        currentPage = page;
+        ApplyPaging();
+    }
+
     private async Task OnCategoryChanged(ChangeEventArgs e)
     {
         var val = e.Value?.ToString();
@@ -279,7 +293,18 @@
             .ThenBy(q => q.TextShort)
             .ToList();
 
+        currentPage = 1;  // reset on filter change
+        ApplyPaging();
+
         isLoading = false;
+    }
+
+    private void ApplyPaging()
+    {
+        paged = filtered
+            .Skip((currentPage - 1) * Constants.PageSize)
+            .Take(Constants.PageSize)
+            .ToList();
     }
 
     private string GetCategorySelectValue() => filterMode switch

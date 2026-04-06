@@ -10,6 +10,9 @@
         // Default Ollama embedding model. Can be overridden via appsettings.json (Ollama:EmbeddingModel).
         public const string DefaultEmbeddingModel = "nomic-embed-text";
 
+        // Number of elements shown in list views.
+        public const int PageSize = 50;
+
         // Timeout for Ollama embedding requests (model may need a moment to load).
         public const int OllamaEmbeddingTimeoutSeconds = 10;
 
