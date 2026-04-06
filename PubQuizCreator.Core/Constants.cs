@@ -10,6 +10,12 @@
         // Default Ollama embedding model. Can be overridden via appsettings.json (Ollama:EmbeddingModel).
         public const string DefaultEmbeddingModel = "nomic-embed-text";
 
+        // Default font size if not defined in app settings.
+        public const float FontSizeDefault = 8f;
+
+        // Header font size if not defined in app settings.
+        public const float FontSizeHeader = 11f;
+
         // Number of elements shown in list views.
         public const int PageSize = 50;
 

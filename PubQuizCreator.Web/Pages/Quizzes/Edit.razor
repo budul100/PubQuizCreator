@@ -120,7 +120,7 @@ else
                                             MediaType.Video => "🎬",
                                             _ => ""
                                         };
-                                        <span class="ms-1 text-muted" title="@mt.ToString()">@icon</span>
+                                        <span class="ms-1 text-muted fs-4" title="@mt.ToString()"> | @icon</span>
                                     }
                                 </div>
                             </div>
@@ -177,7 +177,20 @@ else
                                     {
                                         <button class="list-group-item list-group-item-action py-1"
                                                 @onclick="() => AssignAsync(q.Id)">
-                                            <div class="small fw-semibold">@q.TextShort</div>
+                                            <div class="small fw-semibold">
+                                                @q.TextShort
+                                                @if (q?.MediaType is { } mts && mts != MediaType.None)
+                                                {
+                                                    var icon = mts switch
+                                                    {
+                                                        MediaType.Image => "🖼",
+                                                        MediaType.Audio => "🎵",
+                                                        MediaType.Video => "🎬",
+                                                        _ => ""
+                                                    };
+                                                    <span class="small text-muted fs-4" title="@mts.ToString()"> | @icon</span>
+                                                }
+                                            </div>
                                             <div class="small text-muted">→ @q.Answer</div>
                                         </button>
                                     }

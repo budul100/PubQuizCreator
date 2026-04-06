@@ -85,20 +85,29 @@ internal class Program
         app.MapBlazorHub();
         app.MapGet(
             pattern: "/export/quiz/{id:guid}/pdf",
-            handler: (Guid id, QuizService qs) => PrintAsync(
-                id: id,
-                quizService: qs));
+            handler: (Guid id, QuizService qs, IConfiguration cfg) => PrintAsync(id, qs, cfg));
         app.MapFallbackToPage("/_Host");
 
         app.Run();
     }
 
-    private static async Task<IResult> PrintAsync(Guid id, QuizService quizService)
+    private static async Task<IResult> PrintAsync(Guid id, QuizService quizService, IConfiguration cfg)
     {
         var quiz = await quizService.GetDetailAsync(id);
         if (quiz == null) return Results.NotFound();
 
-        var bytes = PrintService.ExportQuiz(quiz);
+        var fontSizeDefault = cfg.GetValue(
+            key: "Print:FontSizeDefault",
+            defaultValue: Constants.FontSizeDefault);
+        var fontSizeHeader = cfg.GetValue(
+            key: "Print:FontSizeHeader",
+            defaultValue: Constants.FontSizeHeader);
+
+        var bytes = PrintService.ExportQuiz(
+            quiz: quiz,
+            fontSizeDefault: fontSizeDefault,
+            fontSizeHeader: fontSizeHeader);
+
         var filename = $"quiz_{quiz.Date:yyyy-MM-dd}.pdf";
         return Results.File(bytes, "application/pdf", filename);
     }
