@@ -44,6 +44,8 @@ internal partial class Program
         var questionService = scope.ServiceProvider.GetRequiredService<QuestionService>();
         var categoryService = scope.ServiceProvider.GetRequiredService<CategoryService>();
 
+        var allCategories = await categoryService.GetAllAsync();
+        
         using var workbook = new XLWorkbook(path);
 
         var totalRows = workbook.Worksheets
@@ -67,7 +69,6 @@ internal partial class Program
             var categoryName = sheet.Name.Trim();
             Console.WriteLine($"\nSheet: {categoryName}");
 
-            var allCategories = await categoryService.GetAllAsync();
             var category = allCategories
                 .FirstOrDefault(c => c.Name.Equals(categoryName, StringComparison.CurrentCultureIgnoreCase));
 
