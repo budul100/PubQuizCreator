@@ -1,4 +1,5 @@
 @echo off
+
 REM start-dev.bat
 REM Starts all Docker containers required for debugging PubQuizCreator.
 REM Run from the solution root directory.
@@ -13,6 +14,14 @@ set MAX_WAIT=30
 REM Sanity check
 if not exist %COMPOSE_FILE% (
     echo [ERROR] Cannot find %COMPOSE_FILE%. Run this script from the solution root.
+    exit /b 1
+)
+
+REM Check if Docker is running
+docker info >nul 2>&1
+if errorlevel 1 (
+    echo Docker is not running. Please start Docker Desktop first.
+    if not "%1"=="--no-pause" pause
     exit /b 1
 )
 
@@ -77,7 +86,10 @@ echo [INFO] Start the app with:
 echo         cd PubQuizCreator.Web ^&^& dotnet run
 echo         -- or press F5 in Visual Studio / Rider
 echo.
-pause
+
+if not "%1"=="--no-pause" pause
+
 endlocal
 BATCHEOF
+
 echo "Done"
