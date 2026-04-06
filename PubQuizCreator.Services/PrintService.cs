@@ -6,7 +6,7 @@ using QuestPDF.Infrastructure;
 
 namespace PubQuizCreator.Services
 {
-    public class PrintService
+    public static class PrintService
     {
         #region Public Methods
 
