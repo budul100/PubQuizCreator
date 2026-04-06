@@ -59,9 +59,9 @@
                     Short text
                     <small class="text-muted">(for presentation)</small>
                 </label>
-                <textarea class="form-control" rows="2"
-                          value="@model.TextShort"
-                          @oninput="e => { model.TextShort = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
+                <input class="form-control"
+                       value="@model.TextShort"
+                       @oninput="e => { model.TextShort = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
             </div>
 
             @{
