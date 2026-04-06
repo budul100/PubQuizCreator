@@ -26,8 +26,6 @@ internal class Program
         builder.Services
             .AddScoped<StateService>();
         builder.Services
-            .AddScoped<PrintService>();
-        builder.Services
             .AddScoped<DashboardService>();
 
         builder.Services
@@ -56,7 +54,7 @@ internal class Program
         });
 
         QuestPDF.Settings.License = LicenseType.Community;
-        
+
         var app = builder.Build();
 
         if (!app.Environment.IsDevelopment())
@@ -72,16 +70,15 @@ internal class Program
         app.MapBlazorHub();
         app.MapGet(
             pattern: "/export/quiz/{id:guid}/pdf",
-            handler: (Guid id, QuizService qs, PrintService ps) => PrintAsync(
+            handler: (Guid id, QuizService qs) => PrintAsync(
                 id: id,
-                quizService: qs,
-                pdfExport: ps));
+                quizService: qs));
         app.MapFallbackToPage("/_Host");
 
         app.Run();
     }
 
-    private static async Task<IResult> PrintAsync(Guid id, QuizService quizService, PrintService pdfExport)
+    private static async Task<IResult> PrintAsync(Guid id, QuizService quizService)
     {
         var quiz = await quizService.GetDetailAsync(id);
         if (quiz == null) return Results.NotFound();
