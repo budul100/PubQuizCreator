@@ -3,10 +3,10 @@
 @using PubQuizCreator.Core.Models
 @using PubQuizCreator.Core.Types 
 @using PubQuizCreator.Services
-@inject StateService AppState
+@inject CategoryService CategoryService
 @inject QuestionService QuestionService
 @inject QuizService QuizService
-@inject CategoryService CategoryService
+@inject StateService StateService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -17,15 +17,7 @@
     <div style="flex: 1; min-width: 0;">
 
         <PageHeader Title="Questions">
-            <TitleSuffix>
-                @if (totalOpenSlots > 0)
-                {
-                    <span class="badge bg-warning text-dark">@totalOpenSlots open</span>
-                }
-            </TitleSuffix>
-            <ChildContent>
-                <a class="btn btn-primary btn-sm" href="/questions/new">+ New question</a>
-            </ChildContent>
+            <a class="btn btn-primary btn-sm" href="/questions/new">+ New question</a>
         </PageHeader>
 
         <div class="d-flex gap-2 mb-3 align-items-center">
@@ -60,7 +52,7 @@
         else
         {
             <div class="mb-2 text-muted small">
-                Showing @paged.Count of @filtered.Count questions (@total total)
+                Showing @paged.Count of @filtered.Count questions (@entries.Count total)
             </div>
 
             @if (!filtered.Any())
@@ -157,10 +149,6 @@
     [SupplyParameterFromQuery(Name = "showUsed")]
     public bool InitialShowUsed { get; set; }
 
-    private enum CategoryFilter { All, AllIncludingHidden, Unusable, Specific }
-    private CategoryFilter filterMode = CategoryFilter.All;
-    private Guid? filterCategoryId;
-
     private bool showUsed = false;
     private string searchText = "";
 
@@ -168,27 +156,30 @@
     private bool isLoading = true;
     private int currentPage = 1;
 
+    private List<QuestionRow> entries = [];
     private List<QuestionRow> paged = [];
-    private List<Category> categories = [];
-    private List<QuestionRow> all = [];
     private List<QuestionRow> filtered = [];
+    private List<Category> categories = [];
+
+    private enum CategoryFilter { All, AllIncludingHidden, Unusable, Specific }
+    private CategoryFilter filterMode = CategoryFilter.All;
+    private Guid? filterCategoryId;
+
     private Dictionary<Guid, int> questionCountByCategory = [];
     private Guid? lastCategoryId;
-    private int totalOpenSlots;
-    private int total;
 
     protected override async Task OnInitializedAsync()
     {
-        AppState.SetPageTitle("Questions");
+        StateService.SetPageTitle("Questions");
 
         isLoading = true;
 
         categories = await CategoryService.GetAllAsync();
 
-        var questions = await QuestionService.GetAllAsync();
+        var all = await QuestionService.GetAllAsync();
         var usageInfo = await QuestionService.GetUsageInfoMapAsync();
 
-        all = questions.Select(q => new QuestionRow(
+        entries = all.Select(q => new QuestionRow(
             q.Id,
             q.TextShort,
             q.Answer,
@@ -200,10 +191,7 @@
             q.MediaType
         )).ToList();
 
-        total = all.Count;
-        totalOpenSlots = await QuizService.GetTotalOpenSlotsAsync();
-
-        questionCountByCategory = all
+        questionCountByCategory = entries
             .Where(q => !q.IsUnusable)
             .GroupBy(q => q.Category?.Id ?? Guid.Empty)
             .ToDictionary(g => g.Key, g => g.Count());
@@ -220,6 +208,7 @@
         await ApplyFilterAsync();
 
         isLoading = false;
+
         lastCategoryId = InitialCategoryId;
         initialized = true;
     }
@@ -274,7 +263,7 @@
         StateHasChanged();
         await Task.Yield();
 
-        filtered = all
+        filtered = entries
             .Where(q => filterMode switch
             {
                 CategoryFilter.Unusable => q.IsUnusable,
@@ -317,19 +306,18 @@
 
     private async Task DeleteAsync(Guid id)
     {
-        var question = all.First(q => q.Id == id);
+        var question = entries.First(q => q.Id == id);
 
         var confirmed = await JS.ConfirmDeleteAsync(question.TextShort);
         if (!confirmed) return;
 
         await QuestionService.DeleteAsync(id);
 
-        all.RemoveAll(q => q.Id == id);
-        questionCountByCategory = all
+        entries.RemoveAll(q => q.Id == id);
+        questionCountByCategory = entries
             .Where(q => !q.IsUnusable)
             .GroupBy(q => q.Category?.Id ?? Guid.Empty)
             .ToDictionary(g => g.Key, g => g.Count());
-        total = all.Count;
 
         await ApplyFilterAsync();
     }

@@ -8,6 +8,12 @@ namespace PubQuizCreator.Services
     {
         #region Public Methods
 
+        public async Task<int> GetTotalDeficitAsync()
+        {
+            var coverage = await GetUpcomingCoverageAsync();
+            return coverage.Where(c => !c.IsCovered).Sum(c => c.Deficit);
+        }
+
         public async Task<DashboardStats> GetStatsAsync(CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);

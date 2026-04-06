@@ -2,7 +2,7 @@
 @using PubQuizCreator.Core.Models
 @using PubQuizCreator.Services
 @inject QuizService QuizService
-@inject StateService AppState
+@inject StateService StateService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -53,10 +53,11 @@ else
         {
             var totalSlots = q.Rounds.SelectMany(r => r.Slots).Count();
             var open = q.Rounds.SelectMany(r => r.Slots).Count(s => s.QuestionId == null);
+
             var (quizLabel, quizBadge) = totalSlots == 0
                 ? ("Empty", "bg-secondary")
                 : open == 0
-                    ? ("Complete", "bg-success")
+                    ? ($"{totalSlots} questions", "bg-success")   // war: "Complete"
                     : ($"{open} open", "bg-warning text-dark");
 
             // Per-category open slots — only categories actually used in this quiz
@@ -81,27 +82,24 @@ else
                         <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteAsync(q.Id)">✕</button>
                     </div>
                 </div>
-
-                @if (!showPast && categoryStats.Any())
-                {
-                    <SlotBadges CategoryStats="@categoryStats" CssClass="mt-2" />
-                }
             </div>
         }
     </div>
 }
 
 @code {
-    private List<Quiz> upcoming = [];
-    private List<Quiz> past = [];
-    private bool showPast = false;
-    private bool showCreate;
     private string newTitle = "New Quiz";
     private DateOnly newDate = DateOnly.FromDateTime(DateTime.Today);
 
+    private bool showPast = false;
+    private bool showCreate;
+
+    private List<Quiz> upcoming = [];
+    private List<Quiz> past = [];
+
     protected override async Task OnInitializedAsync()
     {
-        AppState.SetPageTitle("Quizzes");
+        StateService.SetPageTitle("Quizzes");
         await ReloadAsync();
     }
 

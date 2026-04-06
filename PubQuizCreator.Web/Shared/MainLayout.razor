@@ -1,7 +1,8 @@
 ﻿@inherits LayoutComponentBase
 @using PubQuizCreator.Core
 @using PubQuizCreator.Services
-@inject StateService AppState
+@inject DashboardService DashboardService
+@inject StateService StateService
 @implements IDisposable
 
 <div class="page">
@@ -11,10 +12,20 @@
 
     <main>
         <div class="top-row px-4 d-flex justify-content-between align-items-center">
-            <span class="fw-semibold text-secondary">@AppState.PageTitle</span>
-            <span class="badge @(AppState.OllamaOnline ? "bg-success" : "bg-danger")">
-                Ollama @(AppState.OllamaOnline ? "online" : "offline")
-            </span>
+            <span class="fw-semibold text-secondary">@StateService.PageTitle</span>
+            <div class="d-flex gap-2 align-items-center">
+                @if (missingQuestions > 0)
+                {
+                    <span class="badge bg-warning text-dark">@missingQuestions missing questions</span>
+                }
+                else
+                {
+                    <span class="badge bg-success">All slots covered</span>
+                }
+                <span class="badge @(StateService.OllamaOnline ? "bg-success" : "bg-danger")">
+                    Ollama @(StateService.OllamaOnline ? "online" : "offline")
+                </span>
+            </div>
         </div>
 
         <article class="content px-4">
@@ -24,16 +35,25 @@
 </div>
 
 @code {
+    private int missingQuestions;
+
     private PeriodicTimer? timer;
     private CancellationTokenSource cts = new();
 
     protected override async Task OnInitializedAsync()
     {
-        AppState.OnChange += OnAppStateChanged;
-        await AppState.CheckOllamaAsync();
+        StateService.OnChange += OnAppStateChanged;
+        await StateService.CheckOllamaAsync();
+        await RefreshDeficitAsync();
 
         timer = new PeriodicTimer(TimeSpan.FromSeconds(Constants.OllamaStatusPollIntervalSeconds));
         _ = PollOllamaAsync();
+    }
+
+    private async Task RefreshDeficitAsync()
+    {
+        var coverage = await DashboardService.GetUpcomingCoverageAsync();
+        missingQuestions = coverage.Where(c => !c.IsCovered).Sum(c => c.Deficit);
     }
 
     private async Task PollOllamaAsync()
@@ -42,7 +62,7 @@
         {
             while (timer != null && await timer.WaitForNextTickAsync(cts.Token))
             {
-                await InvokeAsync(() => AppState.CheckOllamaAsync());
+                await InvokeAsync(() => StateService.CheckOllamaAsync());
             }
         }
         catch (OperationCanceledException)
@@ -55,7 +75,7 @@
 
     public void Dispose()
     {
-        AppState.OnChange -= OnAppStateChanged;
+        StateService.OnChange -= OnAppStateChanged;
 
         cts.Cancel();
         cts.Dispose();

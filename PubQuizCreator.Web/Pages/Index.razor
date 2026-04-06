@@ -2,7 +2,7 @@
 @using PubQuizCreator.Core.Models
 @using PubQuizCreator.Services
 @inject DashboardService DashboardService
-@inject StateService AppState
+@inject StateService StateService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -169,7 +169,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        AppState.SetPageTitle("Dashboard");
+        StateService.SetPageTitle("Dashboard");
         stats = await DashboardService.GetStatsAsync();
     }
 

@@ -3,9 +3,10 @@
 @using PubQuizCreator.Core.Models
 @using PubQuizCreator.Core.Helpers
 @using PubQuizCreator.Services
-@inject IdeaService IdeaService
 @inject CategoryService CategoryService
-@inject StateService AppState
+@inject IdeaService IdeaService
+@inject QuizService QuizService
+@inject StateService StateService
 @inject IJSRuntime JS
 @implements IDisposable
 
@@ -16,12 +17,7 @@
     <div style="flex: 1; min-width: 0;">
 
         <PageHeader Title="Ideas">
-            <TitleSuffix>
-                <span class="badge bg-secondary">@ideas.Count open</span>
-            </TitleSuffix>
-            <ChildContent>
-                <a class="btn btn-primary btn-sm" href="/ideas/new">+ New idea</a>
-            </ChildContent>
+            <a class="btn btn-primary btn-sm" href="/ideas/new">+ New idea</a>
         </PageHeader>
 
         <div class="d-flex gap-2 mb-3">
@@ -59,7 +55,7 @@
         else
         {
             <div class="mb-2 text-muted small">
-                Showing @paged.Count of @filtered.Count ideas (@ideas.Count total)
+                Showing @paged.Count of @filtered.Count ideas (@entries.Count total)
             </div>
 
             @if (!filtered.Any())
@@ -150,8 +146,8 @@
     private bool isLoading = true;
     private int currentPage = 1;
 
+    private List<Idea> entries = [];
     private List<Idea> paged = [];
-    private List<Idea> ideas = [];
     private List<Idea> filtered = [];
     private List<Category> categories = [];
 
@@ -164,12 +160,12 @@
 
     protected override async Task OnInitializedAsync()
     {
-        AppState.SetPageTitle("Ideas");
+        StateService.SetPageTitle("Ideas");
 
-        searchText = AppState.IdeasSearchText;
-        sortAscending = AppState.IdeasSortAscending;
+        searchText = StateService.IdeasSearchText;
+        sortAscending = StateService.IdeasSortAscending;
 
-        var savedId = AppState.IdeasSelectedCategory;
+        var savedId = StateService.IdeasSelectedCategory;
         if (savedId != Guid.Empty)
         {
             filterMode = IdeaCategoryFilter.Specific;
@@ -179,7 +175,7 @@
         categories = (await CategoryService.GetAllAsync()).Where(c => !c.IsHidden).ToList();
         await ReloadAsync();
 
-        if (filterMode == IdeaCategoryFilter.All && ideas.Any(i => i.CategoryId == null))
+        if (filterMode == IdeaCategoryFilter.All && entries.Any(i => i.CategoryId == null))
             filterMode = IdeaCategoryFilter.Uncategorized;
 
         ApplyFilter();
@@ -216,7 +212,7 @@
     private async Task ReloadAsync()
     {
         isLoading = true;
-        ideas = await IdeaService.GetOpenAsync();
+        entries = await IdeaService.GetOpenAsync();
         isLoading = false;
         ApplyFilter();
         StateHasChanged();
@@ -226,7 +222,7 @@
     {
         SaveFilterState();
 
-        var q = ideas
+        var currents = entries
             .Where(i => filterMode switch
             {
                 IdeaCategoryFilter.Uncategorized => i.CategoryId == null,
@@ -237,8 +233,8 @@
                      || i.Text.Contains(searchText, StringComparison.OrdinalIgnoreCase));
 
         filtered = sortAscending
-            ? q.OrderByDescending(i => i.IsTimeSensitive).ThenBy(i => i.CreatedAt).ToList()
-            : q.OrderByDescending(i => i.IsTimeSensitive).ThenByDescending(i => i.CreatedAt).ToList();
+            ? currents.OrderByDescending(i => i.IsTimeSensitive).ThenBy(i => i.CreatedAt).ToList()
+            : currents.OrderByDescending(i => i.IsTimeSensitive).ThenByDescending(i => i.CreatedAt).ToList();
 
         currentPage = 1;
         ApplyPaging();
@@ -272,7 +268,7 @@
     {
         if (!Guid.TryParse(categoryIdStr, out var categoryId)) return;
 
-        var idea = ideas.First(i => i.Id == ideaId);
+        var idea = entries.First(i => i.Id == ideaId);
         lastAssignment = (ideaId, idea.CategoryId);
 
         await IdeaService.UpdateCategoryAsync(ideaId, categoryId.NullIfEmpty());
@@ -297,7 +293,7 @@
 
         await IdeaService.UpdateCategoryAsync(ideaId, oldCategoryId);
 
-        var idea = ideas.First(i => i.Id == ideaId);
+        var idea = entries.First(i => i.Id == ideaId);
         idea.CategoryId = oldCategoryId;
         idea.Category = oldCategoryId == null ? null : categories.FirstOrDefault(c => c.Id == oldCategoryId);
 
@@ -310,16 +306,16 @@
     private async Task ToggleTimeSensitiveAsync(Guid id, bool value)
     {
         await IdeaService.SetTimeSensitiveAsync(id, value);
-        var idea = ideas.First(i => i.Id == id);
+        var idea = entries.First(i => i.Id == id);
         idea.IsTimeSensitive = value;
         ApplyFilter();
     }
 
     private void SaveFilterState()
     {
-        AppState.IdeasSearchText = searchText;
-        AppState.IdeasSortAscending = sortAscending;
-        AppState.IdeasSelectedCategory = filterMode == IdeaCategoryFilter.Specific
+        StateService.IdeasSearchText = searchText;
+        StateService.IdeasSortAscending = sortAscending;
+        StateService.IdeasSelectedCategory = filterMode == IdeaCategoryFilter.Specific
             ? filterCategoryId ?? Guid.Empty
             : Guid.Empty;
     }
