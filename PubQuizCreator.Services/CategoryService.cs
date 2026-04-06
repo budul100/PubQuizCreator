@@ -61,8 +61,7 @@ namespace PubQuizCreator.Services
                 await db.Ideas.AnyAsync(i => i.CategoryId == id, ct);
         }
 
-        public async Task UpdateAsync(Guid id, string name, string colorHex, bool isHidden = false,
-            CancellationToken ct = default)
+        public async Task UpdateAsync(Guid id, string name, string colorHex, bool isHidden, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
