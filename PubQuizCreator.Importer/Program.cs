@@ -272,7 +272,12 @@ internal partial class Program
 
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(config);
-        services.AddDbContext<AppDbContext>(o =>
+
+        services.AddScoped<QuestionService>();
+        services.AddScoped<IdeaService>();
+        services.AddScoped<CategoryService>();
+
+        services.AddDbContextFactory<AppDbContext>(o =>
             o.UseNpgsql(config.GetConnectionString("Default"), n => n.UseVector()));
 
         var ollamaUrl = config["Ollama:BaseUrl"]
@@ -280,9 +285,6 @@ internal partial class Program
 
         services.AddHttpClient<IEmbeddingService, OllamaService>(
             client => client.BaseAddress = new Uri(ollamaUrl));
-        services.AddScoped<QuestionService>();
-        services.AddScoped<IdeaService>();
-        services.AddScoped<CategoryService>();
 
         var sp = services.BuildServiceProvider();
         using var scope = sp.CreateScope();

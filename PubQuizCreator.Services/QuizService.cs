@@ -196,10 +196,19 @@ namespace PubQuizCreator.Services
             var round = await db.QuizRounds.FindAsync([roundId], ct);
             if (round == null) return;
 
+            var quizId = round.QuizId;
             db.QuizRounds.Remove(round);
-            await db.SaveChangesAsync(ct);
 
-            await NormalizeRoundPositionsAsync(round.QuizId, ct);
+            // Normalize positions within the same context — single SaveChanges
+            var remaining = await db.QuizRounds
+                .Where(r => r.QuizId == quizId && r.Id != roundId)
+                .OrderBy(r => r.Position)
+                .ToListAsync(ct);
+
+            for (var i = 0; i < remaining.Count; i++)
+                remaining[i].Position = i + 1;
+
+            await db.SaveChangesAsync(ct);
         }
 
         public async Task RemoveSlotAsync(Guid slotId, CancellationToken ct = default)
@@ -211,9 +220,16 @@ namespace PubQuizCreator.Services
 
             var roundId = slot.QuizRoundId;
             db.QuizSlots.Remove(slot);
-            await db.SaveChangesAsync(ct);
 
-            await NormalizeSlotPositionsAsync(roundId, ct);
+            var remaining = await db.QuizSlots
+                .Where(s => s.QuizRoundId == roundId && s.Id != slotId)
+                .OrderBy(s => s.Position)
+                .ToListAsync(ct);
+
+            for (var i = 0; i < remaining.Count; i++)
+                remaining[i].Position = i + 1;
+
+            await db.SaveChangesAsync(ct);
         }
 
         public async Task ReorderRoundsAsync(Guid quizId, List<Guid> orderedIds, CancellationToken ct = default)
@@ -257,41 +273,5 @@ namespace PubQuizCreator.Services
         }
 
         #endregion Public Methods
-
-        #region Private Methods
-
-        private async Task NormalizeRoundPositionsAsync(Guid quizId, CancellationToken ct)
-        {
-            await using var db = await dbFactory.CreateDbContextAsync(ct);
-
-            var rounds = await db.QuizRounds
-                .Where(r => r.QuizId == quizId)
-                .OrderBy(r => r.Position)
-                .ToListAsync(ct);
-
-            for (var i = 0; i < rounds.Count; i++)
-            {
-                rounds[i].Position = i + 1;
-            }
-
-            await db.SaveChangesAsync(ct);
-        }
-
-        private async Task NormalizeSlotPositionsAsync(Guid roundId, CancellationToken ct)
-        {
-            await using var db = await dbFactory.CreateDbContextAsync(ct);
-
-            var slots = await db.QuizSlots
-                .Where(s => s.QuizRoundId == roundId)
-                .OrderBy(s => s.Position)
-                .ToListAsync(ct);
-
-            for (var i = 0; i < slots.Count; i++)
-                slots[i].Position = i + 1;
-
-            await db.SaveChangesAsync(ct);
-        }
-
-        #endregion Private Methods
     }
 }
