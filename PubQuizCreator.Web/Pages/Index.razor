@@ -177,7 +177,7 @@ else
     {
         if (!firstRender) return;
 
-        var width = await JS.InvokeAsync<int>("eval", "window.innerWidth");
+        var width = await JS.InvokeAsync<int>("getWindowWidth");
         if (width < 641)
             Nav.NavigateTo("/ideas/new");
     }

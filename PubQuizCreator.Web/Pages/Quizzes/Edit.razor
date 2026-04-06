@@ -389,10 +389,9 @@ else
     private void ApplyFilter()
     {
         pickerFiltered = pickerAll
-            .Where(q => !q.WasUsed)
             .Where(q => string.IsNullOrWhiteSpace(pickerSearch)
-                     || q.TextShort.Contains(pickerSearch, StringComparison.OrdinalIgnoreCase)
-                     || q.Answer.Contains(pickerSearch, StringComparison.OrdinalIgnoreCase))
+                || q.TextShort.Contains(pickerSearch, StringComparison.OrdinalIgnoreCase)
+                || q.Answer.Contains(pickerSearch, StringComparison.OrdinalIgnoreCase))
             .ToList();
     }
 

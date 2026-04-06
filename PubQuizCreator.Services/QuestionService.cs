@@ -120,6 +120,7 @@ namespace PubQuizCreator.Services
             return await db.Questions
                 .Where(q => q.CategoryId == categoryId
                     && !q.IsUnusable
+                    && !q.WasUsed
                     && !excludeIds.Contains(q.Id))
                 .Select(q => new Question
                 {
