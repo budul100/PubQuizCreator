@@ -1,14 +1,14 @@
-﻿using ClosedXML.Excel;
-using DocumentFormat.OpenXml.Spreadsheet;
+﻿using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Spreadsheet;
 using PubQuizCreator.Core.Interfaces;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Core.Types;
 using PubQuizCreator.Data;
 using PubQuizCreator.Services;
-using System.Text.RegularExpressions;
 
 internal partial class Program
 {
@@ -41,8 +41,8 @@ internal partial class Program
             return 1;
         }
 
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var questionService = scope.ServiceProvider.GetRequiredService<QuestionService>();
+        var categoryService = scope.ServiceProvider.GetRequiredService<CategoryService>();
 
         using var workbook = new XLWorkbook(path);
 
@@ -67,15 +67,13 @@ internal partial class Program
             var categoryName = sheet.Name.Trim();
             Console.WriteLine($"\nSheet: {categoryName}");
 
-            // Resolve or create category
-            var category = await db.Categories
-                .FirstOrDefaultAsync(c => c.Name.Equals(categoryName, StringComparison.CurrentCultureIgnoreCase));
+            var allCategories = await categoryService.GetAllAsync();
+            var category = allCategories
+                .FirstOrDefault(c => c.Name.Equals(categoryName, StringComparison.CurrentCultureIgnoreCase));
 
             if (category == null)
             {
-                category = new Category { Name = categoryName, ColorHex = "#95a5a6" };
-                db.Categories.Add(category);
-                await db.SaveChangesAsync();
+                category = await categoryService.CreateAsync(categoryName, "#95a5a6");
                 Console.WriteLine($"  Created category: {categoryName}");
             }
 
@@ -148,21 +146,19 @@ internal partial class Program
 
     private static async Task<int> ImportIdeasAsync(string path, string? categoryName, IServiceScope scope)
     {
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var ideaService = scope.ServiceProvider.GetRequiredService<IdeaService>();
+        var categoryService = scope.ServiceProvider.GetRequiredService<CategoryService>();
 
-        // Resolve category if given
         Category? category = null;
         if (!string.IsNullOrWhiteSpace(categoryName))
         {
-            category = await db.Categories
-                .FirstOrDefaultAsync(c => c.Name.Equals(categoryName, StringComparison.CurrentCultureIgnoreCase));
+            var allCategories = await categoryService.GetAllAsync();
+            category = allCategories
+                .FirstOrDefault(c => c.Name.Equals(categoryName, StringComparison.CurrentCultureIgnoreCase));
 
             if (category == null)
             {
-                category = new Category { Name = categoryName.Trim(), ColorHex = "#95a5a6" };
-                db.Categories.Add(category);
-                await db.SaveChangesAsync();
+                category = await categoryService.CreateAsync(categoryName.Trim(), "#95a5a6");
                 Console.WriteLine($"Created category: {categoryName}");
             }
         }
@@ -202,7 +198,6 @@ internal partial class Program
 
     private static async Task<int> ImportUnusableAsync(string path, IServiceScope scope)
     {
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var questionService = scope.ServiceProvider.GetRequiredService<QuestionService>();
 
         var raw = await File.ReadAllTextAsync(path);
@@ -298,8 +293,10 @@ internal partial class Program
 
     private static async Task<int> ReEmbedAsync(IServiceScope scope)
     {
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
         var embeddingService = scope.ServiceProvider.GetRequiredService<IEmbeddingService>();
+
+        await using var db = await dbFactory.CreateDbContextAsync();
 
         var questions = await db.Questions
             .Where(q => q.Embedding == null)
