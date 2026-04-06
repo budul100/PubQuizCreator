@@ -99,7 +99,6 @@ namespace PubQuizCreator.Services
                     // Embedding intentionally not loaded
                 })
                 .AsNoTracking()
-                .OrderByDescending(q => q.CreatedAt)
                 .ToListAsync(ct);
         }
 

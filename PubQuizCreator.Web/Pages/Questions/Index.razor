@@ -256,9 +256,10 @@
                 || q.TextShort.Contains(searchText, StringComparison.OrdinalIgnoreCase)
                 || q.Answer.Contains(searchText, StringComparison.OrdinalIgnoreCase))
             .OrderBy(q => q.IsUnusable ? 1 : 0)
+            .ThenBy(q => q.Category?.Name ?? "")
             .ThenBy(q => q.LastUsedDate.HasValue ? 0 : q.WasUsed ? 1 : 2)
             .ThenByDescending(q => q.LastUsedDate ?? DateOnly.MinValue)
-            .ThenBy(q => q.Category?.Name ?? "")
+            .ThenBy(q => q.TextShort)
             .ToList();
 
         isLoading = false;
