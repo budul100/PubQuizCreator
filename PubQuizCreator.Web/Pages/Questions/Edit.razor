@@ -6,12 +6,12 @@
 @using PubQuizCreator.Core.Types
 @using PubQuizCreator.Services
 @using System.Text.RegularExpressions
-@inject IdeaService IdeaService
 @inject CategoryService CategoryService
-@inject QuestionService QuestionService
-@inject MediaService MediaService
-@inject StateService StateService
 @inject IConfiguration Configuration
+@inject IdeaService IdeaService
+@inject MediaService MediaService
+@inject QuestionService QuestionService
+@inject StateService StateService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @implements IDisposable
@@ -373,6 +373,8 @@
             if (IsNew) await QuestionService.CreateAsync(question);
             else await QuestionService.UpdateAsync(question);
 
+            StateService.NotifyDataChanged();
+            
             var nextCategoryId = model.CategoryId;
             model = new QuestionFormModel { CategoryId = nextCategoryId };
             similarQuestions = [];

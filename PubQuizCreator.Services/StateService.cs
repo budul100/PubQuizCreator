@@ -12,6 +12,7 @@
 
         public event Action? OnChange;
 
+
         #endregion Public Events
 
         #region Public Properties
@@ -44,6 +45,8 @@
 
             OnChange?.Invoke();
         }
+
+        public void NotifyDataChanged() => OnChange?.Invoke();
 
         public void SetPageTitle(string title)
         {
