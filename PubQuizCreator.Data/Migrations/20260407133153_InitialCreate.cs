@@ -22,6 +22,7 @@ namespace PubQuizCreator.Data.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     ColorHex = table.Column<string>(type: "text", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    IsHidden = table.Column<bool>(type: "boolean", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
@@ -81,9 +82,10 @@ namespace PubQuizCreator.Data.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Answer = table.Column<string>(type: "text", nullable: false),
-                    CategoryId = table.Column<Guid>(type: "uuid", nullable: false),
+                    CategoryId = table.Column<Guid>(type: "uuid", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     Embedding = table.Column<Vector>(type: "vector(1024)", nullable: true),
+                    IsUnusable = table.Column<bool>(type: "boolean", nullable: false),
                     MediaFile = table.Column<string>(type: "text", nullable: true),
                     MediaType = table.Column<int>(type: "integer", nullable: false),
                     TextLong = table.Column<string>(type: "text", nullable: false),
@@ -98,7 +100,7 @@ namespace PubQuizCreator.Data.Migrations
                         column: x => x.CategoryId,
                         principalTable: "Categories",
                         principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateTable(

@@ -13,8 +13,8 @@ using PubQuizCreator.Data;
 namespace PubQuizCreator.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260407121325_FixQuestionCategoryFK")]
-    partial class FixQuestionCategoryFK
+    [Migration("20260407133153_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
