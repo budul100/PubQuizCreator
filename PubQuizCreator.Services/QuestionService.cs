@@ -120,8 +120,6 @@ namespace PubQuizCreator.Services
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            var today = DateOnly.FromDateTime(DateTime.Today);
-
             return await db.Questions
                 .Where(q => q.CategoryId == categoryId
                     && !q.IsUnusable
@@ -130,21 +128,9 @@ namespace PubQuizCreator.Services
                         !q.WasUsed
                         && !db.QuizSlots.Any(s =>
                             s.QuestionId == q.Id
-                            && s.Round.Quiz.Date < today))))
-                .Select(q => new Question
-                {
-                    Id = q.Id,
-                    TextShort = q.TextShort,
-                    TextLong = q.TextLong,
-                    Answer = q.Answer,
-                    CategoryId = q.CategoryId,
-                    MediaFile = q.MediaFile,
-                    MediaType = q.MediaType,
-                    WasUsed = q.WasUsed,
-                    AllowReuse = q.AllowReuse,
-                    IsUnusable = q.IsUnusable,
-                    CreatedAt = q.CreatedAt,
-                })
+                            && s.Round.Quiz.IsCompleted)
+                                        )))
+                .Select(q => new Question { /* wie gehabt */ })
                 .AsNoTracking()
                 .OrderByDescending(q => q.CreatedAt)
                 .ToListAsync(ct);
@@ -157,7 +143,7 @@ namespace PubQuizCreator.Services
             var slots = await db.QuizSlots
                 .Where(s => s.QuestionId != null)
                 .Include(s => s.Round).ThenInclude(r => r.Quiz)
-                .Select(s => new { s.QuestionId, s.Round.Quiz.Title, s.Round.Quiz.Date })
+                .Select(s => new { s.QuestionId, s.Round.Quiz.Title, s.Round.Quiz.Date, s.Round.Quiz.IsCompleted })
                 .ToListAsync(ct);
 
             return slots
@@ -166,7 +152,8 @@ namespace PubQuizCreator.Services
                     g => g.Key,
                     g => new Usage(
                         QuizInfo: string.Join(", ", g.Select(x => $"{x.Title} ({x.Date:dd.MM.yyyy})").Distinct()),
-                        LastUsedDate: g.Max(x => x.Date)));
+                        LastUsedDate: g.Max(x => x.Date),
+                        IsCompleted: g.Any(x => x.IsCompleted)));
         }
 
         public async Task SetAllowReuseAsync(Guid id, bool value, CancellationToken ct = default)

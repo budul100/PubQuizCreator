@@ -104,6 +104,28 @@ namespace PubQuizCreator.Services
             await db.SaveChangesAsync(ct);
         }
 
+        public async Task<List<Quiz>> GetActiveAsync(CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+            return await db.Quizzes
+                .Include(q => q.Rounds).ThenInclude(r => r.Slots)
+                .Where(q => !q.IsCompleted)
+                .OrderBy(q => q.Date)
+                .AsSplitQuery()
+                .ToListAsync(ct);
+        }
+
+        public async Task<List<Quiz>> GetCompletedAsync(CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+            return await db.Quizzes
+                .Include(q => q.Rounds).ThenInclude(r => r.Slots)
+                .Where(q => q.IsCompleted)
+                .OrderByDescending(q => q.Date)
+                .AsSplitQuery()
+                .ToListAsync(ct);
+        }
+
         public async Task<Quiz?> GetDetailAsync(Guid id, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
@@ -117,60 +139,6 @@ namespace PubQuizCreator.Services
                         .ThenInclude(s => s.Question)
                 .AsSplitQuery()
                 .FirstOrDefaultAsync(q => q.Id == id, ct);
-        }
-
-        public async Task<List<Quiz>> GetPastAsync(CancellationToken ct = default)
-        {
-            await using var db = await dbFactory.CreateDbContextAsync(ct);
-
-            return await db.Quizzes
-                .Include(q => q.Rounds).ThenInclude(r => r.Slots)
-                .Where(q => q.Date < DateOnly.FromDateTime(DateTime.Today))
-                .OrderByDescending(q => q.Date)
-                .AsSplitQuery()
-                .ToListAsync(ct);
-        }
-
-        public async Task<int> GetTotalOpenSlotsAsync(CancellationToken ct = default)
-        {
-            await using var db = await dbFactory.CreateDbContextAsync(ct);
-
-            return await db.QuizSlots
-                .Where(s => s.QuestionId == null
-                    && s.Round.Quiz.Date >= DateOnly.FromDateTime(DateTime.Today))
-                .CountAsync(ct);
-        }
-
-        public async Task<List<Quiz>> GetUpcomingAsync(CancellationToken ct = default)
-        {
-            await using var db = await dbFactory.CreateDbContextAsync(ct);
-
-            return await db.Quizzes
-                .Include(q => q.Rounds).ThenInclude(r => r.Slots)
-                .Where(q => q.Date >= DateOnly.FromDateTime(DateTime.Today))
-                .OrderBy(q => q.Date)
-                .AsSplitQuery()
-                .ToListAsync(ct);
-        }
-
-        public async Task MarkQuestionsUsedAsync(Guid quizId, CancellationToken ct = default)
-        {
-            await using var db = await dbFactory.CreateDbContextAsync(ct);
-
-            var questionIds = await db.QuizSlots
-                .Where(s => s.Round.QuizId == quizId && s.QuestionId != null)
-                .Select(s => s.QuestionId!.Value)
-                .Distinct()
-                .ToListAsync(ct);
-
-            if (questionIds.Count == 0) return;
-
-            await db.Questions
-                .Where(q => questionIds.Contains(q.Id))
-                .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(q => q.WasUsed, true)
-                    .SetProperty(q => q.AllowReuse, false),  // reset after use
-                ct);
         }
 
         public async Task RemoveRoundAsync(Guid roundId, CancellationToken ct = default)
@@ -242,6 +210,14 @@ namespace PubQuizCreator.Services
             }
 
             await db.SaveChangesAsync(ct);
+        }
+
+        public async Task SetCompletedAsync(Guid quizId, bool value, CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+            await db.Quizzes
+                .Where(q => q.Id == quizId)
+                .ExecuteUpdateAsync(s => s.SetProperty(q => q.IsCompleted, value), ct);
         }
 
         public async Task UpdateAsync(Guid id, string title, DateOnly date, CancellationToken ct = default)

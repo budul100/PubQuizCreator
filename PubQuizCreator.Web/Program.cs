@@ -72,8 +72,6 @@ internal class Program
             }
         }
 
-        //await quizService.MarkQuestionsUsedAsync(id);
-
         zipStream.Position = 0;
 
         var filename = $"{quiz.Title}_{quiz.Date:yyyy-MM-dd}.zip".Replace(" ", "_");

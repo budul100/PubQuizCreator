@@ -9,10 +9,10 @@
 <PageTitle>Quizzes</PageTitle>
 
 <PageHeader Title="Quizzes">
-    <button class="btn btn-outline-secondary btn-sm" @onclick="() => SetTab(!showPast)">
-        @(showPast ? "Show Upcoming" : "Show Past")
+    <button class="btn btn-outline-secondary btn-sm" @onclick="() => SetView(!showCompleted)">
+        @(showCompleted ? "Show Active" : "Show Completed")
     </button>
-    @if (!showPast)
+    @if (!showCompleted)
     {
         <button class="btn btn-primary btn-sm" @onclick="() => showCreate = true">+ New quiz</button>
     }
@@ -39,7 +39,9 @@
 }
 
 @{
-    var displayed = showPast ? past : upcoming;
+    var displayed = showCompleted 
+        ? completed 
+        : active;
 }
 
 @if (!displayed.Any())
@@ -91,11 +93,11 @@ else
     private string newTitle = "New Quiz";
     private DateOnly newDate = DateOnly.FromDateTime(DateTime.Today);
 
-    private bool showPast = false;
+    private bool showCompleted = false;
     private bool showCreate;
 
-    private List<Quiz> upcoming = [];
-    private List<Quiz> past = [];
+    private List<Quiz> active = [];
+    private List<Quiz> completed = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -105,11 +107,12 @@ else
 
     private async Task ReloadAsync()
     {
-        upcoming = await QuizService.GetUpcomingAsync();
-        past = await QuizService.GetPastAsync();
+        active = await QuizService.GetActiveAsync();
+        completed = await QuizService.GetCompletedAsync();
     }
 
-    private void SetTab(bool pastTab) => showPast = pastTab;
+
+    private void SetView(bool completed) => showCompleted = completed;
 
     private async Task CreateAsync()
     {
@@ -119,7 +122,10 @@ else
 
     private async Task DeleteAsync(Guid id)
     {
-        var list = showPast ? past : upcoming;
+        var list = showCompleted 
+			? completed
+            : active;
+
         var quiz = list.First(q => q.Id == id);
 
         var confirmed = await JS.ConfirmDeleteAsync(quiz.Title);

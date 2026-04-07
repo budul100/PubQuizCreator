@@ -29,6 +29,12 @@ else
                class="form-control w-auto"
                value="@quiz.Date.ToString("yyyy-MM-dd")"
                @onchange="e => { quiz.Date = DateOnly.Parse(e.Value?.ToString() ?? string.Empty); _ = SaveHeaderAsync(); }" />
+        <button class="btn btn-sm @(quiz.IsCompleted ? "btn-success" : "btn-outline-secondary")"
+                title="@(quiz.IsCompleted ? "Mark as active" : "Mark as completed")"
+                @onclick="ToggleCompletedAsync">
+            @(quiz.IsCompleted ? "✓ Completed" : "Mark as completed")
+        </button>
+
         <div class="ms-auto d-flex gap-2">
             <a class="btn btn-outline-secondary btn-sm"
                href="/export/quiz/@quiz.Id/pdf"
@@ -430,6 +436,14 @@ else
     {
         if (quiz == null) return;
         await QuizService.UpdateAsync(quiz.Id, quiz.Title, quiz.Date);
+    }
+
+    private async Task ToggleCompletedAsync()
+    {
+        if (quiz == null) return;
+
+        await QuizService.SetCompletedAsync(quiz.Id, !quiz.IsCompleted);
+        quiz.IsCompleted = !quiz.IsCompleted;
     }
 
     private void ApplyFilter()

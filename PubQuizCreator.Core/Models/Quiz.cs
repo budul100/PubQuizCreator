@@ -8,6 +8,8 @@
 
         public Guid Id { get; set; } = Guid.NewGuid();
 
+        public bool IsCompleted { get; set; } = false;
+
         public List<QuizRound> Rounds { get; set; } = [];
 
         public string Title { get; set; } = string.Empty;

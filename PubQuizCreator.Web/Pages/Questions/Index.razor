@@ -112,9 +112,13 @@
                                 <td class="text-muted">@question.Answer</td>
 
                                 <td @onclick:stopPropagation="true">
-                                    @if (question.UsedInQuiz != null)
+                                    @if (question.UsedInQuiz != null && question.IsInCompletedQuiz)
                                     {
                                         <small class="text-muted">@question.UsedInQuiz</small>
+                                    }
+                                    else if (question.UsedInQuiz != null)
+                                    {
+                                        <small class="text-muted fst-italic">assigned: @question.UsedInQuiz</small>
                                     }
                                     else if (question.WasUsed && !question.IsUnusable)
                                     {
@@ -123,7 +127,7 @@
                                 </td>
 
                                 <td @onclick:stopPropagation="true">
-                                    @if (question.WasUsed && !question.IsUnusable)
+                                    @if ((question.IsInCompletedQuiz || question.WasUsed) && !question.IsUnusable)
                                     {
                                         <button class="btn btn-sm w-100 @(question.AllowReuse ? "btn-info" : "btn-outline-secondary")"
                                                 title="@(question.AllowReuse ? "Reuse allowed — click to revoke" : "Allow reuse")"
@@ -132,13 +136,14 @@
                                         </button>
                                     }
                                 </td>
-                                
+
                                 <td @onclick:stopPropagation="true">
-                                    @if (question.UsedInQuiz == null)
+                                    @if (question.UsedInQuiz == null && !question.IsInCompletedQuiz)
                                     {
                                         <button class="btn btn-outline-danger btn-sm w-100" @onclick="() => DeleteAsync(question.Id)">✕</button>
                                     }
                                 </td>
+
                             </tr>
                         }
                     </tbody>
@@ -206,6 +211,7 @@
             q.IsUnusable,
             usageInfo.GetValueOrDefault(q.Id)?.QuizInfo,
             usageInfo.GetValueOrDefault(q.Id)?.LastUsedDate,
+            usageInfo.GetValueOrDefault(q.Id)?.IsCompleted ?? false,
             q.MediaType
         )).ToList();
 
@@ -292,7 +298,7 @@
             .Where(q => filterMode == CategoryFilter.Unusable
                 || q.AllowReuse
                 || showUsed
-                || (!q.WasUsed && !(q.LastUsedDate.HasValue && q.LastUsedDate < DateOnly.FromDateTime(DateTime.Today))))
+                || (!q.WasUsed && !q.IsInCompletedQuiz))
             .Where(q => string.IsNullOrWhiteSpace(searchText)
                 || q.TextShort.Contains(searchText, StringComparison.OrdinalIgnoreCase)
                 || q.Answer.Contains(searchText, StringComparison.OrdinalIgnoreCase))
@@ -320,9 +326,16 @@
     private async Task ToggleAllowReuseAsync(Guid id, bool value)
     {
         await QuestionService.SetAllowReuseAsync(id, value);
-        var entry = entries.First(q => q.Id == id);
-        entries[entries.IndexOf(entry)] = entry with { AllowReuse = value };
-        await ApplyFilterAsync();
+
+        var entryIdx = entries.FindIndex(q => q.Id == id);
+        if (entryIdx >= 0)
+            entries[entryIdx] = entries[entryIdx] with { AllowReuse = value };
+
+        var pagedIdx = paged.FindIndex(q => q.Id == id);
+        if (pagedIdx >= 0)
+            paged[pagedIdx] = paged[pagedIdx] with { AllowReuse = value };
+
+        StateHasChanged();
     }
 
     private string GetCategorySelectValue() => filterMode switch
@@ -361,5 +374,6 @@
         bool IsUnusable,
         string? UsedInQuiz,
         DateOnly? LastUsedDate,
+        bool IsInCompletedQuiz,
         MediaType MediaType);
 }
