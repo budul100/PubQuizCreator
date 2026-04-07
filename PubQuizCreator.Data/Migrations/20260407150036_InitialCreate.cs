@@ -36,6 +36,7 @@ namespace PubQuizCreator.Data.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Date = table.Column<DateOnly>(type: "date", nullable: false),
+                    IsCompleted = table.Column<bool>(type: "boolean", nullable: false),
                     Title = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>

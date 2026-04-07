@@ -13,7 +13,7 @@ using PubQuizCreator.Data;
 namespace PubQuizCreator.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260407142142_InitialCreate")]
+    [Migration("20260407150036_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -138,6 +138,9 @@ namespace PubQuizCreator.Data.Migrations
 
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
+
+                    b.Property<bool>("IsCompleted")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Title")
                         .IsRequired()
