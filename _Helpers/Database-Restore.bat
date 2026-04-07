@@ -29,17 +29,23 @@ if %ERRORLEVEL% equ 2 ( echo Aborted. & pause & exit /b 0 )
 
 echo.
 echo [1/3] Dropping database...
-docker exec %CONTAINER% psql -U %USER% -c "DROP DATABASE IF EXISTS %DB%;"
+docker exec %CONTAINER% psql -U %USER% -d postgres -c "DROP DATABASE IF EXISTS %DB%;"
 if %ERRORLEVEL% neq 0 ( echo ERROR: Drop failed & pause & exit /b 1 )
 
 echo [2/3] Creating database...
-docker exec %CONTAINER% psql -U %USER% -c "CREATE DATABASE %DB% OWNER %USER%;"
+docker exec %CONTAINER% psql -U %USER% -d postgres -c "CREATE DATABASE %DB% OWNER %USER%;"
 if %ERRORLEVEL% neq 0 ( echo ERROR: Create failed & pause & exit /b 1 )
 
+echo [2b/3] Ensuring pgvector extension...
+docker exec %CONTAINER% psql -U %USER% -d %DB% -c "CREATE EXTENSION IF NOT EXISTS vector;"
+if %ERRORLEVEL% neq 0 ( echo ERROR: Extension setup failed & pause & exit /b 1 )
+
 echo [3/3] Restoring...
-docker exec -i %CONTAINER% pg_restore -U %USER% -d %DB% --no-owner < "%BACKUP_DIR%\%FILENAME%"
+docker exec -i %CONTAINER% pg_restore -U %USER% -d %DB% --no-owner --exit-on-error < "%BACKUP_DIR%\%FILENAME%"
 if %ERRORLEVEL% neq 0 ( echo ERROR: Restore failed & pause & exit /b 1 )
 
 echo.
 echo Done. Database restored from %FILENAME%.
+echo.
+echo NOTE: Run "dotnet ef database update" to verify migration state.
 pause
