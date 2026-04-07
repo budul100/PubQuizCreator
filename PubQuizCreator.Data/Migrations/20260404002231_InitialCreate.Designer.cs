@@ -95,7 +95,7 @@ namespace PubQuizCreator.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Vector>("Embedding")
-                        .HasColumnType("vector(768)");
+                        .HasColumnType("vector(1024)");
 
                     b.Property<string>("MediaFile")
                         .HasColumnType("text");

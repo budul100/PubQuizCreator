@@ -83,7 +83,7 @@ namespace PubQuizCreator.Data.Migrations
                     Answer = table.Column<string>(type: "text", nullable: false),
                     CategoryId = table.Column<Guid>(type: "uuid", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    Embedding = table.Column<Vector>(type: "vector(768)", nullable: true),
+                    Embedding = table.Column<Vector>(type: "vector(1024)", nullable: true),
                     MediaFile = table.Column<string>(type: "text", nullable: true),
                     MediaType = table.Column<int>(type: "integer", nullable: false),
                     TextLong = table.Column<string>(type: "text", nullable: false),
