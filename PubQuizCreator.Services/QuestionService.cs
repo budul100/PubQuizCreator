@@ -98,9 +98,9 @@ namespace PubQuizCreator.Services
                     MediaFile = q.MediaFile,
                     MediaType = q.MediaType,
                     WasUsed = q.WasUsed,
+                    AllowReuse = q.AllowReuse,
                     IsUnusable = q.IsUnusable,
                     CreatedAt = q.CreatedAt,
-                    // Embedding intentionally not loaded
                 })
                 .AsNoTracking()
                 .ToListAsync(ct);
@@ -120,11 +120,17 @@ namespace PubQuizCreator.Services
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
+            var today = DateOnly.FromDateTime(DateTime.Today);
+
             return await db.Questions
                 .Where(q => q.CategoryId == categoryId
                     && !q.IsUnusable
-                    && !q.WasUsed
-                    && !excludeIds.Contains(q.Id))
+                    && !excludeIds.Contains(q.Id)
+                    && (q.AllowReuse || (
+                        !q.WasUsed
+                        && !db.QuizSlots.Any(s =>
+                            s.QuestionId == q.Id
+                            && s.Round.Quiz.Date < today))))
                 .Select(q => new Question
                 {
                     Id = q.Id,
@@ -135,9 +141,9 @@ namespace PubQuizCreator.Services
                     MediaFile = q.MediaFile,
                     MediaType = q.MediaType,
                     WasUsed = q.WasUsed,
+                    AllowReuse = q.AllowReuse,
                     IsUnusable = q.IsUnusable,
                     CreatedAt = q.CreatedAt,
-                    // Embedding intentionally not loaded
                 })
                 .AsNoTracking()
                 .OrderByDescending(q => q.CreatedAt)
@@ -163,6 +169,15 @@ namespace PubQuizCreator.Services
                         LastUsedDate: g.Max(x => x.Date)));
         }
 
+        public async Task SetAllowReuseAsync(Guid id, bool value, CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            await db.Questions
+                .Where(q => q.Id == id)
+                .ExecuteUpdateAsync(s => s.SetProperty(q => q.AllowReuse, value), ct);
+        }
+
         public async Task UpdateAsync(Question question, CancellationToken ct = default)
         {
             if (!question.IsUnusable && string.IsNullOrWhiteSpace(question.Answer))
@@ -181,6 +196,7 @@ namespace PubQuizCreator.Services
             existing.MediaType = question.MediaType;
             existing.IsUnusable = question.IsUnusable;
             existing.WasUsed = question.WasUsed;
+            existing.AllowReuse = question.AllowReuse;
 
             try
             {

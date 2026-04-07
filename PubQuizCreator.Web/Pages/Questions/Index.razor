@@ -62,15 +62,18 @@
             else
             {
                 <table class="table table-sm table-hover align-middle">
+
                     <thead>
                         <tr>
                             <th style="width: calc((100% - 250px) / 8)">Category</th>
                             <th style="width: calc((100% - 250px) * 4 / 8)">Question</th>
                             <th style="width: calc((100% - 250px) * 3 / 8)">Answer</th>
                             <th style="width: 200px">Used in</th>
-                            <th style="width: 50px"></th>
+                            <th style="width: 40px"></th>
+                            <th style="width: 40px"></th>
                         </tr>
                     </thead>
+
                     <tbody>
                         @foreach (var question in paged)
                         {
@@ -92,6 +95,7 @@
 
                                 <td>
                                     @question.TextShort
+
                                     @if (question.MediaType != MediaType.None)
                                     {
                                         var icon = question.MediaType switch
@@ -106,7 +110,8 @@
                                 </td>
 
                                 <td class="text-muted">@question.Answer</td>
-                                <td>
+
+                                <td @onclick:stopPropagation="true">
                                     @if (question.UsedInQuiz != null)
                                     {
                                         <small class="text-muted">@question.UsedInQuiz</small>
@@ -116,10 +121,22 @@
                                         <small class="text-muted fst-italic">previously used</small>
                                     }
                                 </td>
+
+                                <td @onclick:stopPropagation="true">
+                                    @if (question.WasUsed && !question.IsUnusable)
+                                    {
+                                        <button class="btn btn-sm w-100 @(question.AllowReuse ? "btn-info" : "btn-outline-secondary")"
+                                                title="@(question.AllowReuse ? "Reuse allowed — click to revoke" : "Allow reuse")"
+                                                @onclick="() => ToggleAllowReuseAsync(question.Id, !question.AllowReuse)">
+                                            🔁
+                                        </button>
+                                    }
+                                </td>
+                                
                                 <td @onclick:stopPropagation="true">
                                     @if (question.UsedInQuiz == null)
                                     {
-                                        <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteAsync(question.Id)">✕</button>
+                                        <button class="btn btn-outline-danger btn-sm w-100" @onclick="() => DeleteAsync(question.Id)">✕</button>
                                     }
                                 </td>
                             </tr>
@@ -185,6 +202,7 @@
             q.Answer,
             q.Category,
             q.WasUsed,
+            q.AllowReuse,
             q.IsUnusable,
             usageInfo.GetValueOrDefault(q.Id)?.QuizInfo,
             usageInfo.GetValueOrDefault(q.Id)?.LastUsedDate,
@@ -271,7 +289,10 @@
                 CategoryFilter.Specific => !q.IsUnusable && q.Category?.Id == filterCategoryId,
                 _ => !q.IsUnusable && q.Category?.IsHidden != true
             })
-            .Where(q => filterMode == CategoryFilter.Unusable || showUsed || !q.WasUsed)
+            .Where(q => filterMode == CategoryFilter.Unusable
+                || q.AllowReuse
+                || showUsed
+                || (!q.WasUsed && !(q.LastUsedDate.HasValue && q.LastUsedDate < DateOnly.FromDateTime(DateTime.Today))))
             .Where(q => string.IsNullOrWhiteSpace(searchText)
                 || q.TextShort.Contains(searchText, StringComparison.OrdinalIgnoreCase)
                 || q.Answer.Contains(searchText, StringComparison.OrdinalIgnoreCase))
@@ -294,6 +315,14 @@
             .Skip((currentPage - 1) * Constants.PageSizeList)
             .Take(Constants.PageSizeList)
             .ToList();
+    }
+
+    private async Task ToggleAllowReuseAsync(Guid id, bool value)
+    {
+        await QuestionService.SetAllowReuseAsync(id, value);
+        var entry = entries.First(q => q.Id == id);
+        entries[entries.IndexOf(entry)] = entry with { AllowReuse = value };
+        await ApplyFilterAsync();
     }
 
     private string GetCategorySelectValue() => filterMode switch
@@ -328,6 +357,7 @@
         string Answer,
         Category? Category,
         bool WasUsed,
+        bool AllowReuse,
         bool IsUnusable,
         string? UsedInQuiz,
         DateOnly? LastUsedDate,

@@ -7,6 +7,8 @@ namespace PubQuizCreator.Core.Models
     {
         #region Public Properties
 
+        public bool AllowReuse { get; set; } = false;
+
         public string Answer { get; set; } = "";
 
         public Category? Category { get; set; }

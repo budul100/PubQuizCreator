@@ -153,11 +153,6 @@ namespace PubQuizCreator.Services
                 .ToListAsync(ct);
         }
 
-        /// <summary>
-        /// Marks all questions assigned to the given quiz as used.
-        /// Call this when the quiz is exported — questions marked as used
-        /// are excluded from future slot assignments and availability counts.
-        /// </summary>
         public async Task MarkQuestionsUsedAsync(Guid quizId, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
@@ -172,9 +167,10 @@ namespace PubQuizCreator.Services
 
             await db.Questions
                 .Where(q => questionIds.Contains(q.Id))
-                .ExecuteUpdateAsync(
-                    setters => setters.SetProperty(q => q.WasUsed, true),
-                    ct);
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(q => q.WasUsed, true)
+                    .SetProperty(q => q.AllowReuse, false),  // reset after use
+                ct);
         }
 
         public async Task RemoveRoundAsync(Guid roundId, CancellationToken ct = default)

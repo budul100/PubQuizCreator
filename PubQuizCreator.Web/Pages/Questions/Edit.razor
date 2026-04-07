@@ -431,6 +431,7 @@
         {
             model.IsUnusable = true;
             model.WasUsed = true;
+            model.AllowReuse = false;
 
             var question = model.ToQuestion(Id);
             if (IsNew) await QuestionService.CreateAsync(question);
@@ -461,7 +462,8 @@
     {
         model.IsUnusable = false;
         model.WasUsed = false;
-        // User still needs to fill Category + Answer and save normally
+        model.AllowReuse = false;
+        
         await Task.CompletedTask;
         StateHasChanged();
     }
@@ -499,6 +501,7 @@
         public MediaType MediaType { get; set; } = MediaType.None;
         public bool IsUnusable { get; set; } = false;
         public bool WasUsed { get; set; } = false;
+        public bool AllowReuse { get; set; } = false;
 
         public static QuestionFormModel From(Question q) => new()
         {
@@ -510,6 +513,7 @@
             MediaType = q.MediaType,
             IsUnusable = q.IsUnusable,
             WasUsed = q.WasUsed,
+            AllowReuse = q.AllowReuse,
         };
 
         public Question ToQuestion(Guid? existingId) => new()
@@ -523,6 +527,8 @@
             MediaType = MediaType,
             IsUnusable = IsUnusable,
             WasUsed = WasUsed,
+            AllowReuse = AllowReuse,
         };
     }
+
 }
