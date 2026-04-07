@@ -13,7 +13,7 @@ using PubQuizCreator.Data;
 namespace PubQuizCreator.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260407133153_InitialCreate")]
+    [Migration("20260407142142_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -86,6 +86,9 @@ namespace PubQuizCreator.Data.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("AllowReuse")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Answer")
                         .IsRequired()
