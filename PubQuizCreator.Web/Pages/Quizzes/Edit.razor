@@ -1,4 +1,5 @@
 ﻿@page "/quizzes/{Id:guid}"
+@using PubQuizCreator.Core
 @using PubQuizCreator.Core.Models
 @using PubQuizCreator.Core.Types 
 @using PubQuizCreator.Services
@@ -181,13 +182,13 @@ else
                                     @pickerFiltered.Count of @pickerAll.Count in this category
                                 </div>
                                 <div class="list-group">
-                                    @foreach (var q in pickerFiltered.Take(20))
+                                    @foreach (var picker in pickerFiltered.Take(Constants.PageSizePicker))
                                     {
                                         <button class="list-group-item list-group-item-action py-1"
-                                                @onclick="() => AssignAsync(q.Id)">
+                                                @onclick="() => AssignAsync(picker.Id)">
                                             <div class="small fw-semibold">
-                                                @q.TextShort
-                                                @if (q?.MediaType is { } mts && mts != MediaType.None)
+                                                @picker.TextShort
+                                                @if (picker?.MediaType is { } mts && mts != MediaType.None)
                                                 {
                                                     var icon = mts switch
                                                     {
@@ -199,7 +200,7 @@ else
                                                     <span class="small text-muted fs-4" title="@mts.ToString()"> | @icon</span>
                                                 }
                                             </div>
-                                            <div class="small text-muted">→ @q.Answer</div>
+                                            <div class="small text-muted">→ @picker?.Answer</div>
                                         </button>
                                     }
                                 </div>

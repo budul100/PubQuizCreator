@@ -6,7 +6,7 @@ using Shape = DocumentFormat.OpenXml.Presentation.Shape;
 
 namespace PubQuizCreator.Services
 {
-    public class ExportService
+    public static class ExportService
     {
         #region Public Methods
 

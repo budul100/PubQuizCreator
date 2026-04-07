@@ -28,7 +28,7 @@ echo Press ENTER to skip a value (keeps existing secret).
 echo.
 
 :: --- Media:StoragePath ---
-echo [1/2] Media:StoragePath
+echo [1/3] Media:StoragePath
 echo     Local folder where uploaded media files are stored.
 echo     Example: C:\Users\XYZ\Media
 set /p MEDIA_PATH="    Value: "
@@ -40,8 +40,21 @@ if not "!MEDIA_PATH!"=="" (
 )
 echo.
 
+:: --- Export:TemplatesPath ---
+echo [2/3] Export:TemplatesPath
+echo     Local folder where PPTX template files are stored.
+echo     Example: C:\Users\XYZ\Templates
+set /p TEMPLATES_PATH="    Value: "
+if not "!TEMPLATES_PATH!"=="" (
+    dotnet user-secrets set "Export:TemplatesPath" "!TEMPLATES_PATH!"
+    echo     Set.
+) else (
+    echo     Skipped.
+)
+echo.
+
 :: --- ConnectionStrings:Default ---
-echo [2/2] ConnectionStrings:Default
+echo [3/3] ConnectionStrings:Default
 echo     PostgreSQL connection string for local dev.
 echo     Example: Host=localhost;Port=5433;Database=pubquiz;Username=postgres;Password=postgres
 set /p CONN_STR="    Value: "
@@ -51,7 +64,6 @@ if not "!CONN_STR!"=="" (
 ) else (
     echo     Skipped.
 )
-echo.
 
 echo ============================================
 echo  Done. Current secrets:

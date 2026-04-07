@@ -29,7 +29,10 @@
         public const int OllamaStatusPollIntervalSeconds = 30;
 
         // Number of elements shown in list views.
-        public const int PageSize = 50;
+        public const int PageSizeList = 50;
+
+        // Number of elements shown in list views.
+        public const int PageSizePicker = 20;
 
         // Similarity thresholds for "very similar" — likely duplicate
         public const double SimilarityThresholdHigh = 0.55;

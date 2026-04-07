@@ -125,7 +125,7 @@
                 </div>
 
                 <ContentPager TotalItems="filtered.Count"
-                       PageSize="Constants.PageSize"
+                       PageSize="Constants.PageSizeList"
                        CurrentPage="currentPage"
                        PageChanged="OnPageChanged" />
             }
@@ -243,8 +243,8 @@
     private void ApplyPaging()
     {
         paged = filtered
-            .Skip((currentPage - 1) * Constants.PageSize)
-            .Take(Constants.PageSize)
+            .Skip((currentPage - 1) * Constants.PageSizeList)
+            .Take(Constants.PageSizeList)
             .ToList();
     }
 

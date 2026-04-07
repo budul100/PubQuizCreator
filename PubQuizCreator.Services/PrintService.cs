@@ -69,11 +69,13 @@ namespace PubQuizCreator.Services
                 h.Cell().Padding(4).Text("Answer").SemiBold();
             });
 
-            for (var i = 0; i < slots.Count(); i++)
-            {
-                var slot = slots.ElementAt(i);
+            var index = 0;
 
-                var bg = i % 2 == 0
+            foreach (var slot in slots)
+            {
+                index++;
+
+                var background = index % 2 != 0
                     ? Colors.White
                     : Colors.Grey.Lighten4;
 
@@ -81,13 +83,13 @@ namespace PubQuizCreator.Services
                     ? slot.Question?.TextShort
                     : slot.Question?.TextLong;
 
-                table.Cell().Background(bg).Padding(5).Text((i + 1).ToString());
-                table.Cell().Background(bg).Padding(5).Text(slot.Category?.Name ?? "—");
-                table.Cell().Background(bg).Padding(5).Text(question ?? "—");
-                table.Cell().Background(bg).Padding(5).Text(GetMediaCode(slot.Question?.MediaType));
-                table.Cell().Background(bg).BorderRight(1).BorderColor(Colors.Grey.Lighten2);
-                table.Cell().Background(bg).Padding(5).Text((i + 1).ToString());
-                table.Cell().Background(bg).Padding(5).Text(slot.Question?.Answer ?? "—");
+                table.Cell().Background(background).Padding(5).Text(index.ToString());
+                table.Cell().Background(background).Padding(5).Text(slot.Category?.Name ?? "—");
+                table.Cell().Background(background).Padding(5).Text(question ?? "—");
+                table.Cell().Background(background).Padding(5).Text(GetMediaCode(slot.Question?.MediaType));
+                table.Cell().Background(background).BorderRight(1).BorderColor(Colors.Grey.Lighten2);
+                table.Cell().Background(background).Padding(5).Text(index.ToString());
+                table.Cell().Background(background).Padding(5).Text(slot.Question?.Answer ?? "—");
             }
         }
 

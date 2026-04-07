@@ -1,26 +1,24 @@
-using System.IO.Compression;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using PubQuizCreator.Core;
 using PubQuizCreator.Core.Interfaces;
 using PubQuizCreator.Data;
 using PubQuizCreator.Services;
 using QuestPDF.Infrastructure;
+using System.IO.Compression;
 
 internal class Program
 {
     #region Private Methods
 
     private static async Task<IResult> CreateExportAsync(Guid id, QuizService quizService,
-        IConfiguration configuration)
+        SettingsService settingsService)
     {
         var quiz = await quizService.GetDetailAsync(id);
         if (quiz == null) return Results.NotFound();
 
-        var questionsPath = configuration.GetValue<string>(
-            key: "Export:QuestionsPath");
-
-        var answersPath = configuration.GetValue<string>(
-            key: "Export:AnswersPath");
+        var questionsPath = settingsService.GetTemplatePath("Questions");
+        var answersPath = settingsService.GetTemplatePath("Answers");
 
         var zipStream = new MemoryStream();
 
@@ -111,6 +109,8 @@ internal class Program
         var builder = WebApplication.CreateBuilder(args);
 
         builder.Services
+            .AddSingleton<SettingsService>();
+        builder.Services
             .AddScoped<QuizService>();
         builder.Services
             .AddScoped<CategoryService>();
@@ -128,8 +128,6 @@ internal class Program
             .AddScoped<DashboardService>();
         builder.Services
             .AddScoped<PrintService>();
-        builder.Services
-            .AddScoped<ExportService>();
 
         builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseNpgsql(
             connectionString: builder.Configuration.GetConnectionString("Default"),
@@ -174,11 +172,11 @@ internal class Program
         app.UseStaticFiles();
         app.UseRouting();
 
-        var mediaPath = MediaService.GetStoragePath(builder.Configuration);
+        var settingsService = app.Services.GetRequiredService<SettingsService>();
 
         app.UseStaticFiles(new StaticFileOptions
         {
-            FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(mediaPath),
+            FileProvider = new PhysicalFileProvider(settingsService.MediaPath),
             RequestPath = "/media"
         });
 
@@ -189,7 +187,7 @@ internal class Program
             handler: (Guid id, QuizService qs, PrintService ps) => CreatePrintAsync(id, qs, ps));
         app.MapGet(
             pattern: "/export/quiz/{id:guid}/pptx",
-            handler: (Guid id, QuizService qs, IConfiguration cfg) => CreateExportAsync(id, qs, cfg));
+            handler: (Guid id, QuizService qs, SettingsService ss) => CreateExportAsync(id, qs, ss));
 
         app.MapFallbackToPage("/_Host");
 
