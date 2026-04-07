@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using ClosedXML.Excel;
+using PubQuizCreator.Core;
 using PubQuizCreator.Core.Interfaces;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Core.Types;
@@ -307,6 +308,7 @@ internal partial class Program
 
         var ok = 0;
         var failed = 0;
+        var pendingSave = 0;
 
         for (var i = 0; i < questions.Count; i++)
         {
@@ -324,16 +326,43 @@ internal partial class Program
             {
                 var vector = await embeddingService.GetEmbeddingAsync(text);
                 question.Embedding = new Pgvector.Vector(vector);
-                await db.SaveChangesAsync();
                 ok++;
+                pendingSave++;
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"  ERROR [{question.Id}]: {ex.Message}");
+                Console.Error.WriteLine($"  ERROR (embedding) [{question.Id}]: {ex.Message}");
                 failed++;
             }
 
+            // Save batch
+            if (pendingSave >= Constants.EmbeddingReEmbedSize)
+            {
+                try
+                {
+                    await db.SaveChangesAsync();
+                    pendingSave = 0;
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"  ERROR (save batch): {ex.Message}");
+                }
+            }
+
             Console.Write($"\r  Progress: {i + 1}/{questions.Count} — OK: {ok}, Failed: {failed}   ");
+        }
+
+        // Save remaining
+        if (pendingSave > 0)
+        {
+            try
+            {
+                await db.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"  ERROR (save final batch): {ex.Message}");
+            }
         }
 
         Console.WriteLine($"\nDone. OK: {ok}, Failed: {failed}");

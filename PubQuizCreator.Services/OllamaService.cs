@@ -11,7 +11,7 @@ namespace PubQuizCreator.Services
     {
         #region Private Fields
 
-        private readonly string model = configuration["Ollama:EmbeddingModel"] ?? Constants.DefaultEmbeddingModel;
+        private readonly string model = configuration["Ollama:EmbeddingModel"] ?? Constants.EmbeddingDefaultModel;
 
         #endregion Private Fields
 
@@ -42,7 +42,7 @@ namespace PubQuizCreator.Services
             public string Input { get; set; } = "";
 
             [JsonPropertyName("model")]
-            public string Model { get; set; } = Constants.DefaultEmbeddingModel;
+            public string Model { get; set; } = Constants.EmbeddingDefaultModel;
 
             #endregion Public Properties
         }
