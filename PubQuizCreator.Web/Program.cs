@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using Microsoft.EntityFrameworkCore;
 using PubQuizCreator.Core;
 using PubQuizCreator.Core.Interfaces;
@@ -8,6 +9,102 @@ using QuestPDF.Infrastructure;
 internal class Program
 {
     #region Private Methods
+
+    private static async Task<IResult> CreateExportAsync(Guid id, QuizService quizService,
+        IConfiguration configuration)
+    {
+        var quiz = await quizService.GetDetailAsync(id);
+        if (quiz == null) return Results.NotFound();
+
+        var questionsPath = configuration.GetValue<string>(
+            key: "Export:QuestionsPath");
+
+        var answersPath = configuration.GetValue<string>(
+            key: "Export:AnswersPath");
+
+        var zipStream = new MemoryStream();
+
+        using (var zip = new ZipArchive(
+            stream: zipStream,
+            mode: ZipArchiveMode.Create,
+            leaveOpen: true))
+        {
+            var rounds = quiz.Rounds
+                .Where(r => r.Slots.Count > 0)
+                .OrderBy(r => r.Position).ToArray();
+
+            foreach (var round in rounds)
+            {
+                var slots = round.Slots
+                    .Where(s => s.Question != null)
+                    .OrderBy(s => s.Position).ToList();
+
+                if (slots.Count == 0) continue;
+
+                var questions = slots.Select((s, i) => new Dictionary<string, string>
+                {
+                    ["Number"] = $"Frage {i + 1}",
+                    ["Question"] = s.Question!.TextShort
+                });
+
+                var questionSlides = ExportService.Export(questions, questionsPath, 1);
+
+                using (var questionStream = zip.CreateEntry(
+                    $"Round{round.Position:D2}_Questions.pptx",
+                    CompressionLevel.Fastest).Open())
+                {
+                    questionStream.Write(questionSlides);
+                }
+
+                var answers = slots.Select((s, i) => new Dictionary<string, string>
+                {
+                    ["Number"] = $"Frage {i + 1}",
+                    ["Question"] = s.Question!.TextShort,
+                    ["Answer"] = s.Question!.Answer
+                });
+
+                var answerSlides = ExportService.Export(answers, answersPath, 1);
+
+                using (var answerStream = zip.CreateEntry(
+                    $"Round{round.Position:D2}_Answers.pptx",
+                    CompressionLevel.Fastest).Open())
+                {
+                    answerStream.Write(answerSlides);
+                }
+            }
+        }
+
+        //await quizService.MarkQuestionsUsedAsync(id);
+
+        zipStream.Position = 0;
+
+        var filename = $"{quiz.Title}_{quiz.Date:yyyy-MM-dd}.zip".Replace(" ", "_");
+
+        var result = Results.File(
+            fileStream: zipStream,
+            contentType: "application/zip",
+            fileDownloadName: filename);
+
+        return result;
+    }
+
+    private static async Task<IResult> CreatePrintAsync(Guid id, QuizService quizService,
+        PrintService printService)
+    {
+        var quiz = await quizService.GetDetailAsync(id);
+        if (quiz == null) return Results.NotFound();
+
+        var bytes = printService.Print(quiz);
+
+        var filename = $"quiz_{quiz.Date:yyyy-MM-dd}.pdf";
+
+        var result = Results.File(
+            fileContents: bytes,
+            contentType: "application/pdf",
+            fileDownloadName: filename);
+
+        return result;
+    }
 
     private static void Main(string[] args)
     {
@@ -24,16 +121,19 @@ internal class Program
         builder.Services
             .AddScoped<IdeaService>();
         builder.Services
+            .AddScoped<MediaService>();
+        builder.Services
             .AddScoped<StateService>();
         builder.Services
             .AddScoped<DashboardService>();
         builder.Services
-            .AddScoped<MediaService>();
-
+            .AddScoped<PrintService>();
         builder.Services
-            .AddDbContextFactory<AppDbContext>(options => options.UseNpgsql(
-                connectionString: builder.Configuration.GetConnectionString("Default"),
-                npgsqlOptionsAction: o => o.UseVector()));
+            .AddScoped<ExportService>();
+
+        builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseNpgsql(
+            connectionString: builder.Configuration.GetConnectionString("Default"),
+            npgsqlOptionsAction: o => o.UseVector()));
 
         builder.Services
             .AddRazorPages();
@@ -83,33 +183,17 @@ internal class Program
         });
 
         app.MapBlazorHub();
+
         app.MapGet(
             pattern: "/export/quiz/{id:guid}/pdf",
-            handler: (Guid id, QuizService qs, IConfiguration cfg) => PrintAsync(id, qs, cfg));
+            handler: (Guid id, QuizService qs, PrintService ps) => CreatePrintAsync(id, qs, ps));
+        app.MapGet(
+            pattern: "/export/quiz/{id:guid}/pptx",
+            handler: (Guid id, QuizService qs, IConfiguration cfg) => CreateExportAsync(id, qs, cfg));
+
         app.MapFallbackToPage("/_Host");
 
         app.Run();
-    }
-
-    private static async Task<IResult> PrintAsync(Guid id, QuizService quizService, IConfiguration cfg)
-    {
-        var quiz = await quizService.GetDetailAsync(id);
-        if (quiz == null) return Results.NotFound();
-
-        var fontSizeDefault = cfg.GetValue(
-            key: "Print:FontSizeDefault",
-            defaultValue: Constants.FontSizeDefault);
-        var fontSizeHeader = cfg.GetValue(
-            key: "Print:FontSizeHeader",
-            defaultValue: Constants.FontSizeHeader);
-
-        var bytes = PrintService.ExportQuiz(
-            quiz: quiz,
-            fontSizeDefault: fontSizeDefault,
-            fontSizeHeader: fontSizeHeader);
-
-        var filename = $"quiz_{quiz.Date:yyyy-MM-dd}.pdf";
-        return Results.File(bytes, "application/pdf", filename);
     }
 
     #endregion Private Methods

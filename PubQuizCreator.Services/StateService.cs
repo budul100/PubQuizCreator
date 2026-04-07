@@ -12,7 +12,6 @@
 
         public event Action? OnChange;
 
-
         #endregion Public Events
 
         #region Public Properties
@@ -26,6 +25,10 @@
         public bool OllamaOnline { get; private set; }
 
         public string PageTitle { get; private set; } = "";
+
+        public HashSet<Guid> RoundsCollapsed { get; } = [];
+
+        public HashSet<Guid> RoundsKnown { get; } = [];
 
         #endregion Public Properties
 

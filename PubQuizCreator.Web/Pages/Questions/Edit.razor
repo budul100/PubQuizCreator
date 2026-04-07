@@ -318,12 +318,16 @@
 
         try
         {
-            similarQuestions = await QuestionService.FindSimilarAsync(text, Id ?? Guid.Empty, topN: 5);
+            similarQuestions = await QuestionService.FindSimilarAsync(
+                text, 
+                Id ?? Guid.Empty, 
+                topN: 5);
+
             hasSearched = true;
         }
         catch
-        {
-            // Ollama unavailable — fail silently
+        { 
+            // Ollama unavailable — fail silently 
         }
         finally
         {

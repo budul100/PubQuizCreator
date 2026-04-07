@@ -19,7 +19,7 @@ else
 {
     @* Header row: Title + Date + Export buttons *@
     <div class="d-flex align-items-center gap-2 mb-2">
-        <input class="form-control form-control-lg"
+        <input class="form-control"
                style="min-width: 260px; max-width: 400px;"
                value="@quiz.Title"
                @onchange="e => quiz.Title = e.Value?.ToString() ?? string.Empty"
@@ -34,9 +34,11 @@ else
                target="_blank">
                 ⬇ PDF
             </a>
-            <button class="btn btn-outline-secondary btn-sm" disabled title="Coming soon / Must implement WasUsed = true">
+            <a class="btn btn-outline-secondary btn-sm"
+               href="/export/quiz/@quiz.Id/pptx"
+               target="_blank">
                 ⬇ PPTX
-            </button>
+            </a>
         </div>
     </div>
 
@@ -65,10 +67,10 @@ else
                 <span>
                     <span class="me-2 text-muted">☰</span>
                     <strong>Round @r.Position</strong>
+                    <span class="text-muted me-2">@(AppState.RoundsCollapsed.Contains(r.Id) ? "▶" : "▼")</span>
                     <span class="badge @roundBadge ms-2">@roundLabel</span>
                 </span>
                 <div class="d-flex gap-1" @onclick:stopPropagation="true">
-                    <span class="text-muted me-2">@(collapsedRounds.Contains(r.Id) ? "▶" : "▼")</span>
                     <button class="btn btn-outline-primary btn-sm"
                             @onclick="() => OpenAddSlot(r)">
                         + Slot
@@ -80,12 +82,15 @@ else
                 </div>
             </div>
 
-            @if (!collapsedRounds.Contains(r.Id))
+            @if (!AppState.RoundsCollapsed.Contains(r.Id))
             {
                 <div class="list-group list-group-flush">
                     @foreach (var slot in r.Slots.OrderBy(s => s.Position))
                     {
                         var s = slot;
+                        var editUrl = s.Question != null
+                            ? $"/questions/{s.Question.Id}/edit?returnUrl=/quizzes/{Id}"
+                            : null;
 
                         <div class="list-group-item d-flex align-items-center gap-2"
                              draggable="true"
@@ -107,8 +112,8 @@ else
                             </div>
 
                             <div style="flex: 4; min-width: 0; cursor: pointer;"
-                                 @onclick="() => OpenPicker(s)"
-                                 @onclick:stopPropagation="true">
+                                @onclick="async () => { if (editUrl != null) Nav.NavigateTo(editUrl); else await OpenPickerAsync(s); }"
+                                @onclick:stopPropagation="true">
                                 <div class="small fw-semibold text-truncate @(s.Question == null ? "text-muted fst-italic" : "")">
                                     @(s.Question?.TextShort ?? "— click to assign —")
                                     @if (s.Question?.MediaType is { } mt && mt != MediaType.None)
@@ -126,22 +131,24 @@ else
                             </div>
 
                             <div style="flex: 3; min-width: 0; cursor: pointer;"
-                                 @onclick="() => OpenPicker(s)"
-                                 @onclick:stopPropagation="true">
+                                @onclick="async () => { if (editUrl != null) Nav.NavigateTo(editUrl); else await OpenPickerAsync(s); }"
+                                @onclick:stopPropagation="true">
                                 @if (s.Question != null)
                                 {
                                     <div class="small text-muted text-truncate">@s.Question.Answer</div>
                                 }
                             </div>
 
+
                             <div class="d-flex gap-1 flex-shrink-0" @onclick:stopPropagation="true">
                                 @if (s.Question != null)
                                 {
-                                    <a class="btn btn-outline-secondary btn-sm"
-                                       title="Edit question"
-                                       href="/questions/@s.Question.Id/edit?returnUrl=/quizzes/@Id">
+                                    <button class="btn btn-outline-secondary btn-sm"
+                                            title="Reassign question"
+                                            @onclick="async () => await OpenPickerAsync(s)"
+                                            @onclick:stopPropagation="true">
                                         <span class="oi oi-pencil" />
-                                    </a>
+                                    </button>
 
                                     <button class="btn btn-outline-secondary btn-sm"
                                             title="Unassign question"
@@ -149,6 +156,7 @@ else
                                         <span class="oi oi-action-undo" />
                                     </button>
                                 }
+
                                 <button class="btn btn-outline-danger btn-sm"
                                         title="Remove slot"
                                         @onclick="() => RemoveSlotAsync(s.Id)">
@@ -270,9 +278,6 @@ else
     private List<Template> templates = [];
     private List<Category> categories = [];
 
-    private HashSet<Guid> collapsedRounds = [];
-    private HashSet<Guid> knownRounds = [];
-
     // Round drag
     private Guid dragFromRound;
 
@@ -311,8 +316,8 @@ else
         {
             foreach (var round in quiz.Rounds)
             {
-                if (knownRounds.Add(round.Id))
-                    collapsedRounds.Add(round.Id);
+                if (AppState.RoundsKnown.Add(round.Id))
+                    AppState.RoundsCollapsed.Add(round.Id);
             }
         }
     }
@@ -339,8 +344,8 @@ else
 
     private void ToggleRound(Guid roundId)
     {
-        if (!collapsedRounds.Add(roundId))
-            collapsedRounds.Remove(roundId);
+        if (!AppState.RoundsCollapsed.Add(roundId))
+            AppState.RoundsCollapsed.Remove(roundId);
     }
 
     private async Task DropRound(Guid dropToId)
@@ -395,7 +400,7 @@ else
         await ReloadAsync();
     }
 
-    private async Task OpenPicker(QuizSlot slot)
+    private async Task OpenPickerAsync(QuizSlot slot)
     {
         pickerSlot = slot;
         pickerSearch = string.Empty;
