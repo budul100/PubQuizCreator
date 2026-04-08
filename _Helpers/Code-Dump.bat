@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 set "SCRIPT=.\Code-Dump.ps1"
-set "EXCLUDE=_Exporter.cs"
+set "EXCLUDE="
 
 if not exist "%SCRIPT%" (
     echo ERROR: Script not found: %SCRIPT%
