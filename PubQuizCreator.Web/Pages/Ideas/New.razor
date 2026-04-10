@@ -54,34 +54,3 @@
     </div>
 
 </div>
-
-@code {
-    private string text = "";
-    private Guid categoryId;
-    private bool isTimeSensitive;
-    private bool saving;
-    private bool saved;
-    private List<Category> categories = [];
-
-    protected override async Task OnInitializedAsync()
-    {
-        AppState.SetPageTitle("Capture Idea");
-        categories = (await CategoryService.GetAllAsync()).Where(c => !c.IsHidden).ToList();
-    }
-
-    private async Task SaveAsync()
-    {
-        if (string.IsNullOrWhiteSpace(text)) return;
-
-        saving = true;
-        saved = false;
-
-        await IdeaService.CreateAsync(text.Trim(), categoryId.NullIfEmpty(), isTimeSensitive);
-
-        text = "";
-        categoryId = Guid.Empty;
-        isTimeSensitive = false;
-        saving = false;
-        saved = true;
-    }
-}

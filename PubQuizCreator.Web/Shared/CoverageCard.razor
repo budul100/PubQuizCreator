@@ -61,19 +61,3 @@
         }
     </div>
 </div>
-
-@code {
-    [Parameter] public bool NavigateToQuestions { get; set; } = false;
-    [Parameter] public EventCallback<Guid> OnCategorySelected { get; set; }
-
-    private bool isLoading = true;
-
-    private List<Coverage> coverage = [];
-
-    protected override async Task OnInitializedAsync()
-    {
-        coverage = await DashboardService.GetUpcomingCoverageAsync();
-
-        isLoading = false;
-    }
-}

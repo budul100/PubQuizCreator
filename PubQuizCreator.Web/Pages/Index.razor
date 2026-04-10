@@ -163,22 +163,3 @@ else
 
     </div>
 }
-
-@code {
-    private DashboardStats? stats;
-
-    protected override async Task OnInitializedAsync()
-    {
-        StateService.SetPageTitle("Dashboard");
-        stats = await DashboardService.GetStatsAsync();
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender) return;
-
-        var width = await JS.InvokeAsync<int>("getWindowWidth");
-        if (width < 641)
-            Nav.NavigateTo("/ideas/new");
-    }
-}

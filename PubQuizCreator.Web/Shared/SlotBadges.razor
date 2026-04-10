@@ -14,10 +14,3 @@
         </CategoryBadge>
     }
 </div>
-
-@code {
-    [Parameter] public IEnumerable<SlotCategoryStat> CategoryStats { get; set; } = [];
-    [Parameter] public string CssClass { get; set; } = "";
-
-    public record SlotCategoryStat(Category? Category, int Open, int Total);
-}
