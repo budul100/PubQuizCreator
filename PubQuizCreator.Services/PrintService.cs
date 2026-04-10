@@ -79,9 +79,12 @@ namespace PubQuizCreator.Services
                     ? Colors.White
                     : Colors.Grey.Lighten4;
 
-                var question = string.IsNullOrWhiteSpace(slot.Question?.TextLong)
-                    ? slot.Question?.TextShort
-                    : slot.Question?.TextLong;
+                var questions = new[] { slot.Question?.TextShort, slot.Question?.TextLong }
+                    .Where(s => !string.IsNullOrWhiteSpace(s));
+
+                var question = string.Join(
+                    separator: Environment.NewLine,
+                    values: questions);
 
                 table.Cell().Background(background).Padding(5).Text(index.ToString());
                 table.Cell().Background(background).Padding(5).Text(slot.Category?.Name ?? "—");

@@ -43,6 +43,21 @@
         // Similarity thresholds for "similar" — worth checking
         public const double SimilarityThresholdMedium = 0.70;
 
+        // Name of the answer shape
+        public const string TemplateShapeAnswer = "Answer";
+
+        // Name of the position shape
+        public const string TemplateShapePosition = "Position";
+
+        // Name of the question shape
+        public const string TemplateShapeQuestion = "Question";
+
+        // Name of the answer template slide
+        public const string TemplateSlideAnswer = "Answer";
+
+        // Name of the question template slide
+        public const string TemplateSlideQuestion = "Question";
+
         // Maximum recommended character length for the short question text (used in presentation).
         public const int TextShortWarnLength = 90;
 

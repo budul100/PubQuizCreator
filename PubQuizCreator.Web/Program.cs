@@ -1,24 +1,22 @@
+using System.IO.Compression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using PubQuizCreator.Core;
 using PubQuizCreator.Core.Interfaces;
+using PubQuizCreator.Core.Models;
 using PubQuizCreator.Data;
 using PubQuizCreator.Services;
 using QuestPDF.Infrastructure;
-using System.IO.Compression;
 
 internal class Program
 {
     #region Private Methods
 
     private static async Task<IResult> CreateExportAsync(Guid id, QuizService quizService,
-        SettingsService settingsService)
+        ExportService exportService)
     {
         var quiz = await quizService.GetDetailAsync(id);
         if (quiz == null) return Results.NotFound();
-
-        var questionsPath = settingsService.GetTemplatePath("Questions");
-        var answersPath = settingsService.GetTemplatePath("Answers");
 
         var zipStream = new MemoryStream();
 
@@ -33,41 +31,29 @@ internal class Program
 
             foreach (var round in rounds)
             {
-                var slots = round.Slots
-                    .Where(s => s.Question != null)
-                    .OrderBy(s => s.Position).ToList();
+                var slides = GetSlides(
+                    round: round).ToArray();
 
-                if (slots.Count == 0) continue;
-
-                var questions = slots.Select((s, i) => new Dictionary<string, string>
-                {
-                    ["Number"] = $"Frage {i + 1}",
-                    ["Question"] = s.Question!.TextShort
-                });
-
-                var questionSlides = ExportService.Export(questions, questionsPath, 1);
+                var questions = exportService.Export(
+                    slides: slides,
+                    isQuestions: true);
 
                 using (var questionStream = zip.CreateEntry(
-                    $"Round{round.Position:D2}_Questions.pptx",
-                    CompressionLevel.Fastest).Open())
+                    entryName: $"quiz_r-{round.Position:D1}-a_questions.pptx",
+                    compressionLevel: CompressionLevel.Fastest).Open())
                 {
-                    questionStream.Write(questionSlides);
+                    questionStream.Write(questions);
                 }
 
-                var answers = slots.Select((s, i) => new Dictionary<string, string>
-                {
-                    ["Number"] = $"Frage {i + 1}",
-                    ["Question"] = s.Question!.TextShort,
-                    ["Answer"] = s.Question!.Answer
-                });
-
-                var answerSlides = ExportService.Export(answers, answersPath, 1);
+                var answers = exportService.Export(
+                    slides: slides,
+                    isQuestions: false);
 
                 using (var answerStream = zip.CreateEntry(
-                    $"Round{round.Position:D2}_Answers.pptx",
-                    CompressionLevel.Fastest).Open())
+                    entryName: $"quiz_r-{round.Position:D1}-b_answers.pptx",
+                    compressionLevel: CompressionLevel.Fastest).Open())
                 {
-                    answerStream.Write(answerSlides);
+                    answerStream.Write(answers);
                 }
             }
         }
@@ -102,6 +88,29 @@ internal class Program
         return result;
     }
 
+    private static IEnumerable<Slide> GetSlides(QuizRound round)
+    {
+        var slots = round.Slots
+            .Where(s => s.Question != null)
+            .OrderBy(s => s.Position).ToList();
+
+        foreach (var slot in slots)
+        {
+            var shapes = new Dictionary<string, string>
+            {
+                [Constants.TemplateShapePosition] = $"Frage {slot.Position}",
+                [Constants.TemplateSlideQuestion] = slot.Question!.TextShort,
+                [Constants.TemplateSlideAnswer] = slot.Question.Answer
+            };
+
+            var result = new Slide(
+                Shapes: shapes,
+                Notes: slot.Question.TextLong);
+
+            yield return result;
+        }
+    }
+
     private static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
@@ -126,6 +135,8 @@ internal class Program
             .AddScoped<DashboardService>();
         builder.Services
             .AddScoped<PrintService>();
+        builder.Services
+            .AddScoped<ExportService>();
 
         builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseNpgsql(
             connectionString: builder.Configuration.GetConnectionString("Default"),
@@ -185,7 +196,7 @@ internal class Program
             handler: (Guid id, QuizService qs, PrintService ps) => CreatePrintAsync(id, qs, ps));
         app.MapGet(
             pattern: "/export/quiz/{id:guid}/pptx",
-            handler: (Guid id, QuizService qs, SettingsService ss) => CreateExportAsync(id, qs, ss));
+            handler: (Guid id, QuizService qs, ExportService es) => CreateExportAsync(id, qs, es));
 
         app.MapFallbackToPage("/_Host");
 
