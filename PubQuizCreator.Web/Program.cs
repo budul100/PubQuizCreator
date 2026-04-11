@@ -82,7 +82,7 @@ internal class Program
 
         var contents = printService.Print(quiz);
 
-        var filename = $"quiz_{quiz.Date:yyyy-MM-dd}.pdf";
+        var filename = $"quiz_{quiz.Date:yyyy-MM-dd}_questions.pdf";
 
         var result = Results.File(
             fileContents: contents,
