@@ -10,7 +10,7 @@
         }
     </div>
     <div class="card-body p-2">
-        @if (!SimilarQuestions.Any())
+        @if (!Similars.Any())
         {
             <p class="text-muted small mb-0">
                 @(HasSearched ? "No similar questions found." : "Start typing to search for duplicates.")
@@ -18,7 +18,7 @@
         }
         else
         {
-            var visibleSimilar = SimilarQuestions
+            var visibleSimilar = Similars
             .Where(sq => sq.Distance < Constants.SimilarityThresholdMedium)
             .ToList();
 

@@ -11,7 +11,7 @@ namespace PubQuizCreator.Web.Shared
 
         [Parameter] public bool IsSearching { get; set; }
 
-        [Parameter] public List<QuestionSimilar> SimilarQuestions { get; set; } = [];
+        [Parameter] public List<Similar> Similars { get; set; } = [];
 
         #endregion Public Properties
     }

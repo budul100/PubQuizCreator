@@ -24,7 +24,7 @@ namespace PubQuizCreator.Web.Pages.Questions
         private string? saveError;
         private bool saving;
         private bool searchingEmbedding;
-        private List<QuestionSimilar> similarQuestions = [];
+        private List<Similar> similars = [];
 
         #endregion Private Fields
 
@@ -237,7 +237,7 @@ namespace PubQuizCreator.Web.Pages.Questions
 
             try
             {
-                similarQuestions = await QuestionService.FindSimilarAsync(
+                similars = await QuestionService.FindSimilarsAsync(
                     text,
                     Id ?? Guid.Empty,
                     topN: 5);
@@ -285,7 +285,7 @@ namespace PubQuizCreator.Web.Pages.Questions
 
                 var nextCategoryId = model.CategoryId;
                 model = new QuestionModel { CategoryId = nextCategoryId };
-                similarQuestions = [];
+                similars = [];
                 hasSearched = false;
 
                 if (IdeaId.HasValue && IdeaId != Guid.Empty)

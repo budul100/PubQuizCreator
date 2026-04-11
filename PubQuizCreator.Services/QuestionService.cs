@@ -61,7 +61,7 @@ namespace PubQuizCreator.Services
             await db.SaveChangesAsync(ct);
         }
 
-        public async Task<List<QuestionSimilar>> FindSimilarAsync(string text, Guid excludeId, int topN = 5,
+        public async Task<List<Similar>> FindSimilarsAsync(string text, Guid excludeId, int topN = 5,
             CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(text) || text.Length < 10)
@@ -76,7 +76,7 @@ namespace PubQuizCreator.Services
                 .Where(q => q.Id != excludeId && q.Embedding != null)
                 .OrderBy(q => q.Embedding!.L2Distance(queryVector))
                 .Take(topN)
-                .Select(q => new QuestionSimilar(
+                .Select(q => new Similar(
                     q.Id,
                     q.TextShort,
                     q.Answer,

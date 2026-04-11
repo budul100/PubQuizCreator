@@ -61,7 +61,7 @@ internal class Program
 
         zipStream.Position = 0;
 
-        var filename = $"{quiz.Title}_{quiz.Date:yyyy-MM-dd}.zip".Replace(" ", "_");
+        var filename = $"quiz_{quiz.Date:yyyy-MM-dd}_slides.zip".Replace(" ", "_");
 
         var result = Results.File(
             fileStream: zipStream,

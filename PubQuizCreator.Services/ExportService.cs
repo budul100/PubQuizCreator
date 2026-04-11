@@ -15,7 +15,6 @@ using P = DocumentFormat.OpenXml.Presentation;
 namespace PubQuizCreator.Services
 {
     public class ExportService(
-        IDbContextFactory<AppDbContext> dbFactory,
         MediaService mediaService,
         SettingsService settingsService)
     {
@@ -28,10 +27,10 @@ namespace PubQuizCreator.Services
 
         #region Public Methods
 
-
         /// <summary>
         /// Builds a single PPTX for one round by copying the template and
-        /// inserting question slides between Intro and Submission/Outro.
+        /// inserting question slides between the prefix and suffix slides
+        /// surrounding the template slide block.
         /// </summary>
         public async Task<byte[]> ExportAsync(Round round, bool isAnswers, CancellationToken ct)
         {
@@ -46,7 +45,6 @@ namespace PubQuizCreator.Services
 
             using (var doc = PresentationDocument.Open(stream, isEditable: true))
             {
-
                 var presentationPart = doc.PresentationPart
                     ?? throw new InvalidOperationException("PresentationPart is null.");
 
@@ -69,9 +67,11 @@ namespace PubQuizCreator.Services
 
                     var sourceTemplate = isAnswers
                         ? answerTemplate
-                        : hasMedia 
-                        ? contentTemplate 
+                        : hasMedia
+                        ? contentTemplate
                         : questionTemplate;
+
+                    if (sourceTemplate == null) continue;
 
                     var clonedSlide = CloneSlidePart(presentationPart, sourceTemplate);
 
@@ -79,15 +79,15 @@ namespace PubQuizCreator.Services
                     SetShapeText(clonedSlide, Constants.TemplateShapeTitle,
                         $"Frage {slot.Position}");
 
-                    // Set question text (TextShort)
+                    // Set question text
                     SetShapeText(clonedSlide, Constants.TemplateShapeQuestion,
                         slot.Question.TextShort);
 
-                    // Set answer text (Answer)
+                    // Set answer text
                     SetShapeText(clonedSlide, Constants.TemplateShapeAnswer,
                         slot.Question.Answer);
 
-                    // Add speaker notes (TextLong)
+                    // Add speaker notes
                     var notesText = !string.IsNullOrWhiteSpace(slot.Question.TextLong)
                         ? slot.Question.TextLong
                         : slot.Question.TextShort;
@@ -107,17 +107,13 @@ namespace PubQuizCreator.Services
                     newSlides.Add(clonedSlide);
                 }
 
-                // Rebuild the slide order:
-                // Intro (slide1) + [question slides] + Submission (slide4) + Outro (slide5)
-                // Remove the original template slides (Question, Content)
-                RebuildSlideOrder(presentationPart, templateMap, newSlides);
+                // Rebuild the slide order generically:
+                // all slides before the template block + [question slides] + all slides after the template block
+                RebuildSlideOrder(presentationPart, slideParts, templateMap, newSlides);
             }
 
             return ConvertPotxToPptx(stream.ToArray());
         }
-
-
-
 
         #endregion Public Methods
 
@@ -218,7 +214,6 @@ namespace PubQuizCreator.Services
         /// <summary>
         /// Deep-clones a slide by serializing/deserializing the XML and
         /// re-creating all relationship targets (images, audio, layouts etc.).
-        /// This avoids the broken-reference issues of shallow cloning.
         /// </summary>
         private static SlidePart CloneSlidePart(PresentationPart presentationPart,
             SlidePart sourceSlide)
@@ -235,10 +230,6 @@ namespace PubQuizCreator.Services
             // Re-create all relationships from the source slide
             foreach (var rel in sourceSlide.Parts)
             {
-                // For each child part, add it to the new slide with the same relationship ID.
-                // This shares the underlying part (layout, notesMaster, etc.) rather than
-                // duplicating it, which is correct for layouts/masters.
-                // Images and media will be handled separately when needed.
                 if (rel.OpenXmlPart is ImagePart imagePart)
                 {
                     // Clone image parts to avoid cross-references
@@ -265,7 +256,7 @@ namespace PubQuizCreator.Services
                 newSlidePart.AddHyperlinkRelationship(hypRel.Uri, hypRel.IsExternal, hypRel.Id);
             }
 
-            // Copy audio/media data part references (countdown timer sounds etc.)
+            // Copy audio/media data part references
             foreach (var dpRef in sourceSlide.DataPartReferenceRelationships)
             {
                 switch (dpRef)
@@ -287,9 +278,7 @@ namespace PubQuizCreator.Services
                 }
             }
 
-
-            // Detach the cloned notes slide reference (each slide needs its own or none)
-            // Notes will be added separately via AddOrUpdateSpeakerNotes
+            // Detach the cloned notes slide reference — notes are added separately
             var existingNotesPart = newSlidePart.NotesSlidePart;
             if (existingNotesPart != null)
             {
@@ -297,6 +286,46 @@ namespace PubQuizCreator.Services
             }
 
             return newSlidePart;
+        }
+
+        /// <summary>
+        /// Rewrites [Content_Types].xml inside the ZIP to change the
+        /// template content type to a presentation content type.
+        /// </summary>
+        private static byte[] ConvertPotxToPptx(byte[] potxBytes)
+        {
+            using var input = new MemoryStream(potxBytes);
+            using var output = new MemoryStream();
+
+            using (var zipIn = new ZipArchive(input, ZipArchiveMode.Read))
+            using (var zipOut = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                foreach (var entry in zipIn.Entries)
+                {
+                    var newEntry = zipOut.CreateEntry(entry.FullName, CompressionLevel.Optimal);
+
+                    using var reader = entry.Open();
+                    using var writer = newEntry.Open();
+
+                    if (entry.FullName == "[Content_Types].xml")
+                    {
+                        using var sr = new StreamReader(reader);
+                        var content = sr.ReadToEnd()
+                            .Replace(
+                                "presentationml.template.main+xml",
+                                "presentationml.presentation.main+xml");
+
+                        using var sw = new StreamWriter(writer);
+                        sw.Write(content);
+                    }
+                    else
+                    {
+                        reader.CopyTo(writer);
+                    }
+                }
+            }
+
+            return output.ToArray();
         }
 
         /// <summary>
@@ -367,69 +396,70 @@ namespace PubQuizCreator.Services
         }
 
         /// <summary>
-        /// Rebuilds the slide order in presentation.xml:
-        /// Intro + [question slides] + Submission + Outro.
-        /// Removes the original Question and Content template slides.
+        /// Rebuilds the slide order in presentation.xml generically.
+        /// All slides before the first template slide are kept as prefix,
+        /// all slides after the last template slide are kept as suffix.
+        /// The template slides themselves are replaced by the generated question slides.
         /// </summary>
-        private static void RebuildSlideOrder(PresentationPart presentationPart,
-            Dictionary<string, SlidePart> templateMap, List<SlidePart> questionSlides)
+        private static void RebuildSlideOrder(
+            PresentationPart presentationPart,
+            List<SlidePart> originalOrder,
+            Dictionary<string, SlidePart> templateMap,
+            List<SlidePart> questionSlides)
         {
             var presentation = presentationPart.Presentation;
             var slideIdList = presentation.SlideIdList!;
 
-            // Build a lookup: SlidePart → SlideId element
-            var partToSlideId = new Dictionary<SlidePart, SlideId>();
-            foreach (var sid in slideIdList.Elements<SlideId>())
+            // Collect all template slides that should be removed
+            var templateSlideNames = new[]
             {
-                var sp = (SlidePart)presentationPart.GetPartById(sid.RelationshipId!);
-                partToSlideId[sp] = sid;
-            }
+                Constants.TemplateSlideQuestion,
+                Constants.TemplateSlideContent,
+                Constants.TemplateSlideAnswer
+            };
 
-            // Determine the desired order
-            var desiredOrder = new List<SlidePart>();
+            var slidesToRemove = templateSlideNames
+                .Select(name => templateMap.GetValueOrDefault(name))
+                .Where(sp => sp != null)
+                .ToHashSet()!;
 
-            if (templateMap.TryGetValue("Intro", out var intro))
-                desiredOrder.Add(intro);
+            // Find the index range of template slides in the original order
+            var templateIndices = originalOrder
+                .Select((sp, i) => (sp, i))
+                .Where(x => slidesToRemove.Contains(x.sp))
+                .Select(x => x.i)
+                .ToList();
 
-            desiredOrder.AddRange(questionSlides);
+            // If no template slides found, append question slides at the end
+            int insertAt = templateIndices.Count > 0
+                ? templateIndices.Min()
+                : originalOrder.Count;
 
-            if (templateMap.TryGetValue("Submission", out var submission))
-                desiredOrder.Add(submission);
+            int removeThrough = templateIndices.Count > 0
+                ? templateIndices.Max()
+                : insertAt - 1;
 
-            if (templateMap.TryGetValue("Outro", out var outro))
-                desiredOrder.Add(outro);
+            // Build desired order: prefix + question slides + suffix
+            var desiredOrder = originalOrder
+                .Take(insertAt)
+                .Concat(questionSlides)
+                .Concat(originalOrder.Skip(removeThrough + 1))
+                .ToList();
 
-            // Slides to remove (original Question and Content templates)
-            var slidesToRemove = new HashSet<SlidePart>();
-            if (templateMap.TryGetValue(Constants.TemplateSlideQuestion, out var qSlide))
-                slidesToRemove.Add(qSlide);
-            if (templateMap.TryGetValue(Constants.TemplateSlideContent, out var cSlide))
-                slidesToRemove.Add(cSlide);
-
-            // Remove template slides and their relationships
+            // Remove template slides from the package
             foreach (var slideToRemove in slidesToRemove)
             {
-                if (partToSlideId.TryGetValue(slideToRemove, out var sid))
-                {
-                    sid.Remove();
-                }
-
-                // Delete associated notes
                 var notesPart = slideToRemove.NotesSlidePart;
                 if (notesPart != null)
-                {
                     slideToRemove.DeletePart(notesPart);
-                }
 
                 presentationPart.DeletePart(slideToRemove);
             }
 
-            // Clear the slide ID list and rebuild
+            // Rebuild the SlideIdList
             slideIdList.RemoveAllChildren<SlideId>();
 
-            // Find the next available slide ID
             uint nextId = 256;
-
             foreach (var slidePart in desiredOrder)
             {
                 var relId = presentationPart.GetIdOfPart(slidePart);
@@ -482,8 +512,6 @@ namespace PubQuizCreator.Services
                 var newImagePart = slidePart.AddImagePart(contentType);
                 using var ms = new MemoryStream(imageBytes);
                 newImagePart.FeedData(ms);
-
-                // Update the blip embed reference
                 blip.Embed = slidePart.GetIdOfPart(newImagePart);
             }
         }
@@ -519,7 +547,7 @@ namespace PubQuizCreator.Services
             var newRun = new A.Run();
             if (runProps != null)
             {
-                // Clear error marking
+                // Clear spell-check error marking from cloned properties
                 runProps.Dirty = null;
                 runProps.SpellingError = null;
                 newRun.Append(runProps);
@@ -528,47 +556,6 @@ namespace PubQuizCreator.Services
             newRun.Append(new A.Text(text));
             newPara.Append(newRun);
             txBody.Append(newPara);
-        }
-
-        /// <summary>
-        /// Rewrites [Content_Types].xml inside the ZIP to change the
-        /// template content type to a presentation content type.
-        /// This avoids the issues with ChangeDocumentType on MemoryStreams.
-        /// </summary>
-        private static byte[] ConvertPotxToPptx(byte[] potxBytes)
-        {
-            using var input = new MemoryStream(potxBytes);
-            using var output = new MemoryStream();
-
-            using (var zipIn = new ZipArchive(input, ZipArchiveMode.Read))
-            using (var zipOut = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
-            {
-                foreach (var entry in zipIn.Entries)
-                {
-                    var newEntry = zipOut.CreateEntry(entry.FullName, CompressionLevel.Optimal);
-
-                    using var reader = entry.Open();
-                    using var writer = newEntry.Open();
-
-                    if (entry.FullName == "[Content_Types].xml")
-                    {
-                        using var sr = new StreamReader(reader);
-                        var content = sr.ReadToEnd()
-                            .Replace(
-                                "presentationml.template.main+xml",
-                                "presentationml.presentation.main+xml");
-
-                        using var sw = new StreamWriter(writer);
-                        sw.Write(content);
-                    }
-                    else
-                    {
-                        reader.CopyTo(writer);
-                    }
-                }
-            }
-
-            return output.ToArray();
         }
 
         #endregion Private Methods
