@@ -1,6 +1,6 @@
 ﻿namespace PubQuizCreator.Core.Models
 {
-    public class DashboardStats
+    public class Dashboard
     {
         #region Public Properties
 

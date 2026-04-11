@@ -11,8 +11,9 @@ namespace PubQuizCreator.Services
     {
         #region Public Methods
 
-        public static string BuildEmbeddingInput(Question q) =>
-            string.Join(" ", new[] { q.TextShort.Trim(), q.Answer.Trim() }
+        public static string BuildEmbeddingInput(Question q) => string.Join(
+            separator: " ",
+            values: new[] { q.TextShort.Trim(), q.Answer.Trim() }
                 .Where(s => !string.IsNullOrEmpty(s)));
 
         public async Task<Question> CreateAsync(Question question, CancellationToken ct = default)
@@ -21,6 +22,7 @@ namespace PubQuizCreator.Services
             {
                 if (question.CategoryId == null)
                     throw new InvalidOperationException("CategoryId must be set for usable questions.");
+
                 if (string.IsNullOrWhiteSpace(question.Answer))
                     throw new InvalidOperationException("Answer must not be empty for usable questions.");
             }
@@ -28,6 +30,7 @@ namespace PubQuizCreator.Services
             try
             {
                 var text = BuildEmbeddingInput(question);
+
                 if (!string.IsNullOrWhiteSpace(text))
                 {
                     var vector = await embeddingService.GetEmbeddingAsync(text, ct);
@@ -126,11 +129,10 @@ namespace PubQuizCreator.Services
                     && !excludeIds.Contains(q.Id)
                     && (q.AllowReuse || (
                         !q.WasUsed
-                        && !db.QuizSlots.Any(s =>
+                        && !db.RoundSlots.Any(s =>
                             s.QuestionId == q.Id
-                            && s.Round.Quiz.IsCompleted)
-                                        )))
-                .Select(q => new Question { /* wie gehabt */ })
+                            && s.Round.Quiz.IsCompleted))))
+                .Select(q => new Question { })
                 .AsNoTracking()
                 .OrderByDescending(q => q.CreatedAt)
                 .ToListAsync(ct);
@@ -140,7 +142,7 @@ namespace PubQuizCreator.Services
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            var slots = await db.QuizSlots
+            var slots = await db.RoundSlots
                 .Where(s => s.QuestionId != null)
                 .Include(s => s.Round).ThenInclude(r => r.Quiz)
                 .Select(s => new { s.QuestionId, s.Round.Quiz.Title, s.Round.Quiz.Date, s.Round.Quiz.IsCompleted })

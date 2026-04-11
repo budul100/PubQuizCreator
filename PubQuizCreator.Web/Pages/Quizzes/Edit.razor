@@ -63,7 +63,7 @@ else
         <div class="card mb-3"
              draggable="true"
              @ondragstart="() => dragFromRound = r.Id"
-             @ondragover="OnDragOver"
+             @ondragover="_ => { }"
              @ondragover:preventDefault="true"
              @ondrop="() => DropRound(r.Id)">
 
@@ -102,7 +102,7 @@ else
                         <div class="list-group-item d-flex align-items-center gap-2"
                              draggable="true"
                              @ondragstart="() => { dragFromSlot = s.Id; dragFromSlotRound = r.Id; }"
-                             @ondragover="OnDragOver"
+                             @ondragover="_ => { }"
                              @ondragover:preventDefault="true"
                              @ondrop="() => DropSlot(r.Id, s.Id)"
                              style="cursor: grab;">

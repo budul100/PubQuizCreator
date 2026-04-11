@@ -10,7 +10,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         #region Private Fields
 
         private Guid addSlotCategoryId;
-        private QuizRound? addSlotRound;
+        private Round? addSlotRound;
         private List<Category> categories = [];
         private Guid dragFromRound;
         private Guid dragFromSlot;
@@ -18,7 +18,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         private List<Question> pickerAll = [];
         private List<Question> pickerFiltered = [];
         private string pickerSearch = string.Empty;
-        private QuizSlot? pickerSlot;
+        private RoundSlot? pickerSlot;
         private Quiz? quiz;
         private Guid selectedTemplateId;
         private bool showTemplatePicker;
@@ -73,6 +73,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         {
             if (pickerSlot == null) return;
             await QuizService.AssignQuestionAsync(pickerSlot.Id, questionId);
+
             pickerSlot = null;
             await ReloadAsync();
         }
@@ -117,16 +118,13 @@ namespace PubQuizCreator.Web.Pages.Quizzes
             await ReloadAsync();
         }
 
-        private void OnDragOver(DragEventArgs e)
-        { }
-
-        private void OpenAddSlot(QuizRound round)
+        private void OpenAddSlot(Round round)
         {
             addSlotRound = round;
             addSlotCategoryId = Guid.Empty;
         }
 
-        private async Task OpenPickerAsync(QuizSlot slot)
+        private async Task OpenPickerAsync(RoundSlot slot)
         {
             pickerSlot = slot;
             pickerSearch = string.Empty;

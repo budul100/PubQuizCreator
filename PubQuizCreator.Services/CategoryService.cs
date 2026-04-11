@@ -55,10 +55,10 @@ namespace PubQuizCreator.Services
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            return await db.Questions.AnyAsync(q => q.CategoryId == id, ct) ||
-                await db.QuizSlots.AnyAsync(s => s.CategoryId == id, ct) ||
-                await db.TemplateSlots.AnyAsync(s => s.CategoryId == id, ct) ||
-                await db.Ideas.AnyAsync(i => i.CategoryId == id, ct);
+            return await db.Questions.AnyAsync(q => q.CategoryId == id, ct)
+                || await db.RoundSlots.AnyAsync(s => s.CategoryId == id, ct)
+                || await db.TemplateSlots.AnyAsync(s => s.CategoryId == id, ct)
+                || await db.Ideas.AnyAsync(i => i.CategoryId == id, ct);
         }
 
         public async Task UpdateAsync(Guid id, string name, string colorHex, bool isHidden, CancellationToken ct = default)

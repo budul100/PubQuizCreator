@@ -33,20 +33,29 @@ Open your template `.pptx` in PowerPoint, then open the VBA editor (`Alt + F11`)
 following macro. Adjust the slide indices and names to match your deck.
 
 ```vba
-Sub SetTemplateSlideNames()
+Sub RenameSlide()
 
-    Dim prs As Presentation
-    Set prs = ActivePresentation
+    Dim sld As Slide
+    Dim currentName As String
+    Dim newName As String
 
-    ' Set the name for each template slide.
-    ' Index 1 = first slide in the deck.
-    ' Adjust indices to match the actual position of your template slides.
-    prs.Slides(1).Name = "TPL_Question"
-    prs.Slides(2).Name = "TPL_Answer"
+    Set sld = ActiveWindow.View.Slide
+    currentName = sld.Name
 
-    prs.Save
+    newName = InputBox("Enter new name for this slide:" & vbCrLf & _
+        "(Slide " & sld.SlideIndex & ")", _
+        "Rename Slide", currentName)
 
-    MsgBox "Done. Template slide names updated.", vbInformation
+    ' Cancel or empty input ? abort
+    If newName = "" Then
+        MsgBox "Cancelled. No changes made.", vbExclamation
+        Exit Sub
+    End If
+
+    sld.Name = newName
+    ActivePresentation.Save
+
+    MsgBox "Slide renamed to: " & newName, vbInformation
 
 End Sub
 ```

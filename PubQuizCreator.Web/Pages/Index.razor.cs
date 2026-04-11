@@ -8,7 +8,7 @@ namespace PubQuizCreator.Web.Pages
     {
         #region Private Fields
 
-        private DashboardStats? stats;
+        private Dashboard? stats;
 
         #endregion Private Fields
 

@@ -1,21 +1,24 @@
-﻿using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Drawing;
+﻿using System.IO.Compression;
+using Microsoft.EntityFrameworkCore;
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
 using PubQuizCreator.Core;
+using PubQuizCreator.Core.Models;
+using PubQuizCreator.Core.Types;
+using PubQuizCreator.Data;
+
+using A = DocumentFormat.OpenXml.Drawing;
+
+using P = DocumentFormat.OpenXml.Presentation;
 
 namespace PubQuizCreator.Services
 {
-    public class ExportService(SettingsService settingsService)
+    public class ExportService(
+        IDbContextFactory<AppDbContext> dbFactory,
+        MediaService mediaService,
+        SettingsService settingsService)
     {
-        // Make sure that the comments in the template slides have a placeholder text
-
-        #region Public Fields
-
-        public readonly string[] usedTemplates = [Constants.TemplateSlideQuestion, Constants.TemplateSlideAnswer];
-
-        #endregion Public Fields
-
         #region Private Fields
 
         private readonly string answersPath = settingsService.GetTemplatePath("Answers");
@@ -25,224 +28,547 @@ namespace PubQuizCreator.Services
 
         #region Public Methods
 
-        public byte[] Export(IEnumerable<Core.Models.Slide> slides, bool isQuestions)
+
+        /// <summary>
+        /// Builds a single PPTX for one round by copying the template and
+        /// inserting question slides between Intro and Submission/Outro.
+        /// </summary>
+        public async Task<byte[]> ExportAsync(Round round, bool isAnswers, CancellationToken ct)
         {
-            var destPath = System.IO.Path.GetTempFileName();
+            var templatePath = isAnswers
+                ? answersPath
+                : questionsPath;
 
-            try
+            var templateBytes = await File.ReadAllBytesAsync(templatePath, ct);
+            using var stream = new MemoryStream();
+            stream.Write(templateBytes);
+            stream.Position = 0;
+
+            using (var doc = PresentationDocument.Open(stream, isEditable: true))
             {
-                var sourcePath = isQuestions
-                    ? questionsPath
-                    : answersPath;
 
-                File.Copy(
-                    sourceFileName: sourcePath,
-                    destFileName: destPath,
-                    overwrite: true);
+                var presentationPart = doc.PresentationPart
+                    ?? throw new InvalidOperationException("PresentationPart is null.");
 
-                CreatePresentation(
-                    slides: slides,
-                    isQuestions: isQuestions,
-                    path: destPath);
+                var slideParts = GetOrderedSlideParts(presentationPart);
+                var templateMap = MapTemplateSlides(slideParts);
 
-                return File.ReadAllBytes(destPath);
+                var questionTemplate = templateMap.GetValueOrDefault(Constants.TemplateSlideQuestion);
+                var contentTemplate = templateMap.GetValueOrDefault(Constants.TemplateSlideContent);
+                var answerTemplate = templateMap.GetValueOrDefault(Constants.TemplateSlideAnswer);
+
+                // Build new slides for each question slot
+                var newSlides = new List<SlidePart>();
+
+                foreach (var slot in round.Slots.OrderBy(s => s.Position))
+                {
+                    if (slot.Question == null) continue;
+
+                    var hasMedia = slot.Question.MediaType == MediaType.Image
+                        && !string.IsNullOrWhiteSpace(slot.Question.MediaFile);
+
+                    var sourceTemplate = isAnswers
+                        ? answerTemplate
+                        : hasMedia 
+                        ? contentTemplate 
+                        : questionTemplate;
+
+                    var clonedSlide = CloneSlidePart(presentationPart, sourceTemplate);
+
+                    // Set title: "Frage {Position}"
+                    SetShapeText(clonedSlide, Constants.TemplateShapeTitle,
+                        $"Frage {slot.Position}");
+
+                    // Set question text (TextShort)
+                    SetShapeText(clonedSlide, Constants.TemplateShapeQuestion,
+                        slot.Question.TextShort);
+
+                    // Set answer text (Answer)
+                    SetShapeText(clonedSlide, Constants.TemplateShapeAnswer,
+                        slot.Question.Answer);
+
+                    // Add speaker notes (TextLong)
+                    var notesText = !string.IsNullOrWhiteSpace(slot.Question.TextLong)
+                        ? slot.Question.TextLong
+                        : slot.Question.TextShort;
+
+                    AddOrUpdateSpeakerNotes(presentationPart, clonedSlide, notesText);
+
+                    // Replace media image if applicable
+                    if (hasMedia)
+                    {
+                        var imageBytes = await mediaService.LoadAsync(
+                            slot.Question.MediaFile!, ct);
+
+                        ReplaceMediaImage(clonedSlide, imageBytes,
+                            slot.Question.MediaFile!);
+                    }
+
+                    newSlides.Add(clonedSlide);
+                }
+
+                // Rebuild the slide order:
+                // Intro (slide1) + [question slides] + Submission (slide4) + Outro (slide5)
+                // Remove the original template slides (Question, Content)
+                RebuildSlideOrder(presentationPart, templateMap, newSlides);
             }
-            finally
-            {
-                File.Delete(destPath);
-            }
+
+            return ConvertPotxToPptx(stream.ToArray());
         }
+
+
+
 
         #endregion Public Methods
 
         #region Private Methods
 
-        private static SlidePart CloneSlide(PresentationPart presentationPart, SlidePart source)
+        /// <summary>
+        /// Adds or updates speaker notes on a slide.
+        /// Creates a new NotesSlidePart if none exists.
+        /// </summary>
+        private static void AddOrUpdateSpeakerNotes(PresentationPart presentationPart,
+            SlidePart slidePart, string notesText)
         {
-            var result = presentationPart.AddNewPart<SlidePart>();
+            NotesSlidePart notesPart;
 
-            using (var src = source.GetStream())
-
-            using (var dest = result.GetStream(FileMode.Create))
-                src.CopyTo(dest);
-
-            if (source.SlideLayoutPart != null)
+            if (slidePart.NotesSlidePart != null)
             {
-                var layoutRelId = source.GetIdOfPart(source.SlideLayoutPart);
-                result.AddPart(
-                    part: source.SlideLayoutPart,
-                    id: layoutRelId);
+                notesPart = slidePart.NotesSlidePart;
+            }
+            else
+            {
+                notesPart = slidePart.AddNewPart<NotesSlidePart>();
+
+                // Link to the notes master
+                var notesMasterPart = presentationPart.NotesMasterPart;
+                if (notesMasterPart != null)
+                {
+                    notesPart.AddPart(notesMasterPart);
+                }
+
+                // Create the notes slide structure
+                notesPart.NotesSlide = new NotesSlide(
+                    new CommonSlideData(
+                        new ShapeTree(
+                            new P.NonVisualGroupShapeProperties(
+                                new P.NonVisualDrawingProperties { Id = 1U, Name = "" },
+                                new P.NonVisualGroupShapeDrawingProperties(),
+                                new ApplicationNonVisualDrawingProperties()),
+                            new GroupShapeProperties(
+                                new A.TransformGroup(
+                                    new A.Offset { X = 0, Y = 0 },
+                                    new A.Extents { Cx = 0, Cy = 0 },
+                                    new A.ChildOffset { X = 0, Y = 0 },
+                                    new A.ChildExtents { Cx = 0, Cy = 0 })),
+
+                            // Slide image placeholder
+                            new P.Shape(
+                                new P.NonVisualShapeProperties(
+                                    new P.NonVisualDrawingProperties { Id = 2U, Name = "Slide Image" },
+                                    new P.NonVisualShapeDrawingProperties(
+                                        new A.ShapeLocks { NoGrouping = true, NoRotation = true, NoChangeAspect = true }),
+                                    new ApplicationNonVisualDrawingProperties(
+                                        new PlaceholderShape { Type = PlaceholderValues.SlideImage })),
+                                new P.ShapeProperties()),
+
+                            // Notes body placeholder
+                            new P.Shape(
+                                new P.NonVisualShapeProperties(
+                                    new P.NonVisualDrawingProperties { Id = 3U, Name = "Notes Placeholder" },
+                                    new P.NonVisualShapeDrawingProperties(
+                                        new A.ShapeLocks { NoGrouping = true }),
+                                    new ApplicationNonVisualDrawingProperties(
+                                        new PlaceholderShape { Type = PlaceholderValues.Body, Index = 1U })),
+                                new P.ShapeProperties(),
+                                new P.TextBody(
+                                    new A.BodyProperties(),
+                                    new A.ListStyle(),
+                                    new A.Paragraph(
+                                        new A.Run(
+                                            new A.RunProperties { Language = "en-US" },
+                                            new A.Text(notesText))))))),
+                    new ColorMapOverride(new A.MasterColorMapping()));
+
+                return;
             }
 
-            if (source.NotesSlidePart != null)
-            {
-                var notesRelId = source.GetIdOfPart(source.NotesSlidePart);
-                var newNotesPart = result.AddNewPart<NotesSlidePart>(notesRelId);
-
-                using (var src = source.NotesSlidePart.GetStream())
-
-                using (var dest = newNotesPart.GetStream(FileMode.Create))
-                    src.CopyTo(dest);
-
-                if (source.NotesSlidePart.NotesMasterPart != null)
+            // Update existing notes: find the body placeholder and replace text
+            var notesBody = notesPart.NotesSlide?
+                .Descendants<P.Shape>()
+                .FirstOrDefault(s =>
                 {
-                    var masterRelId = source.NotesSlidePart.GetIdOfPart(source.NotesSlidePart.NotesMasterPart);
-                    newNotesPart.AddPart(
-                        part: source.NotesSlidePart.NotesMasterPart,
-                        id: masterRelId);
+                    var ph = s.NonVisualShapeProperties?
+                        .ApplicationNonVisualDrawingProperties?
+                        .GetFirstChild<PlaceholderShape>();
+                    return ph?.Type?.Value == PlaceholderValues.Body;
+                });
+
+            if (notesBody?.TextBody != null)
+            {
+                var txBody = notesBody.TextBody;
+                txBody.RemoveAllChildren<A.Paragraph>();
+                txBody.Append(new A.Paragraph(
+                    new A.Run(
+                        new A.RunProperties { Language = "en-US" },
+                        new A.Text(notesText))));
+            }
+        }
+
+        /// <summary>
+        /// Deep-clones a slide by serializing/deserializing the XML and
+        /// re-creating all relationship targets (images, audio, layouts etc.).
+        /// This avoids the broken-reference issues of shallow cloning.
+        /// </summary>
+        private static SlidePart CloneSlidePart(PresentationPart presentationPart,
+            SlidePart sourceSlide)
+        {
+            var newSlidePart = presentationPart.AddNewPart<SlidePart>();
+
+            // Deep-copy the slide XML
+            using (var sourceStream = sourceSlide.GetStream(FileMode.Open))
+            {
+                using var targetStream = newSlidePart.GetStream(FileMode.Create);
+                sourceStream.CopyTo(targetStream);
+            }
+
+            // Re-create all relationships from the source slide
+            foreach (var rel in sourceSlide.Parts)
+            {
+                // For each child part, add it to the new slide with the same relationship ID.
+                // This shares the underlying part (layout, notesMaster, etc.) rather than
+                // duplicating it, which is correct for layouts/masters.
+                // Images and media will be handled separately when needed.
+                if (rel.OpenXmlPart is ImagePart imagePart)
+                {
+                    // Clone image parts to avoid cross-references
+                    var newImagePart = newSlidePart.AddImagePart(imagePart.ContentType, rel.RelationshipId);
+                    using var imgStream = imagePart.GetStream(FileMode.Open);
+                    newImagePart.FeedData(imgStream);
+                }
+                else
+                {
+                    newSlidePart.AddPart(rel.OpenXmlPart, rel.RelationshipId);
+                }
+            }
+
+            // Copy external relationships (audio, video via URI)
+            foreach (var extRel in sourceSlide.ExternalRelationships)
+            {
+                newSlidePart.AddExternalRelationship(
+                    extRel.RelationshipType, extRel.Uri, extRel.Id);
+            }
+
+            // Copy hyperlink relationships
+            foreach (var hypRel in sourceSlide.HyperlinkRelationships)
+            {
+                newSlidePart.AddHyperlinkRelationship(hypRel.Uri, hypRel.IsExternal, hypRel.Id);
+            }
+
+            // Copy audio/media data part references (countdown timer sounds etc.)
+            foreach (var dpRef in sourceSlide.DataPartReferenceRelationships)
+            {
+                switch (dpRef)
+                {
+                    case AudioReferenceRelationship audioRef:
+                        newSlidePart.AddAudioReferenceRelationship(
+                            (MediaDataPart)audioRef.DataPart, audioRef.Id);
+                        break;
+
+                    case MediaReferenceRelationship mediaRef:
+                        newSlidePart.AddMediaReferenceRelationship(
+                            (MediaDataPart)mediaRef.DataPart, mediaRef.Id);
+                        break;
+
+                    case VideoReferenceRelationship videoRef:
+                        newSlidePart.AddVideoReferenceRelationship(
+                            (MediaDataPart)videoRef.DataPart, videoRef.Id);
+                        break;
+                }
+            }
+
+
+            // Detach the cloned notes slide reference (each slide needs its own or none)
+            // Notes will be added separately via AddOrUpdateSpeakerNotes
+            var existingNotesPart = newSlidePart.NotesSlidePart;
+            if (existingNotesPart != null)
+            {
+                newSlidePart.DeletePart(existingNotesPart);
+            }
+
+            return newSlidePart;
+        }
+
+        /// <summary>
+        /// Finds a p:sp shape by its cNvPr name attribute.
+        /// </summary>
+        private static P.Shape? FindShapeByName(Slide slide, string name)
+        {
+            return slide.Descendants<P.Shape>()
+                .FirstOrDefault(sp =>
+                {
+                    var cNvPr = sp.NonVisualShapeProperties?
+                        .NonVisualDrawingProperties;
+                    return cNvPr?.Name?.Value == name;
+                });
+        }
+
+        /// <summary>
+        /// Determines the image content type based on the file extension.
+        /// </summary>
+        private static string GetImageContentType(string fileName)
+        {
+            var ext = Path.GetExtension(fileName).ToLowerInvariant();
+            return ext switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".gif" => "image/gif",
+                ".bmp" => "image/bmp",
+                ".webp" => "image/webp",
+                ".svg" => "image/svg+xml",
+                _ => "image/png"
+            };
+        }
+
+        /// <summary>
+        /// Returns slide parts in the order defined by presentation.xml sldIdLst.
+        /// </summary>
+        private static List<SlidePart> GetOrderedSlideParts(PresentationPart presentationPart)
+        {
+            var presentation = presentationPart.Presentation;
+            var slideIdList = presentation.SlideIdList
+                ?? throw new InvalidOperationException("SlideIdList is null.");
+
+            return slideIdList.Elements<SlideId>()
+                .Select(sid => (SlidePart)presentationPart.GetPartById(sid.RelationshipId!))
+                .ToList();
+        }
+
+        /// <summary>
+        /// Maps template slide names (from cSld/@name) to their SlideParts.
+        /// </summary>
+        private static Dictionary<string, SlidePart> MapTemplateSlides(List<SlidePart> slideParts)
+        {
+            var result = new Dictionary<string, SlidePart>();
+
+            foreach (var sp in slideParts)
+            {
+                var cSld = sp.Slide.CommonSlideData;
+                var name = cSld?.Name?.Value;
+
+                if (!string.IsNullOrEmpty(name))
+                {
+                    result[name] = sp;
                 }
             }
 
             return result;
         }
 
-        private static string GetSlideName(SlidePart slidePart)
+        /// <summary>
+        /// Rebuilds the slide order in presentation.xml:
+        /// Intro + [question slides] + Submission + Outro.
+        /// Removes the original Question and Content template slides.
+        /// </summary>
+        private static void RebuildSlideOrder(PresentationPart presentationPart,
+            Dictionary<string, SlidePart> templateMap, List<SlidePart> questionSlides)
         {
-            return slidePart.Slide!.CommonSlideData?.Name?.Value ?? string.Empty;
-        }
+            var presentation = presentationPart.Presentation;
+            var slideIdList = presentation.SlideIdList!;
 
-        private static void SetNotes(SlidePart slidePart, string text)
-        {
-            var notesPart = slidePart.NotesSlidePart;
-            if (notesPart == null) return;
-
-            var notesBody = notesPart.NotesSlide!
-                .Descendants<DocumentFormat.OpenXml.Presentation.Shape>()
-                .FirstOrDefault(sp => sp
-                    .NonVisualShapeProperties?
-                    .ApplicationNonVisualDrawingProperties?
-                    .GetFirstChild<PlaceholderShape>()?.Index?.Value == 1);
-
-            if (notesBody?.TextBody == null) return;
-
-            notesBody.TextBody.RemoveAllChildren<Paragraph>();
-
-            var noteText = new DocumentFormat.OpenXml.Drawing.Text(text);
-            var noteRun = new Run(noteText);
-            var noteParagraph = new Paragraph(noteRun);
-            notesBody.TextBody.AppendChild(noteParagraph);
-
-            notesPart.NotesSlide.Save();
-        }
-
-        private static void SetText(SlidePart slidePart, string shapeName, string text)
-        {
-            var shape = slidePart.Slide?
-                .Descendants<DocumentFormat.OpenXml.Presentation.Shape>()
-                .FirstOrDefault(sp => sp.NonVisualShapeProperties?
-                    .NonVisualDrawingProperties?.Name?.Value == shapeName);
-
-            if (shape?.TextBody == null) return;
-
-            var para = shape.TextBody.Elements<Paragraph>().First();
-
-            var runProps = para.Elements<Run>()
-                .FirstOrDefault()?
-                .RunProperties?.CloneNode(deep: true) as RunProperties;
-
-            if (runProps != null)
+            // Build a lookup: SlidePart → SlideId element
+            var partToSlideId = new Dictionary<SlidePart, SlideId>();
+            foreach (var sid in slideIdList.Elements<SlideId>())
             {
-                runProps.Dirty = false;
-                runProps.SpellingError = null;
+                var sp = (SlidePart)presentationPart.GetPartById(sid.RelationshipId!);
+                partToSlideId[sp] = sid;
             }
 
-            var runs = para.Elements<Run>().ToList();
+            // Determine the desired order
+            var desiredOrder = new List<SlidePart>();
 
-            foreach (var run in runs)
+            if (templateMap.TryGetValue("Intro", out var intro))
+                desiredOrder.Add(intro);
+
+            desiredOrder.AddRange(questionSlides);
+
+            if (templateMap.TryGetValue("Submission", out var submission))
+                desiredOrder.Add(submission);
+
+            if (templateMap.TryGetValue("Outro", out var outro))
+                desiredOrder.Add(outro);
+
+            // Slides to remove (original Question and Content templates)
+            var slidesToRemove = new HashSet<SlidePart>();
+            if (templateMap.TryGetValue(Constants.TemplateSlideQuestion, out var qSlide))
+                slidesToRemove.Add(qSlide);
+            if (templateMap.TryGetValue(Constants.TemplateSlideContent, out var cSlide))
+                slidesToRemove.Add(cSlide);
+
+            // Remove template slides and their relationships
+            foreach (var slideToRemove in slidesToRemove)
             {
-                para.RemoveChild(run);
+                if (partToSlideId.TryGetValue(slideToRemove, out var sid))
+                {
+                    sid.Remove();
+                }
+
+                // Delete associated notes
+                var notesPart = slideToRemove.NotesSlidePart;
+                if (notesPart != null)
+                {
+                    slideToRemove.DeletePart(notesPart);
+                }
+
+                presentationPart.DeletePart(slideToRemove);
             }
 
-            var endRprs = para.Elements<EndParagraphRunProperties>().ToList();
+            // Clear the slide ID list and rebuild
+            slideIdList.RemoveAllChildren<SlideId>();
 
-            foreach (var endRpr in endRprs)
+            // Find the next available slide ID
+            uint nextId = 256;
+
+            foreach (var slidePart in desiredOrder)
             {
-                para.RemoveChild(endRpr);
-            }
-
-            var newRun = new Run();
-
-            if (runProps != null)
-            {
-                newRun.Append(runProps);
-            }
-
-            newRun.Append(new DocumentFormat.OpenXml.Drawing.Text(text));
-            para.Append(newRun);
-        }
-
-        private void CreatePresentation(IEnumerable<Core.Models.Slide> slides, bool isQuestions, string path)
-        {
-            using var doc = PresentationDocument.Open(path, isEditable: true);
-            doc.ChangeDocumentType(PresentationDocumentType.Presentation);
-
-            var presentation = doc.PresentationPart!.Presentation;
-            var slideIdList = presentation!.SlideIdList!;
-            var allSlideIds = slideIdList.Elements<SlideId>().ToList();
-
-            var slidesByName = allSlideIds
-               .Select(sid => (sid, Name: GetSlideName((SlidePart)doc.PresentationPart.GetPartById(sid.RelationshipId!))))
-               .Where(t => !string.IsNullOrWhiteSpace(t.Name))
-               .ToDictionary(
-                   keySelector: sid => sid.Name,
-                   elementSelector: sid => sid.sid);
-
-            var templateSlideIds = usedTemplates
-               .Where(slidesByName.ContainsKey)
-               .ToDictionary(name => name, name => slidesByName[name]);
-
-            var templateParts = templateSlideIds
-               .ToDictionary(
-                   keySelector: kv => kv.Key,
-                   elementSelector: kv => (SlidePart)doc.PresentationPart.GetPartById(kv.Value.RelationshipId!));
-
-            var firstTemplateSlideId = templateSlideIds.Values
-               .OrderBy(allSlideIds.IndexOf).First();
-
-            var insertAfter = firstTemplateSlideId.PreviousSibling<SlideId>();
-
-            foreach (var sid in templateSlideIds.Values)
-            {
-                slideIdList.RemoveChild(sid);
-            }
-
-            var nextId = allSlideIds.Max(s => s.Id!.Value) + 1;
-            SlideId? lastInserted = insertAfter;
-
-            foreach (var slide in slides)
-            {
-                var template = isQuestions
-                    ? Constants.TemplateSlideQuestion
-                    : Constants.TemplateSlideAnswer;
-
-                var templatePart = templateParts[template];
-                var newPart = CloneSlide(doc.PresentationPart, templatePart);
-
-                foreach (var shape in slide.Shapes)
-                    SetText(newPart, shape.Key, shape.Value);
-
-                if (!string.IsNullOrWhiteSpace(slide.Notes))
-                    SetNotes(newPart, slide.Notes);
-
-                newPart.Slide!.Save();
-
-                var relId = doc.PresentationPart.GetIdOfPart(newPart);
-                var newSlideId = new SlideId { Id = nextId++, RelationshipId = relId };
-
-                if (lastInserted == null)
-                    slideIdList.PrependChild(newSlideId);
-                else
-                    slideIdList.InsertAfter(newSlideId, lastInserted);
-
-                lastInserted = newSlideId;
-            }
-
-            foreach (var part in templateParts.Values)
-            {
-                doc.PresentationPart.DeletePart(part);
+                var relId = presentationPart.GetIdOfPart(slidePart);
+                slideIdList.Append(new SlideId
+                {
+                    Id = nextId++,
+                    RelationshipId = relId
+                });
             }
 
             presentation.Save();
+        }
+
+        /// <summary>
+        /// Replaces the image content of the "Media" p:pic shape on a slide.
+        /// Finds the existing ImagePart referenced by the blip and overwrites its data.
+        /// </summary>
+        private static void ReplaceMediaImage(SlidePart slidePart, byte[] imageBytes,
+            string fileName)
+        {
+            var slide = slidePart.Slide;
+
+            // Find the p:pic element with cNvPr name="Media"
+            var mediaPic = slide.Descendants<P.Picture>()
+                .FirstOrDefault(pic =>
+                {
+                    var cNvPr = pic.NonVisualPictureProperties?
+                        .NonVisualDrawingProperties;
+                    return cNvPr?.Name?.Value == Constants.TemplateShapeMedia;
+                });
+
+            if (mediaPic == null) return;
+
+            // Get the blip reference
+            var blip = mediaPic.BlipFill?.Blip;
+            if (blip?.Embed?.Value == null) return;
+
+            var relId = blip.Embed.Value;
+
+            // Get the existing image part and replace its content
+            if (slidePart.TryGetPartById(relId, out var part) && part is ImagePart existingImage)
+            {
+                using var ms = new MemoryStream(imageBytes);
+                existingImage.FeedData(ms);
+            }
+            else
+            {
+                // Fallback: create a new image part and update the reference
+                var contentType = GetImageContentType(fileName);
+                var newImagePart = slidePart.AddImagePart(contentType);
+                using var ms = new MemoryStream(imageBytes);
+                newImagePart.FeedData(ms);
+
+                // Update the blip embed reference
+                blip.Embed = slidePart.GetIdOfPart(newImagePart);
+            }
+        }
+
+        /// <summary>
+        /// Sets the text content of a named shape (p:sp) on a slide.
+        /// Preserves the formatting of the first run.
+        /// </summary>
+        private static void SetShapeText(SlidePart slidePart, string shapeName, string text)
+        {
+            var slide = slidePart.Slide;
+            var shape = FindShapeByName(slide, shapeName);
+            if (shape == null) return;
+
+            var txBody = shape.TextBody;
+            if (txBody == null) return;
+
+            // Preserve the first paragraph's properties
+            var firstPara = txBody.Elements<A.Paragraph>().FirstOrDefault();
+            var paraProps = firstPara?.ParagraphProperties?.CloneNode(true) as A.ParagraphProperties;
+
+            // Preserve the first run's properties
+            var firstRun = firstPara?.Elements<A.Run>().FirstOrDefault();
+            var runProps = firstRun?.RunProperties?.CloneNode(true) as A.RunProperties;
+
+            // Remove all existing paragraphs
+            txBody.RemoveAllChildren<A.Paragraph>();
+
+            // Create new paragraph with preserved formatting
+            var newPara = new A.Paragraph();
+            if (paraProps != null) newPara.Append(paraProps);
+
+            var newRun = new A.Run();
+            if (runProps != null)
+            {
+                // Clear error marking
+                runProps.Dirty = null;
+                runProps.SpellingError = null;
+                newRun.Append(runProps);
+            }
+
+            newRun.Append(new A.Text(text));
+            newPara.Append(newRun);
+            txBody.Append(newPara);
+        }
+
+        /// <summary>
+        /// Rewrites [Content_Types].xml inside the ZIP to change the
+        /// template content type to a presentation content type.
+        /// This avoids the issues with ChangeDocumentType on MemoryStreams.
+        /// </summary>
+        private static byte[] ConvertPotxToPptx(byte[] potxBytes)
+        {
+            using var input = new MemoryStream(potxBytes);
+            using var output = new MemoryStream();
+
+            using (var zipIn = new ZipArchive(input, ZipArchiveMode.Read))
+            using (var zipOut = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                foreach (var entry in zipIn.Entries)
+                {
+                    var newEntry = zipOut.CreateEntry(entry.FullName, CompressionLevel.Optimal);
+
+                    using var reader = entry.Open();
+                    using var writer = newEntry.Open();
+
+                    if (entry.FullName == "[Content_Types].xml")
+                    {
+                        using var sr = new StreamReader(reader);
+                        var content = sr.ReadToEnd()
+                            .Replace(
+                                "presentationml.template.main+xml",
+                                "presentationml.presentation.main+xml");
+
+                        using var sw = new StreamWriter(writer);
+                        sw.Write(content);
+                    }
+                    else
+                    {
+                        reader.CopyTo(writer);
+                    }
+                }
+            }
+
+            return output.ToArray();
         }
 
         #endregion Private Methods

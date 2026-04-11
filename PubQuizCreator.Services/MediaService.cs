@@ -24,17 +24,37 @@
             }
         }
 
-        public async Task<string> SaveAsync(Stream stream, string originalFileName,
-            CancellationToken ct = default)
+        public async Task<byte[]> LoadAsync(string fileName, CancellationToken ct = default)
         {
-            var ext = Path.GetExtension(Path.GetFileName(originalFileName));
-            var fileName = $"{Guid.NewGuid():N}{ext.ToLowerInvariant()}";
-            var fullPath = Path.Combine(storagePath, fileName);
+            var fullPath = Path.Combine(
+                storagePath,
+                fileName);
 
-            await using var fs = File.Create(fullPath);
-            await stream.CopyToAsync(fs, ct);
+            if (!File.Exists(fullPath))
+            {
+                throw new FileNotFoundException("Media file not found.", fullPath);
+            }
 
-            return fileName;
+            var result = await File.ReadAllBytesAsync(
+                path: fullPath,
+                cancellationToken: ct);
+
+            return result;
+        }
+
+        public async Task<string> SaveAsync(Stream stream, string fileName, CancellationToken ct = default)
+        {
+            var extension = Path.GetExtension(Path.GetFileName(fileName));
+            var file = $"{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
+            var path = Path.Combine(storagePath, file);
+
+            await using var destination = File.Create(path);
+
+            await stream.CopyToAsync(
+                destination: destination,
+                cancellationToken: ct);
+
+            return file;
         }
 
         #endregion Public Methods

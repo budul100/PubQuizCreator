@@ -19,7 +19,7 @@ namespace PubQuizCreator.Web.Pages.Questions
         private bool hasSearched;
         private string? ideaText;
         private bool isInitialized;
-        private QuestionFormModel model = new();
+        private QuestionModel model = new();
         private IBrowserFile? pendingFile;
         private string? saveError;
         private bool saving;
@@ -33,7 +33,9 @@ namespace PubQuizCreator.Web.Pages.Questions
         [Parameter] public Guid? Id { get; set; }
 
         [SupplyParameterFromQuery(Name = "ideaId")] public Guid? IdeaId { get; set; }
+
         [SupplyParameterFromQuery(Name = "categoryId")] public Guid? PreselectedCategoryId { get; set; }
+
         [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
 
         #endregion Public Properties
@@ -53,7 +55,11 @@ namespace PubQuizCreator.Web.Pages.Questions
 
         #region Public Methods
 
-        public void Dispose() => debounceTimer?.Dispose();
+        public void Dispose()
+        {
+            debounceTimer?.Dispose();
+            GC.SuppressFinalize(this);
+        }
 
         #endregion Public Methods
 
@@ -61,12 +67,16 @@ namespace PubQuizCreator.Web.Pages.Questions
 
         protected override async Task OnInitializedAsync()
         {
-            StateService.SetPageTitle(IsNew ? "New Question" : "Edit Question");
+            var title = IsNew
+                ? "New Question"
+                : "Edit Question";
+
+            StateService.SetPageTitle(title);
 
             categories = await CategoryService.GetAllAsync();
 
             if (!IsNew && await QuestionService.GetAsync(Id!.Value) is { } q)
-                model = QuestionFormModel.From(q);
+                model = QuestionModel.From(q);
 
             if (PreselectedCategoryId.HasValue && PreselectedCategoryId != Guid.Empty)
                 model.CategoryId = PreselectedCategoryId.Value;
@@ -76,8 +86,8 @@ namespace PubQuizCreator.Web.Pages.Questions
                 var idea = await IdeaService.GetAsync(IdeaId.Value);
                 if (idea != null)
                 {
-                    var normalized = Regex.Replace(idea.Text.Trim(), @"\s+", " ");
-                    var match = Regex.Match(normalized, @"^(.+[!?])\s*(.+)$");
+                    var normalized = RegexNormalized().Replace(idea.Text.Trim(), " ");
+                    var match = RegexMatch().Match(normalized);
                     if (match.Success)
                     {
                         model.TextShort = match.Groups[1].Value.Trim();
@@ -106,6 +116,10 @@ namespace PubQuizCreator.Web.Pages.Questions
         #endregion Protected Methods
 
         #region Private Methods
+
+        [GeneratedRegex(@"^(.+[!?])\s*(.+)$")] private static partial Regex RegexMatch();
+
+        [GeneratedRegex(@"\s+")] private static partial Regex RegexNormalized();
 
         private async Task DeleteAndGoBackAsync()
         {
@@ -258,7 +272,9 @@ namespace PubQuizCreator.Web.Pages.Questions
                         MediaService.Delete(model.MediaFile);
 
                     await using var stream = pendingFile.OpenReadStream(maxAllowedSize: 20 * 1024 * 1024);
-                    model.MediaFile = await MediaService.SaveAsync(stream, pendingFile.Name);
+                    model.MediaFile = await MediaService.SaveAsync(
+                        stream: stream,
+                        fileName: pendingFile.Name);
                 }
 
                 var question = model.ToQuestion(Id);
@@ -268,7 +284,7 @@ namespace PubQuizCreator.Web.Pages.Questions
                 StateService.NotifyDataChanged();
 
                 var nextCategoryId = model.CategoryId;
-                model = new QuestionFormModel { CategoryId = nextCategoryId };
+                model = new QuestionModel { CategoryId = nextCategoryId };
                 similarQuestions = [];
                 hasSearched = false;
 
@@ -312,25 +328,33 @@ namespace PubQuizCreator.Web.Pages.Questions
 
         #region Private Classes
 
-        private sealed class QuestionFormModel
+        private sealed class QuestionModel
         {
             #region Public Properties
 
             public bool AllowReuse { get; set; } = false;
+
             public string Answer { get; set; } = "";
+
             public Guid? CategoryId { get; set; }
+
             public bool IsUnusable { get; set; } = false;
+
             public string? MediaFile { get; set; }
+
             public MediaType MediaType { get; set; } = MediaType.None;
+
             public string TextLong { get; set; } = "";
+
             public string TextShort { get; set; } = "";
+
             public bool WasUsed { get; set; } = false;
 
             #endregion Public Properties
 
             #region Public Methods
 
-            public static QuestionFormModel From(Question q) => new()
+            public static QuestionModel From(Question q) => new()
             {
                 TextShort = q.TextShort,
                 TextLong = q.TextLong,

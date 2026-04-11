@@ -27,7 +27,7 @@ namespace PubQuizCreator.Core.Models
 
         public MediaType MediaType { get; set; } = MediaType.None;
 
-        public List<QuizSlot> QuizSlots { get; set; } = [];
+        public List<RoundSlot> QuizSlots { get; set; } = [];
 
         public string TextLong { get; set; } = "";
 

@@ -1,6 +1,6 @@
 ﻿namespace PubQuizCreator.Core.Models
 {
-    public class QuizRound
+    public class Round
     {
         #region Public Properties
 
@@ -12,7 +12,7 @@
 
         public Guid QuizId { get; set; }
 
-        public List<QuizSlot> Slots { get; set; } = [];
+        public List<RoundSlot> Slots { get; set; } = [];
 
         #endregion Public Properties
     }

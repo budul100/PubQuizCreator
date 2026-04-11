@@ -8,7 +8,7 @@ namespace PubQuizCreator.Services
     {
         #region Public Methods
 
-        public async Task<DashboardStats> GetStatsAsync(CancellationToken ct = default)
+        public async Task<Dashboard> GetStatsAsync(CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -19,7 +19,7 @@ namespace PubQuizCreator.Services
                 .OrderBy(c => c.Name)
                 .ToListAsync(ct);
 
-            var assignedIds = (await db.QuizSlots
+            var assignedIds = (await db.RoundSlots
                 .Where(s => s.QuestionId != null && s.Round.Quiz.Date >= today)
                 .Select(s => s.QuestionId!.Value)
                 .Distinct()
@@ -83,7 +83,7 @@ namespace PubQuizCreator.Services
 
             var nextQuizSlots = nextQuiz?.Rounds.SelectMany(r => r.Slots).ToList() ?? [];
 
-            return new DashboardStats
+            return new Dashboard
             {
                 QuestionsByCategory = questionsByCategory,
                 IdeasByCategory = ideasByCategory,
@@ -101,7 +101,7 @@ namespace PubQuizCreator.Services
 
             var today = DateOnly.FromDateTime(DateTime.Today);
 
-            var upcomingSlots = await db.QuizSlots
+            var upcomingSlots = await db.RoundSlots
                 .Where(s => s.Round.Quiz.Date >= today)
                 .Select(s => new { s.CategoryId, s.QuestionId })
                 .ToListAsync(ct);

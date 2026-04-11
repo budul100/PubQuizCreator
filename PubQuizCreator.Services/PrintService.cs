@@ -45,7 +45,7 @@ namespace PubQuizCreator.Services
             row.RelativeItem().AlignRight().Text("P = Picture, A = Audio, V = Video");
         }
 
-        private static void CreateQuestions(TableDescriptor table, IEnumerable<QuizSlot> slots)
+        private static void CreateQuestions(TableDescriptor table, IEnumerable<RoundSlot> slots)
         {
             table.ColumnsDefinition(cols =>
             {
@@ -123,7 +123,7 @@ namespace PubQuizCreator.Services
             }
         }
 
-        private void CreateRound(PageDescriptor page, Quiz quiz, QuizRound round,
+        private void CreateRound(PageDescriptor page, Quiz quiz, Round round,
             int pageNum, int pageTotal)
         {
             page.Size(PageSizes.A4.Landscape());

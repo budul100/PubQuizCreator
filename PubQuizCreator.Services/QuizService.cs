@@ -12,16 +12,16 @@ namespace PubQuizCreator.Services
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            var maxPos = await db.QuizRounds
+            var maxPos = await db.Rounds
                 .Where(r => r.QuizId == quizId)
                 .Select(r => (int?)r.Position)
                 .MaxAsync(ct) ?? 0;
 
-            db.QuizRounds.Add(new QuizRound { QuizId = quizId, Position = maxPos + 1 });
+            db.Rounds.Add(new Round { QuizId = quizId, Position = maxPos + 1 });
             await db.SaveChangesAsync(ct);
         }
 
-        public async Task<QuizRound> AddRoundFromTemplateAsync(Guid quizId, Guid templateId, CancellationToken ct = default)
+        public async Task<Round> AddRoundFromTemplateAsync(Guid quizId, Guid templateId, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -30,19 +30,19 @@ namespace PubQuizCreator.Services
                 .FirstOrDefaultAsync(t => t.Id == templateId, ct)
                 ?? throw new InvalidOperationException("Template not found.");
 
-            var maxPos = await db.QuizRounds
+            var maxPos = await db.Rounds
                 .Where(r => r.QuizId == quizId)
                 .Select(r => (int?)r.Position)
                 .MaxAsync(ct) ?? 0;
 
-            var round = new QuizRound { QuizId = quizId, Position = maxPos + 1 };
-            db.QuizRounds.Add(round);
+            var round = new Round { QuizId = quizId, Position = maxPos + 1 };
+            db.Rounds.Add(round);
 
             foreach (var slot in template.Slots.OrderBy(s => s.Position))
             {
-                db.QuizSlots.Add(new QuizSlot
+                db.RoundSlots.Add(new RoundSlot
                 {
-                    QuizRoundId = round.Id,
+                    RoundId = round.Id,
                     CategoryId = slot.CategoryId,
                     Position = slot.Position
                 });
@@ -56,14 +56,14 @@ namespace PubQuizCreator.Services
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            var maxPos = await db.QuizSlots
-                .Where(s => s.QuizRoundId == roundId)
+            var maxPos = await db.RoundSlots
+                .Where(s => s.RoundId == roundId)
                 .Select(s => (int?)s.Position)
                 .MaxAsync(ct) ?? 0;
 
-            db.QuizSlots.Add(new QuizSlot
+            db.RoundSlots.Add(new RoundSlot
             {
-                QuizRoundId = roundId,
+                RoundId = roundId,
                 CategoryId = categoryId,
                 Position = maxPos + 1
             });
@@ -75,7 +75,7 @@ namespace PubQuizCreator.Services
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            var slot = await db.QuizSlots.FindAsync([slotId], ct);
+            var slot = await db.RoundSlots.FindAsync([slotId], ct);
             if (slot == null) return;
 
             slot.QuestionId = questionId;
@@ -145,14 +145,14 @@ namespace PubQuizCreator.Services
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            var round = await db.QuizRounds.FindAsync([roundId], ct);
+            var round = await db.Rounds.FindAsync([roundId], ct);
             if (round == null) return;
 
             var quizId = round.QuizId;
-            db.QuizRounds.Remove(round);
+            db.Rounds.Remove(round);
 
             // Normalize positions within the same context — single SaveChanges
-            var remaining = await db.QuizRounds
+            var remaining = await db.Rounds
                 .Where(r => r.QuizId == quizId && r.Id != roundId)
                 .OrderBy(r => r.Position)
                 .ToListAsync(ct);
@@ -167,14 +167,14 @@ namespace PubQuizCreator.Services
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            var slot = await db.QuizSlots.FindAsync([slotId], ct);
+            var slot = await db.RoundSlots.FindAsync([slotId], ct);
             if (slot == null) return;
 
-            var roundId = slot.QuizRoundId;
-            db.QuizSlots.Remove(slot);
+            var roundId = slot.RoundId;
+            db.RoundSlots.Remove(slot);
 
-            var remaining = await db.QuizSlots
-                .Where(s => s.QuizRoundId == roundId && s.Id != slotId)
+            var remaining = await db.RoundSlots
+                .Where(s => s.RoundId == roundId && s.Id != slotId)
                 .OrderBy(s => s.Position)
                 .ToListAsync(ct);
 
@@ -188,10 +188,10 @@ namespace PubQuizCreator.Services
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            var rounds = await db.QuizRounds.Where(r => r.QuizId == quizId).ToListAsync(ct);
+            var rounds = await db.Rounds.Where(r => r.QuizId == quizId).ToListAsync(ct);
             for (var i = 0; i < orderedIds.Count; i++)
             {
-                var r = rounds.FirstOrDefault(x => x.Id == orderedIds[i]);
+                var r = rounds.FirstOrDefault(x => x.QuizId == orderedIds[i]);
                 if (r != null) r.Position = i + 1;
             }
 
@@ -202,7 +202,7 @@ namespace PubQuizCreator.Services
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            var slots = await db.QuizSlots.Where(s => s.QuizRoundId == roundId).ToListAsync(ct);
+            var slots = await db.RoundSlots.Where(s => s.RoundId == roundId).ToListAsync(ct);
             for (var i = 0; i < orderedIds.Count; i++)
             {
                 var s = slots.FirstOrDefault(x => x.Id == orderedIds[i]);

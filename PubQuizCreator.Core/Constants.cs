@@ -46,14 +46,20 @@
         // Name of the answer shape
         public const string TemplateShapeAnswer = "Answer";
 
-        // Name of the position shape
-        public const string TemplateShapePosition = "Position";
+        // Name of the content shape
+        public const string TemplateShapeMedia = "Media";
 
         // Name of the question shape
         public const string TemplateShapeQuestion = "Question";
 
+        // Name of the title shape
+        public const string TemplateShapeTitle = "Title";
+
         // Name of the answer template slide
         public const string TemplateSlideAnswer = "Answer";
+
+        // Name of the question template slide
+        public const string TemplateSlideContent = "Content";
 
         // Name of the question template slide
         public const string TemplateSlideQuestion = "Question";

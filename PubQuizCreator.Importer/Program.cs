@@ -21,11 +21,9 @@ internal partial class Program
 
     #region Private Methods
 
-    [GeneratedRegex(@" {2,}")]
-    private static partial Regex BlockRegex();
+    [GeneratedRegex(@" {2,}")] private static partial Regex BlockRegex();
 
-    [GeneratedRegex(@"\[([^\]]+)\]")]
-    private static partial Regex BracketRegex();
+    [GeneratedRegex(@"\[([^\]]+)\]")] private static partial Regex BracketRegex();
 
     private static int Error(string msg)
     {

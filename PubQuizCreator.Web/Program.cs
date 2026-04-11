@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using PubQuizCreator.Core;
 using PubQuizCreator.Core.Interfaces;
-using PubQuizCreator.Core.Models;
 using PubQuizCreator.Data;
 using PubQuizCreator.Services;
 using QuestPDF.Infrastructure;
@@ -13,10 +12,13 @@ internal class Program
     #region Private Methods
 
     private static async Task<IResult> CreateExportAsync(Guid id, QuizService quizService,
-        ExportService exportService)
+        ExportService exportService, CancellationToken cancellationToken)
     {
-        var quiz = await quizService.GetDetailAsync(id);
-        if (quiz == null) return Results.NotFound();
+        var quiz = await quizService.GetDetailAsync(
+            id: id,
+            ct: cancellationToken);
+
+        if (quiz == default) return Results.NotFound();
 
         var zipStream = new MemoryStream();
 
@@ -31,26 +33,25 @@ internal class Program
 
             foreach (var round in rounds)
             {
-                var slides = GetSlides(
-                    round: round).ToArray();
-
-                var questions = exportService.Export(
-                    slides: slides,
-                    isQuestions: true);
+                var questions = await exportService.ExportAsync(
+                    round: round,
+                    isAnswers: false,
+                    ct: cancellationToken);
 
                 using (var questionStream = zip.CreateEntry(
-                    entryName: $"quiz_r-{round.Position:D1}-a_questions.pptx",
+                    entryName: $"quiz_{quiz.Date:yyyy-MM-dd}_r{round.Position:D1}a_questions.pptx",
                     compressionLevel: CompressionLevel.Fastest).Open())
                 {
                     questionStream.Write(questions);
                 }
 
-                var answers = exportService.Export(
-                    slides: slides,
-                    isQuestions: false);
+                var answers = await exportService.ExportAsync(
+                    round: round,
+                    isAnswers: true,
+                    ct: cancellationToken);
 
                 using (var answerStream = zip.CreateEntry(
-                    entryName: $"quiz_r-{round.Position:D1}-b_answers.pptx",
+                    entryName: $"quiz_{quiz.Date:yyyy-MM-dd}_r{round.Position:D1}b_answers.pptx",
                     compressionLevel: CompressionLevel.Fastest).Open())
                 {
                     answerStream.Write(answers);
@@ -71,44 +72,24 @@ internal class Program
     }
 
     private static async Task<IResult> CreatePrintAsync(Guid id, QuizService quizService,
-        PrintService printService)
+        PrintService printService, CancellationToken cancellationToken)
     {
-        var quiz = await quizService.GetDetailAsync(id);
-        if (quiz == null) return Results.NotFound();
+        var quiz = await quizService.GetDetailAsync(
+            id: id,
+            ct: cancellationToken);
 
-        var bytes = printService.Print(quiz);
+        if (quiz == default) return Results.NotFound();
+
+        var contents = printService.Print(quiz);
 
         var filename = $"quiz_{quiz.Date:yyyy-MM-dd}.pdf";
 
         var result = Results.File(
-            fileContents: bytes,
+            fileContents: contents,
             contentType: "application/pdf",
             fileDownloadName: filename);
 
         return result;
-    }
-
-    private static IEnumerable<Slide> GetSlides(QuizRound round)
-    {
-        var slots = round.Slots
-            .Where(s => s.Question != null)
-            .OrderBy(s => s.Position).ToList();
-
-        foreach (var slot in slots)
-        {
-            var shapes = new Dictionary<string, string>
-            {
-                [Constants.TemplateShapePosition] = $"Frage {slot.Position}",
-                [Constants.TemplateSlideQuestion] = slot.Question!.TextShort,
-                [Constants.TemplateSlideAnswer] = slot.Question.Answer
-            };
-
-            var result = new Slide(
-                Shapes: shapes,
-                Notes: slot.Question.TextLong);
-
-            yield return result;
-        }
     }
 
     private static void Main(string[] args)
@@ -193,10 +174,10 @@ internal class Program
 
         app.MapGet(
             pattern: "/export/quiz/{id:guid}/pdf",
-            handler: (Guid id, QuizService qs, PrintService ps) => CreatePrintAsync(id, qs, ps));
+            handler: (Guid id, QuizService qs, PrintService ps, CancellationToken ct) => CreatePrintAsync(id, qs, ps, ct));
         app.MapGet(
             pattern: "/export/quiz/{id:guid}/pptx",
-            handler: (Guid id, QuizService qs, ExportService es) => CreateExportAsync(id, qs, es));
+            handler: (Guid id, QuizService qs, ExportService es, CancellationToken ct) => CreateExportAsync(id, qs, es, ct));
 
         app.MapFallbackToPage("/_Host");
 

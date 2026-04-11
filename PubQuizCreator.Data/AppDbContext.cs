@@ -15,11 +15,11 @@ namespace PubQuizCreator.Data
 
         public DbSet<Question> Questions { get; set; } = null!;
 
-        public DbSet<QuizRound> QuizRounds { get; set; } = null!;
-
-        public DbSet<QuizSlot> QuizSlots { get; set; } = null!;
-
         public DbSet<Quiz> Quizzes { get; set; } = null!;
+
+        public DbSet<Round> Rounds { get; set; } = null!;
+
+        public DbSet<RoundSlot> RoundSlots { get; set; } = null!;
 
         public DbSet<Template> Templates { get; set; } = null!;
 
