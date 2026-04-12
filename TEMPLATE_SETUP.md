@@ -58,6 +58,21 @@ Sub RenameSlide()
     MsgBox "Slide renamed to: " & newName, vbInformation
 
 End Sub
+
+Sub ListNames()
+    Dim sld As Slide
+    Dim slideList As String
+    Dim totalSlides As Integer
+    
+    totalSlides = ActivePresentation.Slides.Count
+    slideList = "Anzahl der Folien: " & totalSlides & vbCrLf & "--------------------------" & vbCrLf
+    
+    For Each sld In ActivePresentation.Slides
+        slideList = slideList & "Index: " & sld.SlideIndex & " | Name: " & sld.Name & vbCrLf
+    Next sld
+
+    MsgBox slideList, vbInformation, "Folien-Liste"
+End Sub
 ```
 
 You can verify the names without running a macro by checking the slide name in the Immediate
@@ -113,10 +128,9 @@ Shape names are **case-sensitive**.
 
 ## Checklist Before Export
 
-| Check | How to verify |
-|---|---|
+| Check                               | How to verify                                               |
+| ----------------------------------- | ----------------------------------------------------------- |
 | Template slide has the correct name | VBA Immediate Window: `? ActivePresentation.Slides(n).Name` |
-| All required shape names are set | Selection Pane in PowerPoint |
-| Notes placeholder contains any text | Click the notes area below the slide |
-| File is saved as `.pptx` | Save As → PowerPoint Presentation |
-
+| All required shape names are set    | Selection Pane in PowerPoint                                |
+| Notes placeholder contains any text | Click the notes area below the slide                        |
+| File is saved as `.pptx`            | Save As → PowerPoint Presentation                           |
