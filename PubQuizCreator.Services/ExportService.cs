@@ -14,9 +14,7 @@ using P = DocumentFormat.OpenXml.Presentation;
 
 namespace PubQuizCreator.Services
 {
-    public class ExportService(
-        MediaService mediaService,
-        SettingsService settingsService)
+    public class ExportService(MediaService mediaService, SettingsService settingsService)
     {
         #region Private Fields
 
@@ -27,11 +25,6 @@ namespace PubQuizCreator.Services
 
         #region Public Methods
 
-        /// <summary>
-        /// Builds a single PPTX for one round by copying the template and
-        /// inserting question slides between the prefix and suffix slides
-        /// surrounding the template slide block.
-        /// </summary>
         public async Task<byte[]> ExportAsync(Round round, bool isAnswers, CancellationToken ct)
         {
             var templatePath = isAnswers
@@ -55,6 +48,8 @@ namespace PubQuizCreator.Services
                 var contentTemplate = templateMap.GetValueOrDefault(Constants.TemplateSlideContent);
                 var answerTemplate = templateMap.GetValueOrDefault(Constants.TemplateSlideAnswer);
 
+                var slideIndex = 0;
+
                 // Build new slides for each question slot
                 var newSlides = new List<SlidePart>();
 
@@ -74,6 +69,18 @@ namespace PubQuizCreator.Services
                     if (sourceTemplate == null) continue;
 
                     var clonedSlide = CloneSlidePart(presentationPart, sourceTemplate);
+
+                    // Set the slide name for later identification
+                    var cSld = clonedSlide.Slide?.CommonSlideData;
+
+                    if (cSld != null)
+                    {
+                        slideIndex++;
+
+                        cSld.Name = isAnswers
+                            ? $"Answer{slideIndex}"
+                            : $"Question{slideIndex}";
+                    }
 
                     // Set title: "Frage {Position}"
                     SetShapeText(clonedSlide, Constants.TemplateShapeTitle,
@@ -119,10 +126,6 @@ namespace PubQuizCreator.Services
 
         #region Private Methods
 
-        /// <summary>
-        /// Adds or updates speaker notes on a slide.
-        /// Creates a new NotesSlidePart if none exists.
-        /// </summary>
         private static void AddOrUpdateSpeakerNotes(PresentationPart presentationPart,
             SlidePart slidePart, string notesText)
         {
@@ -211,10 +214,6 @@ namespace PubQuizCreator.Services
             }
         }
 
-        /// <summary>
-        /// Deep-clones a slide by serializing/deserializing the XML and
-        /// re-creating all relationship targets (images, audio, layouts etc.).
-        /// </summary>
         private static SlidePart CloneSlidePart(PresentationPart presentationPart,
             SlidePart sourceSlide)
         {
@@ -288,10 +287,6 @@ namespace PubQuizCreator.Services
             return newSlidePart;
         }
 
-        /// <summary>
-        /// Rewrites [Content_Types].xml inside the ZIP to change the
-        /// template content type to a presentation content type.
-        /// </summary>
         private static byte[] ConvertPotxToPptx(byte[] potxBytes)
         {
             using var input = new MemoryStream(potxBytes);
@@ -328,9 +323,6 @@ namespace PubQuizCreator.Services
             return output.ToArray();
         }
 
-        /// <summary>
-        /// Finds a p:sp shape by its cNvPr name attribute.
-        /// </summary>
         private static P.Shape? FindShapeByName(Slide slide, string name)
         {
             return slide.Descendants<P.Shape>()
@@ -342,9 +334,6 @@ namespace PubQuizCreator.Services
                 });
         }
 
-        /// <summary>
-        /// Determines the image content type based on the file extension.
-        /// </summary>
         private static string GetImageContentType(string fileName)
         {
             var ext = Path.GetExtension(fileName).ToLowerInvariant();
@@ -360,9 +349,6 @@ namespace PubQuizCreator.Services
             };
         }
 
-        /// <summary>
-        /// Returns slide parts in the order defined by presentation.xml sldIdLst.
-        /// </summary>
         private static List<SlidePart> GetOrderedSlideParts(PresentationPart presentationPart)
         {
             var presentation = presentationPart.Presentation;
@@ -374,9 +360,6 @@ namespace PubQuizCreator.Services
                 .ToList();
         }
 
-        /// <summary>
-        /// Maps template slide names (from cSld/@name) to their SlideParts.
-        /// </summary>
         private static Dictionary<string, SlidePart> MapTemplateSlides(List<SlidePart> slideParts)
         {
             var result = new Dictionary<string, SlidePart>();
@@ -395,17 +378,8 @@ namespace PubQuizCreator.Services
             return result;
         }
 
-        /// <summary>
-        /// Rebuilds the slide order in presentation.xml generically.
-        /// All slides before the first template slide are kept as prefix,
-        /// all slides after the last template slide are kept as suffix.
-        /// The template slides themselves are replaced by the generated question slides.
-        /// </summary>
-        private static void RebuildSlideOrder(
-            PresentationPart presentationPart,
-            List<SlidePart> originalOrder,
-            Dictionary<string, SlidePart> templateMap,
-            List<SlidePart> questionSlides)
+        private static void RebuildSlideOrder(PresentationPart presentationPart, List<SlidePart> originalOrder,
+            Dictionary<string, SlidePart> templateMap, List<SlidePart> questionSlides)
         {
             var presentation = presentationPart.Presentation;
             var slideIdList = presentation.SlideIdList!;
@@ -473,12 +447,7 @@ namespace PubQuizCreator.Services
             presentation.Save();
         }
 
-        /// <summary>
-        /// Replaces the image content of the "Media" p:pic shape on a slide.
-        /// Finds the existing ImagePart referenced by the blip and overwrites its data.
-        /// </summary>
-        private static void ReplaceMediaImage(SlidePart slidePart, byte[] imageBytes,
-            string fileName)
+        private static void ReplaceMediaImage(SlidePart slidePart, byte[] imageBytes, string fileName)
         {
             var slide = slidePart.Slide;
 
@@ -516,10 +485,6 @@ namespace PubQuizCreator.Services
             }
         }
 
-        /// <summary>
-        /// Sets the text content of a named shape (p:sp) on a slide.
-        /// Preserves the formatting of the first run.
-        /// </summary>
         private static void SetShapeText(SlidePart slidePart, string shapeName, string text)
         {
             var slide = slidePart.Slide;
