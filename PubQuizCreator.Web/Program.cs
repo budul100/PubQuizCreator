@@ -239,6 +239,14 @@ internal class Program
 
         app.MapFallbackToPage("/_Host");
 
+        using var scope = app.Services.CreateScope();
+
+        var db = scope.ServiceProvider
+            .GetRequiredService<IDbContextFactory<AppDbContext>>()
+            .CreateDbContext();
+
+        db.Database.Migrate();
+
         app.Run();
     }
 
