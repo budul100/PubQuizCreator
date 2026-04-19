@@ -1,0 +1,45 @@
+services:
+  pubquiz-db:
+    image: pgvector/pgvector:pg16
+    container_name: pubquiz-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: pubquiz
+      POSTGRES_USER: pubquiz
+    volumes:
+      - pubquiz-pgdata:/var/lib/postgresql/data
+    networks:
+      - pubquiz-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pubquiz -d pubquiz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pubquiz-web:
+    image: pubquizcreator:latest
+    container_name: pubquiz-web
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      pubquiz-db:
+        condition: service_healthy
+    volumes:
+      - ./media:/data/media
+      - ./templates:/data/templates
+      - ./settings.override.json:/app/settings.override.json
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - proxynet
+      - pubquiz-internal
+
+volumes:
+  pubquiz-pgdata:
+
+networks:
+  proxynet:
+    external: true
+  pubquiz-internal:
+    internal: true

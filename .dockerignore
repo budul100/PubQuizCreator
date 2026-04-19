@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+docker-compose.dev.yml
+Start-Dev.bat
+start-dev.bat
+*.user
+.env
+settings.override.json

@@ -204,7 +204,12 @@ internal class Program
             app.UseHsts();
         }
 
-        app.UseHttpsRedirection();
+        if (!app.Environment.IsDevelopment() 
+            && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISABLE_HTTPS_REDIRECT")))
+        {
+            app.UseHttpsRedirection();
+        }
+
         app.UseStaticFiles();
         app.UseRouting();
 
