@@ -22,6 +22,9 @@
         // Header font size if not defined in app settings.
         public const float FontSizeHeader = 11f;
 
+        // Maximum allowed file size for uploads (200 MB).
+        public const long MaxUploadSizeBytes = 200 * 1024 * 1024;
+
         // Timeout for Ollama embedding requests (model may need a moment to load).
         public const int OllamaEmbeddingTimeoutSeconds = 10;
 

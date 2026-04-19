@@ -66,39 +66,77 @@ else
     @* Export *@
     <div class="card mb-3">
         <div class="card-header fw-semibold">Export</div>
-        <div class="card-body d-flex flex-column gap-2">
+        <div class="card-body d-flex flex-column gap-3">
+
             <div>
                 <label class="form-label mb-1">Questions Template File</label>
-                <input class="form-control" @bind="settings.TemplateQuestions" />
+                <div class="d-flex align-items-center gap-2">
+                    <span class="font-monospace text-truncate flex-grow-1">
+                        @(string.IsNullOrEmpty(settings.TemplateQuestions)
+                            ? "— no file —"
+                            : settings.TemplateQuestions)
+                    </span>
+                    <label class="btn btn-outline-secondary btn-sm mb-0 text-nowrap" style="cursor:pointer;">
+                        @(string.IsNullOrEmpty(settings.TemplateQuestions) ? "Upload" : "Replace")
+                        <InputFile OnChange="e => UploadTemplateAsync(e, TemplateRole.Questions)"
+                            accept=".pptx,.potx"
+                            style="display:none;" />
+                    </label>
+                </div>
             </div>
+
             <div>
                 <label class="form-label mb-1">Answers Template File</label>
-                <input class="form-control" @bind="settings.TemplateAnswers" />
+                <div class="d-flex align-items-center gap-2">
+                    <span class="font-monospace text-truncate flex-grow-1">
+                        @(string.IsNullOrEmpty(settings.TemplateAnswers)
+                            ? "— no file —"
+                            : settings.TemplateAnswers)
+                    </span>
+                    <label class="btn btn-outline-secondary btn-sm mb-0 text-nowrap" style="cursor:pointer;">
+                        @(string.IsNullOrEmpty(settings.TemplateAnswers) ? "Upload" : "Replace")
+                        <InputFile OnChange="e => UploadTemplateAsync(e, TemplateRole.Answers)"
+                            accept=".pptx,.potx"
+                            style="display:none;" />
+                </label>
             </div>
+        </div>
 
             <hr class="my-1" />
 
             <label class="form-label mb-1">Additional Export Files</label>
-            @for (var i = 0; i < settings.AdditionalFiles.Count; i++)
+
+        @for (var i = 0; i < settings.AdditionalFiles.Count; i++)
             {
                 var index = i;
-                <div class="d-flex gap-2">
-                    <input class="form-control font-monospace"
-                           value="@settings.AdditionalFiles[index]"
-                           @onchange="e => settings.AdditionalFiles[index] = e.Value?.ToString() ?? string.Empty" />
+                <div class="d-flex align-items-center gap-2">
+                    <span class="font-monospace text-truncate flex-grow-1">
+                        @settings.AdditionalFiles[index]
+                    </span>
+                    <label class="btn btn-outline-secondary btn-sm mb-0 text-nowrap" style="cursor:pointer;">
+                        Replace
+                        <InputFile OnChange="e => ReplaceAdditionalFileAsync(e, index)"
+                                   style="display:none;" />
+                    </label>
                     <button class="btn btn-outline-danger btn-sm"
                             @onclick="() => settings.AdditionalFiles.RemoveAt(index)">
                         ✕
                     </button>
                 </div>
             }
+
             <div>
-                <button class="btn btn-outline-secondary btn-sm"
-                        @onclick="() => settings.AdditionalFiles.Add(string.Empty)">
+                <label class="btn btn-outline-secondary btn-sm mb-0" style="cursor:pointer;">
                     + Add file
-                </button>
+                    <InputFile OnChange="AddAdditionalFileAsync" style="display:none;" />
+                </label>
             </div>
-            <div class="form-text">Filenames relative to the templates folder. Included in every quiz export as <code>quiz_yyyy-MM-dd_filename</code>.</div>
+
+            <div class="form-text">
+                Files are saved immediately on upload. Included in every quiz export as
+                <code>quiz_yyyy-MM-dd_filename</code>.
+            </div>
+
         </div>
     </div>
 

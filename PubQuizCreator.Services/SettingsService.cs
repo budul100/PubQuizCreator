@@ -150,6 +150,29 @@ namespace PubQuizCreator.Services
                 cancellationToken: ct);
         }
 
+        public async Task SaveFileAsync(Stream content, string fileName, CancellationToken ct = default)
+        {
+            var safeName = Path.GetFileName(fileName);
+
+            if (string.IsNullOrWhiteSpace(safeName))
+            {
+                throw new ArgumentException("Invalid filename.");
+            }
+
+            var targetPath = Path.Combine(
+                GetPathTemplates,
+                safeName);
+
+            await using var fs = new FileStream(
+                path: targetPath,
+                mode: FileMode.Create,
+                access: FileAccess.Write);
+
+            await content.CopyToAsync(
+                destination: fs,
+                cancellationToken: ct);
+        }
+
         #endregion Public Methods
 
         #region Private Methods

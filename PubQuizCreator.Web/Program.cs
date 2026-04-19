@@ -165,7 +165,7 @@ internal class Program
 
         builder.Services.AddSignalR(options =>
         {
-            options.MaximumReceiveMessageSize = 20 * 1024 * 1024; // 20 MB
+            options.MaximumReceiveMessageSize = Constants.MaxUploadSizeBytes;
         });
 
         var uriString = builder.Configuration["Ollama:BaseUrl"]

@@ -1,4 +1,6 @@
-﻿using PubQuizCreator.Services;
+﻿using Microsoft.AspNetCore.Components.Forms;
+using PubQuizCreator.Core;
+using PubQuizCreator.Services;
 
 namespace PubQuizCreator.Web.Pages.Settings
 {
@@ -13,6 +15,16 @@ namespace PubQuizCreator.Web.Pages.Settings
 
         #endregion Private Fields
 
+        #region Private Enums
+
+        private enum TemplateRole
+        {
+            Questions,
+            Answers
+        }
+
+        #endregion Private Enums
+
         #region Protected Methods
 
         protected override void OnInitialized()
@@ -24,6 +36,70 @@ namespace PubQuizCreator.Web.Pages.Settings
         #endregion Protected Methods
 
         #region Private Methods
+
+        private async Task AddAdditionalFileAsync(InputFileChangeEventArgs e)
+        {
+            if (settings == null) return;
+            try
+            {
+                var file = e.File;
+                var fileName = Path.GetFileName(file.Name);
+
+                await using var stream = file.OpenReadStream(
+                    maxAllowedSize: Constants.MaxUploadSizeBytes);
+                await SettingsService.SaveFileAsync(
+                    content: stream,
+                    fileName: fileName);
+
+                var existingIndex = settings.AdditionalFiles.FindIndex(f => string.Equals(
+                    a: f,
+                    b: fileName,
+                    comparisonType: StringComparison.OrdinalIgnoreCase));
+
+                if (existingIndex >= 0)
+                {
+                    settings.AdditionalFiles[existingIndex] = fileName;
+                }
+                else
+                {
+                    settings.AdditionalFiles.Add(fileName);
+                }
+
+                await SettingsService.SaveAsync(settings);
+                
+                savedAt = DateTime.Now;
+            }
+            catch (Exception ex)
+            {
+                saveError = $"Upload failed: {ex.Message}";
+            }
+        }
+
+
+        private async Task ReplaceAdditionalFileAsync(InputFileChangeEventArgs e, int index)
+        {
+            if (settings == null) return;
+            try
+            {
+                var file = e.File;
+                var fileName = Path.GetFileName(file.Name);
+
+                await using var stream = file.OpenReadStream(
+                    maxAllowedSize: Constants.MaxUploadSizeBytes);
+                await SettingsService.SaveFileAsync(
+                    content: stream,
+                    fileName: fileName);
+
+                settings.AdditionalFiles[index] = fileName;
+                await SettingsService.SaveAsync(settings);
+
+                savedAt = DateTime.Now;
+            }
+            catch (Exception ex)
+            {
+                saveError = $"Upload failed: {ex.Message}";
+            }
+        }
 
         private async Task SaveAsync()
         {
@@ -45,6 +121,39 @@ namespace PubQuizCreator.Web.Pages.Settings
             finally
             {
                 saving = false;
+            }
+        }
+
+        private async Task UploadTemplateAsync(InputFileChangeEventArgs e, TemplateRole role)
+        {
+            if (settings == null) return;
+            try
+            {
+                var file = e.File;
+                var fileName = Path.GetFileName(file.Name);
+
+                await using var stream = file.OpenReadStream(
+                    maxAllowedSize: Constants.MaxUploadSizeBytes);
+                await SettingsService.SaveFileAsync(
+                    content: stream, 
+                    fileName: fileName);
+
+                if (role == TemplateRole.Questions)
+                {
+                    settings.TemplateQuestions = fileName;
+                }
+                else
+                {
+                    settings.TemplateAnswers = fileName;
+                }
+
+                await SettingsService.SaveAsync(settings);
+
+                savedAt = DateTime.Now;
+            }
+            catch (Exception ex)
+            {
+                saveError = $"Upload failed: {ex.Message}";
             }
         }
 
