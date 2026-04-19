@@ -1,0 +1,41 @@
+﻿@page
+@model PubQuizCreator.Web.Pages.LoginModel
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login</title>
+    <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
+    <style>
+        body { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f8f9fa; }
+        .login-card { width: 100%; max-width: 360px; }
+    </style>
+</head>
+<body>
+    <div class="card login-card shadow-sm">
+        <div class="card-body p-4">
+            <h5 class="card-title mb-4">PubQuiz Creator</h5>
+            <form method="post">
+                @if (Model.Error != null)
+                {
+                    <div class="alert alert-danger py-2">@Model.Error</div>
+                }
+                <div class="mb-3">
+                    <input class="form-control" name="username" placeholder="Username"
+                           autocomplete="username" required autofocus />
+                </div>
+                <div class="mb-3">
+                    <input class="form-control" type="password" name="password"
+                           placeholder="Password" autocomplete="current-password" required />
+                </div>
+                <button class="btn btn-primary w-100" type="submit">Sign in</button>
+                @Html.AntiForgeryToken()
+            </form>
+        </div>
+    </div>
+</body>
+</html>

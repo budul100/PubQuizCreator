@@ -1,4 +1,7 @@
 using System.IO.Compression;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using PubQuizCreator.Core;
@@ -92,6 +95,12 @@ internal class Program
         return result;
     }
 
+    private static async Task<IResult> LogOutAsync(HttpContext ctx)
+    {
+        await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        return Results.Redirect("/login");
+    }
+
     private static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
@@ -148,6 +157,17 @@ internal class Program
             client.Timeout = TimeSpan.FromSeconds(Constants.OllamaHealthTimeoutSeconds);
         });
 
+        builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+            .AddCookie(options =>
+            {
+                options.LoginPath = "/login";
+                options.LogoutPath = "/logout";
+                options.ExpireTimeSpan = TimeSpan.FromDays(30);
+                options.SlidingExpiration = true;
+            });
+
+        builder.Services.AddAuthorization();
+
         QuestPDF.Settings.License = LicenseType.Community;
 
         var app = builder.Build();
@@ -162,6 +182,9 @@ internal class Program
         app.UseStaticFiles();
         app.UseRouting();
 
+        app.UseAuthentication();
+        app.UseAuthorization();
+
         var settingsService = app.Services.GetRequiredService<SettingsService>();
 
         app.UseStaticFiles(new StaticFileOptions
@@ -171,6 +194,10 @@ internal class Program
         });
 
         app.MapBlazorHub();
+
+        app.MapGet(
+            pattern: "/logout",
+            handler: LogOutAsync).AllowAnonymous();
 
         app.MapGet(
             pattern: "/export/quiz/{id:guid}/pdf",

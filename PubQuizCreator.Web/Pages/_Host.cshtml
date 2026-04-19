@@ -1,6 +1,7 @@
 ﻿@page "/"
 @namespace PubQuizCreator.Web.Pages
 @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
 @{
     Layout = "_Layout";
 }
