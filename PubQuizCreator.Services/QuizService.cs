@@ -191,7 +191,7 @@ namespace PubQuizCreator.Services
             var rounds = await db.Rounds.Where(r => r.QuizId == quizId).ToListAsync(ct);
             for (var i = 0; i < orderedIds.Count; i++)
             {
-                var r = rounds.FirstOrDefault(x => x.QuizId == orderedIds[i]);
+                var r = rounds.FirstOrDefault(x => x.Id == orderedIds[i]);
                 if (r != null) r.Position = i + 1;
             }
 

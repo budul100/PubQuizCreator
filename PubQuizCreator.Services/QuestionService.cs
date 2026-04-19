@@ -132,7 +132,21 @@ namespace PubQuizCreator.Services
                         && !db.RoundSlots.Any(s =>
                             s.QuestionId == q.Id
                             && s.Round.Quiz.IsCompleted))))
-                .Select(q => new Question { })
+                .Select(q => new Question
+                {
+                    Id = q.Id,
+                    TextShort = q.TextShort,
+                    TextLong = q.TextLong,
+                    Answer = q.Answer,
+                    CategoryId = q.CategoryId,
+                    Category = q.Category,
+                    MediaFile = q.MediaFile,
+                    MediaType = q.MediaType,
+                    WasUsed = q.WasUsed,
+                    AllowReuse = q.AllowReuse,
+                    IsUnusable = q.IsUnusable,
+                    CreatedAt = q.CreatedAt,
+                })
                 .AsNoTracking()
                 .OrderByDescending(q => q.CreatedAt)
                 .ToListAsync(ct);
