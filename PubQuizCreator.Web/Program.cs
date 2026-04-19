@@ -105,8 +105,16 @@ internal class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
+        var overridePath = SettingsService.GetOverridePath(builder.Configuration);
+
+        builder.Configuration.AddJsonFile(
+            path: overridePath,
+            optional: true,
+            reloadOnChange: true);
+
         builder.Services
             .AddSingleton<SettingsService>();
+
         builder.Services
             .AddScoped<QuizService>();
         builder.Services
