@@ -10,10 +10,6 @@
 
         public string AiUrl { get; set; } = "";
 
-        public string OllamaBaseUrl { get; set; } = "";
-
-        public string OllamaEmbeddingModel { get; set; } = "";
-
         public float PrintFontSizeDefault { get; set; }
 
         public float PrintFontSizeHeader { get; set; }

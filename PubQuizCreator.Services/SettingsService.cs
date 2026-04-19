@@ -96,16 +96,14 @@ namespace PubQuizCreator.Services
         {
             return new()
             {
-                OllamaBaseUrl = configuration["Ollama:BaseUrl"] ?? "",
-                OllamaEmbeddingModel = configuration["Ollama:EmbeddingModel"] ?? "",
-                TemplateQuestions = configuration["Export:Templates:Questions"] ?? "",
-                TemplateAnswers = configuration["Export:Templates:Answers"] ?? "",
+                AdditionalFiles = GetAdditionalFiles()?.ToList() ?? [],
                 AiPrompt = configuration["Quiz:PromptTemplate"] ?? "",
                 AiUrl = configuration["Quiz:AiUrl"] ?? "",
-                TextShortWarnLength = configuration.GetValue("Quiz:TextShortWarnLength", 100),
                 PrintFontSizeDefault = configuration.GetValue("Print:FontSizeDefault", 8f),
                 PrintFontSizeHeader = configuration.GetValue("Print:FontSizeHeader", 11f),
-                AdditionalFiles = GetAdditionalFiles()?.ToList() ?? [],
+                TemplateAnswers = configuration["Export:Templates:Answers"] ?? "",
+                TemplateQuestions = configuration["Export:Templates:Questions"] ?? "",
+                TextShortWarnLength = configuration.GetValue("Quiz:TextShortWarnLength", 100),
             };
         }
 
@@ -113,11 +111,6 @@ namespace PubQuizCreator.Services
         {
             var data = new
             {
-                Ollama = new
-                {
-                    BaseUrl = settings.OllamaBaseUrl,
-                    EmbeddingModel = settings.OllamaEmbeddingModel,
-                },
                 Export = new
                 {
                     Templates = new
