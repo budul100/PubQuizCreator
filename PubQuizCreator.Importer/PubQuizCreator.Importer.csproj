@@ -9,7 +9,10 @@
 
 	<ItemGroup>
 		<PackageReference Include="ClosedXML" Version="0.105.0" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.14" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.15">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
 		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.*" />
 		<PackageReference Include="Microsoft.Extensions.Http" Version="9.*" />
 	</ItemGroup>
@@ -27,9 +30,7 @@
 	</ItemGroup>
 
 	<Target Name="StartDependencies" BeforeTargets="RunCommand;_Run">
-		<Exec Command="$(SolutionDir)start-dev.bat --no-pause"
-			  WorkingDirectory="$(SolutionDir)"
-			  ContinueOnError="true" />
+		<Exec Command="$(SolutionDir)start-dev.bat --no-pause" WorkingDirectory="$(SolutionDir)" ContinueOnError="true" />
 	</Target>
 
 </Project>

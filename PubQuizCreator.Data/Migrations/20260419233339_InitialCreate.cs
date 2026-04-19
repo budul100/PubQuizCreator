@@ -106,7 +106,7 @@ namespace PubQuizCreator.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "QuizRounds",
+                name: "Rounds",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -115,9 +115,9 @@ namespace PubQuizCreator.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_QuizRounds", x => x.Id);
+                    table.PrimaryKey("PK_Rounds", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_QuizRounds_Quizzes_QuizId",
+                        name: "FK_Rounds_Quizzes_QuizId",
                         column: x => x.QuizId,
                         principalTable: "Quizzes",
                         principalColumn: "Id",
@@ -151,33 +151,33 @@ namespace PubQuizCreator.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "QuizSlots",
+                name: "RoundSlots",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     CategoryId = table.Column<Guid>(type: "uuid", nullable: false),
                     Position = table.Column<int>(type: "integer", nullable: false),
                     QuestionId = table.Column<Guid>(type: "uuid", nullable: true),
-                    QuizRoundId = table.Column<Guid>(type: "uuid", nullable: false)
+                    RoundId = table.Column<Guid>(type: "uuid", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_QuizSlots", x => x.Id);
+                    table.PrimaryKey("PK_RoundSlots", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_QuizSlots_Categories_CategoryId",
+                        name: "FK_RoundSlots_Categories_CategoryId",
                         column: x => x.CategoryId,
                         principalTable: "Categories",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_QuizSlots_Questions_QuestionId",
+                        name: "FK_RoundSlots_Questions_QuestionId",
                         column: x => x.QuestionId,
                         principalTable: "Questions",
                         principalColumn: "Id");
                     table.ForeignKey(
-                        name: "FK_QuizSlots_QuizRounds_QuizRoundId",
-                        column: x => x.QuizRoundId,
-                        principalTable: "QuizRounds",
+                        name: "FK_RoundSlots_Rounds_RoundId",
+                        column: x => x.RoundId,
+                        principalTable: "Rounds",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -193,24 +193,24 @@ namespace PubQuizCreator.Data.Migrations
                 column: "CategoryId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_QuizRounds_QuizId",
-                table: "QuizRounds",
+                name: "IX_Rounds_QuizId",
+                table: "Rounds",
                 column: "QuizId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_QuizSlots_CategoryId",
-                table: "QuizSlots",
+                name: "IX_RoundSlots_CategoryId",
+                table: "RoundSlots",
                 column: "CategoryId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_QuizSlots_QuestionId",
-                table: "QuizSlots",
+                name: "IX_RoundSlots_QuestionId",
+                table: "RoundSlots",
                 column: "QuestionId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_QuizSlots_QuizRoundId",
-                table: "QuizSlots",
-                column: "QuizRoundId");
+                name: "IX_RoundSlots_RoundId",
+                table: "RoundSlots",
+                column: "RoundId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_TemplateSlots_CategoryId",
@@ -230,7 +230,7 @@ namespace PubQuizCreator.Data.Migrations
                 name: "Ideas");
 
             migrationBuilder.DropTable(
-                name: "QuizSlots");
+                name: "RoundSlots");
 
             migrationBuilder.DropTable(
                 name: "TemplateSlots");
@@ -239,7 +239,7 @@ namespace PubQuizCreator.Data.Migrations
                 name: "Questions");
 
             migrationBuilder.DropTable(
-                name: "QuizRounds");
+                name: "Rounds");
 
             migrationBuilder.DropTable(
                 name: "Templates");

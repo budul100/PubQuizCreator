@@ -13,15 +13,15 @@ using PubQuizCreator.Data;
 namespace PubQuizCreator.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260410200136_RenameRoundAndSlot")]
-    partial class RenameRoundAndSlot
+    [Migration("20260419233339_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "9.0.14")
+                .HasAnnotation("ProductVersion", "9.0.15")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
