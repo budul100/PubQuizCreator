@@ -1,5 +1,4 @@
 using System.IO.Compression;
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -15,7 +14,8 @@ internal class Program
     #region Private Methods
 
     private static async Task<IResult> CreateExportAsync(Guid id, QuizService quizService,
-        ExportService exportService, CancellationToken cancellationToken)
+        ExportService exportService, SettingsService settingsService,
+        CancellationToken cancellationToken)
     {
         var quiz = await quizService.GetDetailAsync(
             id: id,
@@ -53,12 +53,30 @@ internal class Program
                     isAnswers: true,
                     ct: cancellationToken);
 
-                using (var answerStream = zip.CreateEntry(
+                using var answerStream = zip.CreateEntry(
                     entryName: $"quiz_{quiz.Date:yyyy-MM-dd}_r{round.Position:D1}b_answers.pptx",
-                    compressionLevel: CompressionLevel.Fastest).Open())
-                {
-                    answerStream.Write(answers);
-                }
+                    compressionLevel: CompressionLevel.Fastest).Open();
+
+                answerStream.Write(answers);
+            }
+
+            var additionalPaths = settingsService
+                .GetAdditionalPaths().ToArray();
+
+            foreach (var additionalPath in additionalPaths)
+            {
+                var additionalName = Path.GetFileName(additionalPath);
+                var entryName = $"quiz_{quiz.Date:yyyy-MM-dd}_{additionalName}";
+
+                using var fileStream = zip.CreateEntry(
+                    entryName: entryName,
+                    compressionLevel: CompressionLevel.Fastest).Open();
+
+                await using var source = File.OpenRead(additionalPath);
+
+                await source.CopyToAsync(
+                    fileStream,
+                    cancellationToken);
             }
         }
 
@@ -197,7 +215,7 @@ internal class Program
 
         app.UseStaticFiles(new StaticFileOptions
         {
-            FileProvider = new PhysicalFileProvider(settingsService.MediaPath),
+            FileProvider = new PhysicalFileProvider(settingsService.GetPathMedia),
             RequestPath = "/media"
         });
 
@@ -212,7 +230,7 @@ internal class Program
             handler: (Guid id, QuizService qs, PrintService ps, CancellationToken ct) => CreatePrintAsync(id, qs, ps, ct));
         app.MapGet(
             pattern: "/export/quiz/{id:guid}/pptx",
-            handler: (Guid id, QuizService qs, ExportService es, CancellationToken ct) => CreateExportAsync(id, qs, es, ct));
+            handler: (Guid id, QuizService qs, ExportService es, SettingsService sc, CancellationToken ct) => CreateExportAsync(id, qs, es, sc, ct));
 
         app.MapFallbackToPage("/_Host");
 

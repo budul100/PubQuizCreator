@@ -68,13 +68,37 @@ else
         <div class="card-header fw-semibold">Export</div>
         <div class="card-body d-flex flex-column gap-2">
             <div>
-            <label class="form-label mb-1">Questions Template File</label>
+                <label class="form-label mb-1">Questions Template File</label>
                 <input class="form-control" @bind="settings.TemplateQuestions" />
             </div>
             <div>
                 <label class="form-label mb-1">Answers Template File</label>
                 <input class="form-control" @bind="settings.TemplateAnswers" />
             </div>
+
+            <hr class="my-1" />
+
+            <label class="form-label mb-1">Additional Export Files</label>
+            @for (var i = 0; i < settings.AdditionalFiles.Count; i++)
+            {
+                var index = i;
+                <div class="d-flex gap-2">
+                    <input class="form-control font-monospace"
+                           value="@settings.AdditionalFiles[index]"
+                           @onchange="e => settings.AdditionalFiles[index] = e.Value?.ToString() ?? string.Empty" />
+                    <button class="btn btn-outline-danger btn-sm"
+                            @onclick="() => settings.AdditionalFiles.RemoveAt(index)">
+                        ✕
+                    </button>
+                </div>
+            }
+            <div>
+                <button class="btn btn-outline-secondary btn-sm"
+                        @onclick="() => settings.AdditionalFiles.Add(string.Empty)">
+                    + Add file
+                </button>
+            </div>
+            <div class="form-text">Filenames relative to the templates folder. Included in every quiz export as <code>quiz_yyyy-MM-dd_filename</code>.</div>
         </div>
     </div>
 

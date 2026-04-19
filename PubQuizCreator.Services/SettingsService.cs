@@ -19,11 +19,11 @@ namespace PubQuizCreator.Services
 
         #region Public Properties
 
-        public string MediaPath => GetFolder(
+        public string GetPathMedia => GetFolder(
             configValue: configuration["Media:StoragePath"],
             configKey: "Media:StoragePath");
 
-        public string TemplatesPath => GetFolder(
+        public string GetPathTemplates => GetFolder(
             configValue: configuration["Export:TemplatesPath"],
             configKey: "Export:TemplatesPath");
 
@@ -54,6 +54,25 @@ namespace PubQuizCreator.Services
             return result;
         }
 
+        public IEnumerable<string> GetAdditionalPaths()
+        {
+            var additionalFiles = GetAdditionalFiles().ToArray();
+
+            var templatesPath = GetPathTemplates ?? "";
+
+            foreach (var additionalFile in additionalFiles)
+            {
+                var path = Path.Combine(
+                    templatesPath,
+                    additionalFile);
+
+                if (File.Exists(path))
+                {
+                    yield return path;
+                }
+            }
+        }
+
         public string GetTemplatePath(string name)
         {
             var fileName = configuration[$"Export:Templates:{name}"]
@@ -61,7 +80,7 @@ namespace PubQuizCreator.Services
                     $"Template '{name}' not configured under Export:Templates:{name}.");
 
             var result = Path.Combine(
-                TemplatesPath,
+                GetPathTemplates,
                 fileName);
 
             if (!File.Exists(result))
@@ -73,46 +92,51 @@ namespace PubQuizCreator.Services
             return result;
         }
 
-        public Settings Read() => new()
+        public Settings Read()
         {
-            OllamaBaseUrl = configuration["Ollama:BaseUrl"] ?? "",
-            OllamaEmbeddingModel = configuration["Ollama:EmbeddingModel"] ?? "",
-            TemplateQuestions = configuration["Export:Templates:Questions"] ?? "",
-            TemplateAnswers = configuration["Export:Templates:Answers"] ?? "",
-            AiPrompt = configuration["Quiz:PromptTemplate"] ?? "",
-            AiUrl = configuration["Quiz:AiUrl"] ?? "",
-            TextShortWarnLength = configuration.GetValue("Quiz:TextShortWarnLength", 100),
-            PrintFontSizeDefault = configuration.GetValue("Print:FontSizeDefault", 8f),
-            PrintFontSizeHeader = configuration.GetValue("Print:FontSizeHeader", 11f),
-        };
+            return new()
+            {
+                OllamaBaseUrl = configuration["Ollama:BaseUrl"] ?? "",
+                OllamaEmbeddingModel = configuration["Ollama:EmbeddingModel"] ?? "",
+                TemplateQuestions = configuration["Export:Templates:Questions"] ?? "",
+                TemplateAnswers = configuration["Export:Templates:Answers"] ?? "",
+                AiPrompt = configuration["Quiz:PromptTemplate"] ?? "",
+                AiUrl = configuration["Quiz:AiUrl"] ?? "",
+                TextShortWarnLength = configuration.GetValue("Quiz:TextShortWarnLength", 100),
+                PrintFontSizeDefault = configuration.GetValue("Print:FontSizeDefault", 8f),
+                PrintFontSizeHeader = configuration.GetValue("Print:FontSizeHeader", 11f),
+                AdditionalFiles = GetAdditionalFiles()?.ToList() ?? [],
+            };
+        }
 
-        public async Task SaveAsync(Settings model, CancellationToken ct = default)
+        public async Task SaveAsync(Settings settings, CancellationToken ct = default)
         {
             var data = new
             {
                 Ollama = new
                 {
-                    BaseUrl = model.OllamaBaseUrl,
-                    EmbeddingModel = model.OllamaEmbeddingModel,
+                    BaseUrl = settings.OllamaBaseUrl,
+                    EmbeddingModel = settings.OllamaEmbeddingModel,
                 },
                 Export = new
                 {
                     Templates = new
                     {
-                        Questions = model.TemplateQuestions,
-                        Answers = model.TemplateAnswers,
+                        Questions = settings.TemplateQuestions,
+                        Answers = settings.TemplateAnswers,
                     },
+                    settings.AdditionalFiles,
                 },
                 Quiz = new
                 {
-                    PromptTemplate = model.AiPrompt,
-                    AiUrl = model.AiUrl,
-                    TextShortWarnLength = model.TextShortWarnLength,
+                    PromptTemplate = settings.AiPrompt,
+                    settings.AiUrl,
+                    settings.TextShortWarnLength,
                 },
                 Print = new
                 {
-                    FontSizeDefault = model.PrintFontSizeDefault,
-                    FontSizeHeader = model.PrintFontSizeHeader,
+                    FontSizeDefault = settings.PrintFontSizeDefault,
+                    FontSizeHeader = settings.PrintFontSizeHeader,
                 },
             };
 
@@ -143,6 +167,13 @@ namespace PubQuizCreator.Services
             Directory.CreateDirectory(configValue);
 
             return configValue;
+        }
+
+        private List<string> GetAdditionalFiles()
+        {
+            return configuration
+                .GetSection("Export:AdditionalFiles")
+                .Get<List<string>>() ?? [];
         }
 
         #endregion Private Methods

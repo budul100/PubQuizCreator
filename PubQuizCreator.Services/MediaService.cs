@@ -4,7 +4,7 @@
     {
         #region Private Fields
 
-        private readonly string storagePath = settingsService.MediaPath;
+        private readonly string storagePath = settingsService.GetPathMedia;
 
         #endregion Private Fields
 
