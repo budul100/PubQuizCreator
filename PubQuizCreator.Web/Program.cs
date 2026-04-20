@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
+using Npgsql;
 using PubQuizCreator.Core;
 using PubQuizCreator.Core.Interfaces;
 using PubQuizCreator.Data;
@@ -154,9 +155,16 @@ internal class Program
         builder.Services
             .AddScoped<ExportService>();
 
-        builder.Services.AddDbContextFactory<AppDbContext>(options => options.UseNpgsql(
-            connectionString: builder.Configuration.GetConnectionString("Default"),
-            npgsqlOptionsAction: o => o.UseVector()));
+        var connectionString = builder.Configuration.GetConnectionString("Default")
+            ?? throw new InvalidOperationException("Connection string 'Default' is not configured.");
+
+        var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
+        dataSourceBuilder.UseVector();
+
+        var dataSource = dataSourceBuilder.Build();
+
+        builder.Services.AddDbContextFactory<AppDbContext>(options =>
+            options.UseNpgsql(dataSource, o => o.UseVector()));
 
         builder.Services
             .AddRazorPages();
@@ -204,7 +212,7 @@ internal class Program
             app.UseHsts();
         }
 
-        if (!app.Environment.IsDevelopment() 
+        if (!app.Environment.IsDevelopment()
             && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISABLE_HTTPS_REDIRECT")))
         {
             app.UseHttpsRedirection();

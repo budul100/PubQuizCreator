@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
+using Npgsql;
 
 namespace PubQuizCreator.Data
 {
@@ -17,11 +18,15 @@ namespace PubQuizCreator.Data
                 .AddJsonFile("appsettings.Development.json", optional: true)
                 .Build();
 
+            var connectionString = config.GetConnectionString("Default")
+                ?? throw new InvalidOperationException("Connection string 'Default' not found.");
+
+            var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
+            dataSourceBuilder.UseVector();
+            var dataSource = dataSourceBuilder.Build();
+
             var options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseNpgsql(
-                    config.GetConnectionString("Default")
-                        ?? throw new InvalidOperationException("Connection string 'Default' not found."),
-                    o => o.UseVector())
+                .UseNpgsql(dataSource, o => o.UseVector())
                 .Options;
 
             return new AppDbContext(options);
