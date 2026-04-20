@@ -13,7 +13,7 @@ using PubQuizCreator.Data;
 namespace PubQuizCreator.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260419233339_InitialCreate")]
+    [Migration("20260419235539_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
