@@ -62,7 +62,7 @@ else
                             : settings.TemplateQuestions)
                     </span>
                     <label class="btn btn-outline-secondary btn-sm mb-0 text-nowrap" style="cursor:pointer;">
-                        @(string.IsNullOrEmpty(settings.TemplateQuestions) ? "Upload" : "Replace")
+                        Upload
                         <InputFile OnChange="e => UploadTemplateAsync(e, TemplateRole.Questions)"
                             accept=".pptx,.potx"
                             style="display:none;" />
@@ -79,7 +79,7 @@ else
                             : settings.TemplateAnswers)
                     </span>
                     <label class="btn btn-outline-secondary btn-sm mb-0 text-nowrap" style="cursor:pointer;">
-                        @(string.IsNullOrEmpty(settings.TemplateAnswers) ? "Upload" : "Replace")
+                        Upload
                         <InputFile OnChange="e => UploadTemplateAsync(e, TemplateRole.Answers)"
                             accept=".pptx,.potx"
                             style="display:none;" />
@@ -98,13 +98,7 @@ else
                     <span class="font-monospace text-truncate flex-grow-1">
                         @settings.AdditionalFiles[index]
                     </span>
-                    <label class="btn btn-outline-secondary btn-sm mb-0 text-nowrap" style="cursor:pointer;">
-                        Replace
-                        <InputFile OnChange="e => ReplaceAdditionalFileAsync(e, index)"
-                                   style="display:none;" />
-                    </label>
-                    <button class="btn btn-outline-danger btn-sm"
-                            @onclick="() => settings.AdditionalFiles.RemoveAt(index)">
+                    <button class="btn btn-outline-danger btn-sm" @onclick="() => settings.AdditionalFiles.RemoveAt(index)">
                         ✕
                     </button>
                 </div>
@@ -112,8 +106,8 @@ else
 
             <div>
                 <label class="btn btn-outline-secondary btn-sm mb-0" style="cursor:pointer;">
-                    + Add file
-                    <InputFile OnChange="AddAdditionalFileAsync" style="display:none;" />
+                    + Upload file
+                    <InputFile OnChange="UploadAdditionalAsync" style="display:none;" />
                 </label>
             </div>
 

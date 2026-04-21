@@ -37,7 +37,30 @@ namespace PubQuizCreator.Web.Pages.Settings
 
         #region Private Methods
 
-        private async Task AddAdditionalFileAsync(InputFileChangeEventArgs e)
+        private async Task SaveAsync()
+        {
+            if (settings == null) return;
+
+            saving = true;
+            saveError = null;
+            savedAt = null;
+
+            try
+            {
+                await SettingsService.SaveAsync(settings);
+                savedAt = DateTime.Now;
+            }
+            catch (Exception ex)
+            {
+                saveError = $"Error: {ex.Message}";
+            }
+            finally
+            {
+                saving = false;
+            }
+        }
+
+        private async Task UploadAdditionalAsync(InputFileChangeEventArgs e)
         {
             if (settings == null) return;
             try
@@ -66,61 +89,12 @@ namespace PubQuizCreator.Web.Pages.Settings
                 }
 
                 await SettingsService.SaveAsync(settings);
-                
-                savedAt = DateTime.Now;
-            }
-            catch (Exception ex)
-            {
-                saveError = $"Upload failed: {ex.Message}";
-            }
-        }
-
-
-        private async Task ReplaceAdditionalFileAsync(InputFileChangeEventArgs e, int index)
-        {
-            if (settings == null) return;
-            try
-            {
-                var file = e.File;
-                var fileName = Path.GetFileName(file.Name);
-
-                await using var stream = file.OpenReadStream(
-                    maxAllowedSize: Constants.MaxUploadSizeBytes);
-                await SettingsService.SaveFileAsync(
-                    content: stream,
-                    fileName: fileName);
-
-                settings.AdditionalFiles[index] = fileName;
-                await SettingsService.SaveAsync(settings);
 
                 savedAt = DateTime.Now;
             }
             catch (Exception ex)
             {
                 saveError = $"Upload failed: {ex.Message}";
-            }
-        }
-
-        private async Task SaveAsync()
-        {
-            if (settings == null) return;
-
-            saving = true;
-            saveError = null;
-            savedAt = null;
-
-            try
-            {
-                await SettingsService.SaveAsync(settings);
-                savedAt = DateTime.Now;
-            }
-            catch (Exception ex)
-            {
-                saveError = $"Error: {ex.Message}";
-            }
-            finally
-            {
-                saving = false;
             }
         }
 
@@ -135,7 +109,7 @@ namespace PubQuizCreator.Web.Pages.Settings
                 await using var stream = file.OpenReadStream(
                     maxAllowedSize: Constants.MaxUploadSizeBytes);
                 await SettingsService.SaveFileAsync(
-                    content: stream, 
+                    content: stream,
                     fileName: fileName);
 
                 if (role == TemplateRole.Questions)
