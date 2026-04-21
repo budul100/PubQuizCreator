@@ -20,7 +20,7 @@
             <a class="btn btn-primary btn-sm" href="/ideas/new">+ New idea</a>
         </PageHeader>
 
-        <div class="d-flex gap-2 mb-3">
+        <div class="d-flex flex-wrap gap-2 mb-3">
             <select class="form-select form-select-sm w-auto"
                     value="@GetCategorySelectValue()"
                     @onchange="OnCategoryChanged">
@@ -69,9 +69,9 @@
                     {
                         var categoryColor = idea.Category?.ColorHex ?? "#ffffff";
 
-                        <div class="list-group-item d-flex align-items-start gap-3 py-2">
+                        <div class="list-group-item d-flex flex-column flex-sm-row align-items-start gap-2 py-2">
 
-                            <div style="width: 130px; flex-shrink: 0;">
+                            <div style="width: 120px; flex-shrink: 0; min-width: 0;">
                                 @if (idea.Category != null)
                                 {
                                     <CategoryBadge ColorHex="@categoryColor" Name="@idea.Category.Name"
@@ -101,7 +101,7 @@
                                 <div class="text-muted small mt-1">@idea.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
                             </div>
 
-                            <div class="d-flex gap-1 flex-shrink-0">
+                            <div class="d-flex gap-1 flex-shrink-0 align-self-start">
                                 <a class="btn btn-outline-secondary btn-sm"
                                    href="https://www.google.com/search?q=@Uri.EscapeDataString(idea.Text)"
                                    target="_blank"
@@ -133,7 +133,7 @@
 
     </div>
 
-    <div style="width: 300px; flex-shrink: 0; position: sticky; top: 1rem;">
+    <div class="d-none d-md-block" style="width: 300px; flex-shrink: 0; position: sticky; top: 1rem;">
         <CoverageCard OnCategorySelected="OnCoverageFilterAsync" />
     </div>
 

@@ -20,7 +20,7 @@
             <a class="btn btn-primary btn-sm" href="/questions/new">+ New question</a>
         </PageHeader>
 
-        <div class="d-flex gap-2 mb-3 align-items-center">
+        <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
             <div class="form-check mb-0 text-nowrap">
                 <input class="form-check-input" type="checkbox"
                        @bind="showUsed"
@@ -61,93 +61,163 @@
             }
             else
             {
-                <table class="table table-sm table-hover align-middle">
+                @* --- MOBILE: Card list (< md) --- *@
+                <div class="d-md-none">
+                    @foreach (var question in paged)
+                    {
+                        var categoryColor = question.Category?.ColorHex ?? "#aaaaaa";
+                        var editUrl = $"/questions/{question.Id}/edit";
+                        var rowStyle = question.IsUnusable ? "opacity: 0.55;" : "";
 
-                    <thead>
-                        <tr>
-                            <th style="width: calc((100% - 250px) / 8)">Category</th>
-                            <th style="width: calc((100% - 250px) * 4 / 8)">Question</th>
-                            <th style="width: calc((100% - 250px) * 3 / 8)">Answer</th>
-                            <th style="width: 200px">Used in</th>
-                            <th style="width: 40px"></th>
-                            <th style="width: 40px"></th>
-                        </tr>
-                    </thead>
+                        <div class="list-group-item d-flex flex-column gap-1 py-2"
+                             style="cursor: pointer; @rowStyle"
+                             @onclick="() => Nav.NavigateTo(editUrl)">
 
-                    <tbody>
-                        @foreach (var question in paged)
-                        {
-                            var categoryColor = question.Category?.ColorHex ?? "#aaaaaa";
-                            var editUrl = $"/questions/{question.Id}/edit";
-                            var rowStyle = question.IsUnusable ? "opacity: 0.55;" : "";
-
-                            <tr style="cursor: pointer; @rowStyle" @onclick="() => Nav.NavigateTo(editUrl)">
-                                <td>
-                                    @if (question.IsUnusable)
-                                    {
-                                        <span class="badge bg-secondary">unusable</span>
-                                    }
-                                    else
-                                    {
-                                        <CategoryBadge ColorHex="@categoryColor" Name="@(question.Category?.Name ?? "")" />
-                                    }
-                                </td>
-
-                                <td>
-                                    @question.TextShort
-
-                                    @if (question.MediaType != MediaType.None)
-                                    {
-                                        var icon = question.MediaType switch
-                                        {
-                                            MediaType.Image => "🖼",
-                                            MediaType.Audio => "🎵",
-                                            MediaType.Video => "🎬",
-                                            _ => ""
-                                        };
-                                        <span class="ms-1 text-muted" title="@question.MediaType.ToString()">@icon</span>
-                                    }
-                                </td>
-
-                                <td class="text-muted">@question.Answer</td>
-
-                                <td @onclick:stopPropagation="true">
-                                    @if (question.UsedInQuiz != null && question.IsInCompletedQuiz)
-                                    {
-                                        <small class="text-muted">@question.UsedInQuiz</small>
-                                    }
-                                    else if (question.UsedInQuiz != null)
-                                    {
-                                        <small class="text-muted fst-italic">assigned: @question.UsedInQuiz</small>
-                                    }
-                                    else if (question.WasUsed && !question.IsUnusable)
-                                    {
-                                        <small class="text-muted fst-italic">previously used</small>
-                                    }
-                                </td>
-
-                                <td @onclick:stopPropagation="true">
+                            <div class="d-flex justify-content-between align-items-start">
+                                @if (question.IsUnusable)
+                                {
+                                    <span class="badge bg-secondary">unusable</span>
+                                }
+                                else
+                                {
+                                    <CategoryBadge ColorHex="@categoryColor" Name="@(question.Category?.Name ?? "")" />
+                                }
+                                <div class="d-flex gap-1" @onclick:stopPropagation="true">
                                     @if ((question.IsInCompletedQuiz || question.WasUsed) && !question.IsUnusable)
                                     {
-                                        <button class="btn btn-sm w-100 @(question.AllowReuse ? "btn-info" : "btn-outline-secondary")"
-                                                title="@(question.AllowReuse ? "Reuse allowed — click to revoke" : "Allow reuse")"
+                                        <button class="btn btn-sm @(question.AllowReuse ? "btn-info" : "btn-outline-secondary")"
                                                 @onclick="() => ToggleAllowReuseAsync(question.Id, !question.AllowReuse)">
                                             🔁
                                         </button>
                                     }
-                                </td>
-
-                                <td @onclick:stopPropagation="true">
                                     @if (question.UsedInQuiz == null && !question.IsInCompletedQuiz)
                                     {
-                                        <button class="btn btn-outline-danger btn-sm w-100" @onclick="() => DeleteAsync(question.Id)">✕</button>
+                                        <button class="btn btn-outline-danger btn-sm"
+                                                @onclick="() => DeleteAsync(question.Id)">
+                                            ✕
+                                        </button>
                                     }
-                                </td>
+                                </div>
+                            </div>
 
+                            <div class="fw-semibold small">@question.TextShort</div>
+                            <div class="text-muted small">→ @question.Answer</div>
+
+                            @if (question.UsedInQuiz != null || question.WasUsed)
+                            {
+                                <div class="text-muted small fst-italic">
+                                    @if (question.IsInCompletedQuiz)
+                                    {
+                                        @question.UsedInQuiz
+                                    }
+                                    else if (question.UsedInQuiz != null)
+                                    {
+
+                                        <span>assigned: @question.UsedInQuiz</span>
+                                    }
+                                    else
+                                    {
+
+                                        <span>previously used</span>
+                                    }
+                                </div>
+                            }
+
+                        </div>
+                    }
+                </div>
+
+                @* --- DESKTOP: Table (>= md) --- *@
+                <div class="d-none d-md-block table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+
+                        <thead>
+                            <tr>
+                                <th style="width: calc((100% - 250px) / 8)">Category</th>
+                                <th style="width: calc((100% - 250px) * 4 / 8)">Question</th>
+                                <th style="width: calc((100% - 250px) * 3 / 8)">Answer</th>
+                                <th style="width: 200px">Used in</th>
+                                <th style="width: 40px"></th>
+                                <th style="width: 40px"></th>
                             </tr>
-                        }
-                    </tbody>
-                </table>
+                        </thead>
+
+                        <tbody>
+                            @foreach (var question in paged)
+                            {
+                                var categoryColor = question.Category?.ColorHex ?? "#aaaaaa";
+                                var editUrl = $"/questions/{question.Id}/edit";
+                                var rowStyle = question.IsUnusable ? "opacity: 0.55;" : "";
+
+                                <tr style="cursor: pointer; @rowStyle" @onclick="() => Nav.NavigateTo(editUrl)">
+                                    <td>
+                                        @if (question.IsUnusable)
+                                        {
+                                            <span class="badge bg-secondary">unusable</span>
+                                        }
+                                        else
+                                        {
+                                            <CategoryBadge ColorHex="@categoryColor" Name="@(question.Category?.Name ?? "")" />
+                                        }
+                                    </td>
+
+                                    <td>
+                                        @question.TextShort
+
+                                        @if (question.MediaType != MediaType.None)
+                                        {
+                                            var icon = question.MediaType switch
+                                            {
+                                                MediaType.Image => "🖼",
+                                                MediaType.Audio => "🎵",
+                                                MediaType.Video => "🎬",
+                                                _ => ""
+                                            };
+                                            <span class="ms-1 text-muted" title="@question.MediaType.ToString()">@icon</span>
+                                        }
+                                    </td>
+
+                                    <td class="text-muted">@question.Answer</td>
+
+                                    <td @onclick:stopPropagation="true">
+                                        @if (question.UsedInQuiz != null && question.IsInCompletedQuiz)
+                                        {
+                                            <small class="text-muted">@question.UsedInQuiz</small>
+                                        }
+                                        else if (question.UsedInQuiz != null)
+                                        {
+                                            <small class="text-muted fst-italic">assigned: @question.UsedInQuiz</small>
+                                        }
+                                        else if (question.WasUsed && !question.IsUnusable)
+                                        {
+                                            <small class="text-muted fst-italic">previously used</small>
+                                        }
+                                    </td>
+
+                                    <td @onclick:stopPropagation="true">
+                                        @if ((question.IsInCompletedQuiz || question.WasUsed) && !question.IsUnusable)
+                                        {
+                                            <button class="btn btn-sm w-100 @(question.AllowReuse ? "btn-info" : "btn-outline-secondary")"
+                                                    title="@(question.AllowReuse ? "Reuse allowed — click to revoke" : "Allow reuse")"
+                                                    @onclick="() => ToggleAllowReuseAsync(question.Id, !question.AllowReuse)">
+                                                🔁
+                                            </button>
+                                        }
+                                    </td>
+
+                                    <td @onclick:stopPropagation="true">
+                                        @if (question.UsedInQuiz == null && !question.IsInCompletedQuiz)
+                                        {
+                                            <button class="btn btn-outline-danger btn-sm w-100" @onclick="() => DeleteAsync(question.Id)">✕</button>
+                                        }
+                                    </td>
+
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                </div>
 
                 <ContentPager TotalItems="filtered.Count"
                    PageSize="Constants.PageSizeList"
@@ -158,7 +228,7 @@
 
     </div>
 
-    <div style="width: 300px; flex-shrink: 0; position: sticky; top: 1rem;">
+    <div class="d-none d-md-block" style="width: 300px; flex-shrink: 0; position: sticky; top: 1rem;">
         <CoverageCard NavigateToQuestions="true" />
     </div>
 

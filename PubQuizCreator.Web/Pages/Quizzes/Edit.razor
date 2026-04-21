@@ -19,33 +19,24 @@
 else
 {
     @* Header row: Title + Date + Export buttons *@
-    <div class="d-flex align-items-center gap-2 mb-2">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <input class="form-control"
-               style="min-width: 260px; max-width: 400px;"
+               style="min-width: 0; flex: 1 1 180px; max-width: 400px;"
                value="@quiz.Title"
                @onchange="e => quiz.Title = e.Value?.ToString() ?? string.Empty"
                @onblur="SaveHeaderAsync" />
         <input type="date"
-               class="form-control w-auto"
+               class="form-control"
+               style="width: auto; flex-shrink: 0;"
                value="@quiz.Date.ToString("yyyy-MM-dd")"
                @onchange="e => { quiz.Date = DateOnly.Parse(e.Value?.ToString() ?? string.Empty); _ = SaveHeaderAsync(); }" />
         <button class="btn btn-sm @(quiz.IsCompleted ? "btn-success" : "btn-outline-secondary")"
-                title="@(quiz.IsCompleted ? "Mark as active" : "Mark as completed")"
                 @onclick="ToggleCompletedAsync">
             @(quiz.IsCompleted ? "✓ Completed" : "Mark as completed")
         </button>
-
-        <div class="ms-auto d-flex gap-2">
-            <a class="btn btn-outline-secondary btn-sm"
-               href="/export/quiz/@quiz.Id/pdf"
-               target="_blank">
-                ⬇ PDF
-            </a>
-            <a class="btn btn-outline-secondary btn-sm"
-               href="/export/quiz/@quiz.Id/pptx"
-               target="_blank">
-                ⬇ PPTX
-            </a>
+        <div class="d-flex gap-2 ms-auto flex-shrink-0">
+            <a class="btn btn-outline-secondary btn-sm" href="/export/quiz/@quiz.Id/pdf" target="_blank">⬇ PDF</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/export/quiz/@quiz.Id/pptx" target="_blank">⬇ PPTX</a>
         </div>
     </div>
 
@@ -67,10 +58,9 @@ else
              @ondragover:preventDefault="true"
              @ondrop="() => DropRound(r.Id)">
 
-            <div class="card-header d-flex justify-content-between align-items-center"
+            <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"
                  style="cursor: pointer;"
-                 @onclick="() => ToggleRound(r.Id)"
-                 @onclick:stopPropagation="false">
+                 @onclick="() => ToggleRound(r.Id)">
                 <span>
                     <span class="me-2 text-muted">☰</span>
                     <strong>Round @r.Position</strong>
@@ -78,14 +68,8 @@ else
                     <span class="badge @roundBadge ms-2">@roundLabel</span>
                 </span>
                 <div class="d-flex gap-1" @onclick:stopPropagation="true">
-                    <button class="btn btn-outline-primary btn-sm"
-                            @onclick="() => OpenAddSlot(r)">
-                        + Slot
-                    </button>
-                    <button class="btn btn-outline-danger btn-sm"
-                            @onclick="() => RemoveRoundAsync(r.Id)">
-                        Remove round
-                    </button>
+                    <button class="btn btn-outline-primary btn-sm" @onclick="() => OpenAddSlot(r)">+ Slot</button>
+                    <button class="btn btn-outline-danger btn-sm" @onclick="() => RemoveRoundAsync(r.Id)">Remove round</button>
                 </div>
             </div>
 
@@ -99,7 +83,7 @@ else
                             ? $"/questions/{s.Question.Id}/edit?returnUrl=/quizzes/{Id}"
                             : null;
 
-                        <div class="list-group-item d-flex align-items-center gap-2"
+                        <div class="list-group-item py-2"
                              draggable="true"
                              @ondragstart="() => { dragFromSlot = s.Id; dragFromSlotRound = r.Id; }"
                              @ondragover="_ => { }"
@@ -107,26 +91,49 @@ else
                              @ondrop="() => DropSlot(r.Id, s.Id)"
                              style="cursor: grab;">
 
-                            <span class="text-muted flex-shrink-0">☰</span>
-
-                            <span class="badge bg-light text-secondary border flex-shrink-0"
-                                  style="min-width: 1.8rem; text-align: center; font-weight: 600;">
-                                @s.Position
-                            </span>
-
-                            <div style="flex: 1; min-width: 0;">
-                                @{
-                                    var catColor = s.Category?.ColorHex ?? "#95a5a6";
-                                }
-                                <CategoryBadge ColorHex="@catColor" Name="@(s.Category?.Name ?? "")"
-                                               CssClass="text-truncate d-inline-block"
-                                               Style="max-width: 100%;" />
+                            @* Top row: handle + position + category + buttons *@
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="text-muted flex-shrink-0">☰</span>
+                                <span class="badge bg-light text-secondary border flex-shrink-0"
+                                      style="min-width: 1.8rem; text-align: center; font-weight: 600;">
+                                    @s.Position
+                                </span>
+                                <div style="flex: 1; min-width: 0;">
+                                    @{
+                                        var catColor = s.Category?.ColorHex ?? "#95a5a6";
+                                    }
+                                    <CategoryBadge ColorHex="@catColor" Name="@(s.Category?.Name ?? "")"
+                                                   CssClass="text-truncate d-inline-block"
+                                                   Style="max-width: 100%;" />
+                                </div>
+                                <div class="d-flex gap-1 flex-shrink-0" @onclick:stopPropagation="true">
+                                    @if (s.Question != null)
+                                    {
+                                        <button class="btn btn-outline-secondary btn-sm"
+                                                title="Reassign"
+                                                @onclick="async () => await OpenPickerAsync(s)"
+                                                @onclick:stopPropagation="true">
+                                            <span class="oi oi-pencil" />
+                                        </button>
+                                        <button class="btn btn-outline-secondary btn-sm"
+                                                title="Unassign"
+                                                @onclick="() => UnassignAsync(s.Id)">
+                                            <span class="oi oi-action-undo" />
+                                        </button>
+                                    }
+                                    <button class="btn btn-outline-danger btn-sm"
+                                            title="Remove slot"
+                                            @onclick="() => RemoveSlotAsync(s.Id)">
+                                        <span class="oi oi-trash" />
+                                    </button>
+                                </div>
                             </div>
 
-                            <div style="flex: 4; min-width: 0; cursor: pointer;"
-                                @onclick="async () => { if (editUrl != null) Nav.NavigateTo(editUrl); else await OpenPickerAsync(s); }"
-                                @onclick:stopPropagation="true">
-                                <div class="small fw-semibold text-truncate @(s.Question == null ? "text-muted fst-italic" : "")">
+                            @* Question + Answer — klickbar für Picker/Edit *@
+                            <div style="padding-left: 2.8rem; cursor: pointer;"
+                                 @onclick="async () => { if (editUrl != null) Nav.NavigateTo(editUrl); else await OpenPickerAsync(s); }"
+                                 @onclick:stopPropagation="true">
+                                <div class="small fw-semibold @(s.Question == null ? "text-muted fst-italic" : "")">
                                     @(s.Question?.TextShort ?? "— click to assign —")
                                     @if (s.Question?.MediaType is { } mt && mt != MediaType.None)
                                     {
@@ -137,43 +144,13 @@ else
                                             MediaType.Video => "🎬",
                                             _ => ""
                                         };
-                                        <span class="ms-1 text-muted fs-4" title="@mt.ToString()"> | @icon</span>
+                                        <span class="ms-1 text-muted">| @icon</span>
                                     }
                                 </div>
-                            </div>
-
-                            <div style="flex: 3; min-width: 0; cursor: pointer;"
-                                @onclick="async () => { if (editUrl != null) Nav.NavigateTo(editUrl); else await OpenPickerAsync(s); }"
-                                @onclick:stopPropagation="true">
                                 @if (s.Question != null)
                                 {
-                                    <div class="small text-muted text-truncate">@s.Question.Answer</div>
+                                    <div class="small text-muted">→ @s.Question.Answer</div>
                                 }
-                            </div>
-
-
-                            <div class="d-flex gap-1 flex-shrink-0" @onclick:stopPropagation="true">
-                                @if (s.Question != null)
-                                {
-                                    <button class="btn btn-outline-secondary btn-sm"
-                                            title="Reassign question"
-                                            @onclick="async () => await OpenPickerAsync(s)"
-                                            @onclick:stopPropagation="true">
-                                        <span class="oi oi-pencil" />
-                                    </button>
-
-                                    <button class="btn btn-outline-secondary btn-sm"
-                                            title="Unassign question"
-                                            @onclick="() => UnassignAsync(s.Id)">
-                                        <span class="oi oi-action-undo" />
-                                    </button>
-                                }
-
-                                <button class="btn btn-outline-danger btn-sm"
-                                        title="Remove slot"
-                                        @onclick="() => RemoveSlotAsync(s.Id)">
-                                    <span class="oi oi-trash" />
-                                </button>
                             </div>
 
                         </div>
