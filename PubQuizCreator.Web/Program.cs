@@ -62,7 +62,7 @@ internal class Program
             }
 
             var additionalPaths = settingsService
-                .GetAdditionalPaths().ToArray();
+                .GetPathAdditionals().ToArray();
 
             foreach (var additionalPath in additionalPaths)
             {
@@ -124,7 +124,7 @@ internal class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        var overridePath = SettingsService.GetOverridePath(builder.Configuration);
+        var overridePath = SettingsService.GetPathOverride(builder.Configuration);
 
         builder.Configuration.AddJsonFile(
             path: overridePath,
@@ -228,7 +228,7 @@ internal class Program
 
         app.UseStaticFiles(new StaticFileOptions
         {
-            FileProvider = new PhysicalFileProvider(settingsService.GetPathMedia),
+            FileProvider = new PhysicalFileProvider(settingsService.GetPathMedia()),
             RequestPath = "/media"
         });
 

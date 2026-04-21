@@ -16,6 +16,7 @@ else
     @* Quiz *@
     <div class="card mb-3">
         <div class="card-header fw-semibold">Quiz</div>
+
         <div class="card-body d-flex flex-column gap-2">
             <div>
                 <label class="form-label mb-1">TextShort Warn Length</label>
@@ -36,6 +37,7 @@ else
     @* Print *@
     <div class="card mb-3">
         <div class="card-header fw-semibold">Print</div>
+
         <div class="card-body d-flex flex-column gap-2">
             <div>
                 <label class="form-label mb-1">Default Font Size</label>
@@ -51,7 +53,14 @@ else
     @* Export *@
     <div class="card mb-3">
         <div class="card-header fw-semibold">Export</div>
+
         <div class="card-body d-flex flex-column gap-3">
+
+            <div>
+                <label class="form-label mb-1">Slide Title Format</label>
+                <input class="form-control" @bind="settings.TitleFormat" />
+                <div class="form-text">Available placeholders: <code>{position}</code></div>
+            </div>
 
             <div>
                 <label class="form-label mb-1">Questions Template File</label>

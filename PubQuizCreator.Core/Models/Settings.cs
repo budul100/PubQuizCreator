@@ -20,6 +20,8 @@
 
         public int TextShortWarnLength { get; set; }
 
+        public string TitleFormat { get; set; } = "Question {position}";
+
         #endregion Public Properties
     }
 }

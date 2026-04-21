@@ -13,25 +13,13 @@ namespace PubQuizCreator.Services
             WriteIndented = true
         };
 
-        private readonly string overridePath = GetOverridePath(configuration);
+        private readonly string overridePath = GetPathOverride(configuration);
 
         #endregion Private Fields
 
-        #region Public Properties
-
-        public string GetPathMedia => GetFolder(
-            configValue: configuration["Media:StoragePath"],
-            configKey: "Media:StoragePath");
-
-        public string GetPathTemplates => GetFolder(
-            configValue: configuration["Export:TemplatesPath"],
-            configKey: "Export:TemplatesPath");
-
-        #endregion Public Properties
-
         #region Public Methods
 
-        public static string GetOverridePath(IConfiguration configuration)
+        public static string GetPathOverride(IConfiguration configuration)
         {
             var result = configuration["App:SettingsOverridePath"];
 
@@ -54,11 +42,14 @@ namespace PubQuizCreator.Services
             return result;
         }
 
-        public IEnumerable<string> GetAdditionalPaths()
+        public string GetFormatTitle() => configuration["Export:TitleFormat"]
+            ?? "Question {position}";
+
+        public IEnumerable<string> GetPathAdditionals()
         {
             var additionalFiles = GetAdditionalFiles().ToArray();
 
-            var templatesPath = GetPathTemplates ?? "";
+            var templatesPath = GetPathTemplates() ?? "";
 
             foreach (var additionalFile in additionalFiles)
             {
@@ -73,14 +64,18 @@ namespace PubQuizCreator.Services
             }
         }
 
-        public string GetTemplatePath(string name)
+        public string GetPathMedia() => GetFolder(
+            configValue: configuration["Media:StoragePath"],
+            configKey: "Media:StoragePath");
+
+        public string GetPathTemplate(string name)
         {
             var fileName = configuration[$"Export:Templates:{name}"]
                 ?? throw new InvalidOperationException(
                     $"Template '{name}' not configured under Export:Templates:{name}.");
 
             var result = Path.Combine(
-                GetPathTemplates,
+                GetPathTemplates(),
                 fileName);
 
             if (!File.Exists(result))
@@ -91,6 +86,10 @@ namespace PubQuizCreator.Services
 
             return result;
         }
+
+        public string GetPathTemplates() => GetFolder(
+            configValue: configuration["Export:TemplatesPath"],
+            configKey: "Export:TemplatesPath");
 
         public Settings Read()
         {
@@ -104,6 +103,7 @@ namespace PubQuizCreator.Services
                 TemplateAnswers = configuration["Export:Templates:Answers"] ?? "",
                 TemplateQuestions = configuration["Export:Templates:Questions"] ?? "",
                 TextShortWarnLength = configuration.GetValue("Quiz:TextShortWarnLength", 100),
+                TitleFormat = configuration["Export:TitleFormat"] ?? "Question {position}"
             };
         }
 
@@ -113,6 +113,7 @@ namespace PubQuizCreator.Services
             {
                 Export = new
                 {
+                    settings.TitleFormat,
                     Templates = new
                     {
                         Questions = settings.TemplateQuestions,
@@ -153,7 +154,7 @@ namespace PubQuizCreator.Services
             }
 
             var targetPath = Path.Combine(
-                GetPathTemplates,
+                GetPathTemplates(),
                 safeName);
 
             await using var fs = new FileStream(
