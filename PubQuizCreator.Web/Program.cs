@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -6,12 +7,22 @@ using Microsoft.Extensions.FileProviders;
 using Npgsql;
 using PubQuizCreator.Core;
 using PubQuizCreator.Core.Interfaces;
+using PubQuizCreator.Core.Models;
 using PubQuizCreator.Data;
 using PubQuizCreator.Services;
 using QuestPDF.Infrastructure;
 
 internal class Program
 {
+    #region Private Fields
+
+    private static readonly JsonSerializerOptions ExportJsonOptions = new()
+    {
+        WriteIndented = true
+    };
+
+    #endregion Private Fields
+
     #region Private Methods
 
     private static async Task<IResult> CreateExportAsync(Guid id, QuizService quizService,
@@ -79,6 +90,14 @@ internal class Program
                     fileStream,
                     cancellationToken);
             }
+
+            var jsonBytes = CreateExportJson(quiz);
+
+            using var jsonStream = zip.CreateEntry(
+                entryName: $"quiz_{quiz.Date:yyyy-MM-dd}_data.json",
+                compressionLevel: CompressionLevel.Fastest).Open();
+
+            jsonStream.Write(jsonBytes);
         }
 
         zipStream.Position = 0;
@@ -91,6 +110,38 @@ internal class Program
             fileDownloadName: filename);
 
         return result;
+    }
+
+    private static byte[] CreateExportJson(Quiz quiz)
+    {
+        var export = new
+        {
+            title = quiz.Title,
+            date = quiz.Date.ToString("yyyy-MM-dd"),
+            rounds = quiz.Rounds
+                .Where(r => r.Slots.Count > 0)
+                .OrderBy(r => r.Position)
+                .Select(r => new
+                {
+                    position = r.Position,
+                    questions = r.Slots
+                        .OrderBy(s => s.Position)
+                        .Select(s => new
+                        {
+                            position = s.Position,
+                            category = s.Category?.Name,
+                            textShort = s.Question?.TextShort,
+                            textLong = s.Question?.TextLong,
+                            answer = s.Question?.Answer,
+                        })
+                })
+        };
+
+        var json = JsonSerializer.Serialize(
+            value: export,
+            options: ExportJsonOptions);
+
+        return System.Text.Encoding.UTF8.GetBytes(json);
     }
 
     private static async Task<IResult> CreatePrintAsync(Guid id, QuizService quizService,
