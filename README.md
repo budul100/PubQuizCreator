@@ -45,6 +45,51 @@ PubQuizCreator is a self-hosted web application for managing pub quiz questions,
 | `Ollama__BaseUrl`               | Ollama endpoint, e.g. `http://host.docker.internal:11434`      |
 | `Export__TemplatesPath`         | Absolute path to the templates directory inside the container  |
 
+### `docker-compose.yml` Example
+
+```yaml
+services:
+  pubquiz-db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pubquiz
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: pubquiz
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pubquiz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pubquiz-web:
+    image: ghcr.io/budul100/pubquizcreator:latest
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ${MEDIA_PATH}:/app/media
+      - ${TEMPLATES_PATH}:/app/templates
+      - ./settings.override.json:/app/settings.override.json
+    depends_on:
+      pubquiz-db:
+        condition: service_healthy
+    networks:
+      - internal
+      - proxynet
+
+networks:
+  internal:
+  proxynet:
+    external: true
+
+volumes:
+  db_data:
+```
+
 ### Required Files on the Host
 
 Place the following in `/opt/pubquizcreator/` before starting:
@@ -60,21 +105,37 @@ settings.override.json  # runtime settings overrides
 ### Starting the Application
 
 ```bash
-docker pull ghcr.io/budul100/pubquizcreator:latest
 cd /opt/pubquizcreator
-docker compose up -d --no-build
+docker compose pull
+docker compose up -d
 ```
 
 Database migrations run automatically on startup. The application is available via the configured reverse proxy.
 
 ### Updating a Running Instance
 
-Deployment to the server is not automated. To update:
+Deployment to the server is not automated. An `update.sh` script can be placed in `/opt/pubquizcreator/` for convenience:
 
 ```bash
-docker pull ghcr.io/budul100/pubquizcreator:latest
-cd /opt/pubquizcreator
-docker compose up -d --no-build
+#!/usr/bin/env bash
+set -eu
+
+echo "=== Pulling latest images ==="
+docker compose pull --quiet
+
+echo "=== Starting / updating containers ==="
+docker compose up -d
+
+echo "=== Removing old dangling images ==="
+docker image prune -f
+
+echo "=== Update finished successfully ==="
+```
+
+Run it manually when a new image is available:
+
+```bash
+cd /opt/pubquizcreator && bash update.sh
 ```
 
 Every push to `main` triggers a GitHub Actions workflow that builds a `linux/arm64` Docker image and pushes it to `ghcr.io/budul100/pubquizcreator:latest`. The image is publicly available and can be pulled without authentication.
