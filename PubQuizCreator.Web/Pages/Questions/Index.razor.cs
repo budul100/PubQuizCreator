@@ -128,6 +128,20 @@ namespace PubQuizCreator.Web.Pages.Questions
             StateHasChanged();
             await Task.Yield();
 
+            ApplySearchFilter();
+
+            isLoading = false;
+        }
+
+        private void ApplyPaging()
+        {
+            paged = filtered
+                .Skip((currentPage - 1) * Constants.PageSizeList)
+                .Take(Constants.PageSizeList).ToList();
+        }
+
+        private void ApplySearchFilter()
+        {
             filtered = entries
                 .Where(q => filterMode switch
                 {
@@ -149,17 +163,8 @@ namespace PubQuizCreator.Web.Pages.Questions
                 .ThenByDescending(q => q.LastUsedDate ?? DateOnly.MinValue)
                 .ThenBy(q => q.TextShort).ToList();
 
-            currentPage = 1;  // reset on filter change
+            currentPage = 1;
             ApplyPaging();
-
-            isLoading = false;
-        }
-
-        private void ApplyPaging()
-        {
-            paged = filtered
-                .Skip((currentPage - 1) * Constants.PageSizeList)
-                .Take(Constants.PageSizeList).ToList();
         }
 
         private async Task DeleteAsync(Guid id)
@@ -213,6 +218,12 @@ namespace PubQuizCreator.Web.Pages.Questions
         {
             currentPage = page;
             ApplyPaging();
+        }
+
+        private void OnSearchChanged(ChangeEventArgs e)
+        {
+            searchText = e.Value?.ToString() ?? string.Empty;
+            ApplySearchFilter();
         }
 
         private async Task ToggleAllowReuseAsync(Guid id, bool value)

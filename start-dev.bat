@@ -79,8 +79,14 @@ if errorlevel 1 (
 :summary
 echo.
 echo [OK] All services running:
-echo       PostgreSQL  --^>  localhost:5433  ^(DB: pubquiz, User: pubquiz^)
+echo       PostgreSQL  --^>  localhost:5434  ^(DB: pubquiz, User: pubquiz^)
 echo       Ollama      --^>  localhost:11434
+echo.
+echo [INFO] Check if the db connection string must be adjusted 
+echo        in PubQuizCreator.Web\appsettings.Development.json 
+echo		 5433 ... DB connection via SSH
+echo 	     5434 ... DB connection via localhost
+echo        Check also the local user secrets (secrets.json) for the password     
 echo.
 echo [INFO] Start the app with:
 echo         cd PubQuizCreator.Web ^&^& dotnet run
