@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Services;
 
@@ -8,6 +7,8 @@ namespace PubQuizCreator.Web.Pages.Quizzes
     public partial class Edit
     {
         #region Private Fields
+
+        private static readonly Guid DummyCategoryId = Guid.Parse("d1a45cf3-95bf-4567-b9aa-526c04d1bda2");
 
         private Guid addSlotCategoryId;
         private Round? addSlotRound;
@@ -72,7 +73,17 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         private async Task AssignAsync(Guid questionId)
         {
             if (pickerSlot == null) return;
+
             await QuizService.AssignQuestionAsync(pickerSlot.Id, questionId);
+
+            if (pickerSlot.CategoryId == DummyCategoryId)
+            {
+                var question = pickerAll.FirstOrDefault(q => q.Id == questionId);
+                if (question?.CategoryId != null)
+                    await QuizService.UpdateCategoryAsync(
+                        slotId: pickerSlot.Id,
+                        categoryId: question.CategoryId.Value);
+            }
 
             pickerSlot = null;
             await ReloadAsync();
@@ -128,6 +139,10 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         {
             pickerSlot = slot;
             pickerSearch = string.Empty;
+            pickerAll = new List<Question>();
+            pickerFiltered = new List<Question>();
+
+            StateHasChanged();
 
             var assignedIds = quiz!.Rounds
                 .SelectMany(r => r.Slots)
@@ -135,8 +150,15 @@ namespace PubQuizCreator.Web.Pages.Quizzes
                 .Select(s => s.QuestionId!.Value)
                 .ToHashSet();
 
-            pickerAll = await QuestionService
-                .GetByCategoryAsync(slot.CategoryId, assignedIds);
+            if (slot.CategoryId == DummyCategoryId)
+            {
+                pickerAll = await QuestionService.GetUnassignedAsync();
+            }
+            else
+            {
+                pickerAll = await QuestionService
+                    .GetByCategoryAsync(slot.CategoryId, assignedIds);
+            }
 
             ApplyFilter();
         }

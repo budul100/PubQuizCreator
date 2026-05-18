@@ -30,7 +30,7 @@ internal class Program
         CancellationToken cancellationToken)
     {
         var quiz = await quizService.GetDetailAsync(
-            id: id,
+            quizId: id,
             ct: cancellationToken);
 
         if (quiz == default) return Results.NotFound();
@@ -148,7 +148,7 @@ internal class Program
         PrintService printService, CancellationToken cancellationToken)
     {
         var quiz = await quizService.GetDetailAsync(
-            id: id,
+            quizId: id,
             ct: cancellationToken);
 
         if (quiz == default) return Results.NotFound();

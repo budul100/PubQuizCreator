@@ -152,6 +152,24 @@ namespace PubQuizCreator.Services
                 .ToListAsync(ct);
         }
 
+        public async Task<List<Question>> GetUnassignedAsync(CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            var assignedIds = await db.RoundSlots
+                .Where(s => s.QuestionId != null)
+                .Select(s => s.QuestionId!.Value)
+                .Distinct()
+                .ToListAsync(ct);
+
+            return await db.Questions
+                .Include(q => q.Category)
+                .Where(q => !q.IsUnusable
+                    && q.CategoryId != null
+                    && !assignedIds.Contains(q.Id))
+                .ToListAsync(ct);
+        }
+
         public async Task<Dictionary<Guid, Usage>> GetUsageInfoMapAsync(CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);

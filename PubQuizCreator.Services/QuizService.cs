@@ -93,11 +93,11 @@ namespace PubQuizCreator.Services
             return quiz;
         }
 
-        public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+        public async Task DeleteAsync(Guid quizId, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            var quiz = await db.Quizzes.FindAsync([id], ct);
+            var quiz = await db.Quizzes.FindAsync([quizId], ct);
             if (quiz == null) return;
 
             db.Quizzes.Remove(quiz);
@@ -126,7 +126,7 @@ namespace PubQuizCreator.Services
                 .ToListAsync(ct);
         }
 
-        public async Task<Quiz?> GetDetailAsync(Guid id, CancellationToken ct = default)
+        public async Task<Quiz?> GetDetailAsync(Guid quizId, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -138,7 +138,7 @@ namespace PubQuizCreator.Services
                     .ThenInclude(r => r.Slots)
                         .ThenInclude(s => s.Question)
                 .AsSplitQuery()
-                .FirstOrDefaultAsync(q => q.Id == id, ct);
+                .FirstOrDefaultAsync(q => q.Id == quizId, ct);
         }
 
         public async Task RemoveRoundAsync(Guid roundId, CancellationToken ct = default)
@@ -220,16 +220,25 @@ namespace PubQuizCreator.Services
                 .ExecuteUpdateAsync(s => s.SetProperty(q => q.IsCompleted, value), ct);
         }
 
-        public async Task UpdateAsync(Guid id, string title, DateOnly date, CancellationToken ct = default)
+        public async Task UpdateAsync(Guid quizId, string title, DateOnly date, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            var quiz = await db.Quizzes.FindAsync([id], ct);
+            var quiz = await db.Quizzes.FindAsync([quizId], ct);
             if (quiz == null) return;
 
             quiz.Title = title;
             quiz.Date = date;
             await db.SaveChangesAsync(ct);
+        }
+
+        public async Task UpdateCategoryAsync(Guid slotId, Guid categoryId, CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            await db.RoundSlots
+                .Where(s => s.Id == slotId)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.CategoryId, categoryId), ct);
         }
 
         #endregion Public Methods

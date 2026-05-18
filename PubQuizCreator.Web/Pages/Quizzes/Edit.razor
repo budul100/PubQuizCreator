@@ -44,11 +44,14 @@ else
     @foreach (var round in quiz.Rounds.OrderBy(r => r.Position))
     {
         var r = round;
+
+        var totalInRound = r.Slots.Count;
         var openInRound = r.Slots.Count(s => s.QuestionId == null);
-        var (roundLabel, roundBadge) = r.Slots.Count == 0
+
+        var (roundLabel, roundBadge) = totalInRound == 0
             ? ("Empty", "bg-secondary")
             : openInRound == 0
-                ? ("✓", "bg-success")
+                ? ($"{totalInRound} questions", "bg-success")
                 : ($"{openInRound} open", "bg-warning text-dark");
 
         <div class="card mb-3"
