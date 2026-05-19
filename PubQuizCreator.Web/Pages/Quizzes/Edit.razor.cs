@@ -3,6 +3,7 @@ using Microsoft.JSInterop;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Services;
 using PubQuizCreator.Web.Helpers;
+using PubQuizCreator.Web.Shared;
 
 namespace PubQuizCreator.Web.Pages.Quizzes
 {
@@ -22,7 +23,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         private List<Question> pickerAll = [];
         private List<Question> pickerFiltered = [];
         private string pickerSearch = string.Empty;
-        private ElementReference pickerSearchInput;
+        private SearchInput? pickerSearchInput;
         private RoundSlot? pickerSlot;
         private Quiz? quiz;
         private Guid selectedTemplateId;
@@ -65,7 +66,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
             await ReloadAsync();
         }
 
-        private void ApplyFilter()
+        private void ApplySearch()
         {
             pickerFiltered = pickerAll
                 .Where(q => string.IsNullOrWhiteSpace(pickerSearch)
@@ -151,7 +152,9 @@ namespace PubQuizCreator.Web.Pages.Quizzes
             StateHasChanged();
 
             await Task.Yield(); // let Blazor render the input first
-            await pickerSearchInput.FocusAsync();
+
+            if (pickerSearchInput != null)
+                await pickerSearchInput.FocusAsync();
 
             var assignedIds = quiz!.Rounds
                 .SelectMany(r => r.Slots)
@@ -163,7 +166,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
                 ? await QuestionService.GetUnassignedAsync()
                 : await QuestionService.GetByCategoryAsync(slot.CategoryId, assignedIds);
 
-            ApplyFilter();
+            ApplySearch();
         }
 
         private async Task ReloadAsync()
@@ -208,18 +211,18 @@ namespace PubQuizCreator.Web.Pages.Quizzes
             await ReloadAsync();
         }
 
-        private async Task SaveHeaderAsync()
-        {
-            if (quiz == null) return;
-            await QuizService.UpdateAsync(quiz.Id, quiz.Title, quiz.Date);
-        }
-
         private async Task SaveCategoryAsync(Guid slotId)
         {
             await QuizService.AssignCategoryAsync(slotId, editCategorySlotCategoryId);
             editCategorySlot = null;
 
             await ReloadAsync();
+        }
+
+        private async Task SaveHeaderAsync()
+        {
+            if (quiz == null) return;
+            await QuizService.UpdateAsync(quiz.Id, quiz.Title, quiz.Date);
         }
 
         private async Task ToggleCompletedAsync()

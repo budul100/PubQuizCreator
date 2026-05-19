@@ -130,9 +130,7 @@ namespace PubQuizCreator.Services
                 .Where(q => q.CategoryId == categoryId
                     && !q.IsUnusable
                     && !excludeIds.Contains(q.Id)
-                    && (q.AllowReuse || (
-                        !q.WasUsed
-                        && !db.RoundSlots.Any(s =>
+                    && (q.AllowReuse || (!db.RoundSlots.Any(s =>
                             s.QuestionId == q.Id
                             && s.Round.Quiz.IsCompleted))))
                 .Select(q => new Question

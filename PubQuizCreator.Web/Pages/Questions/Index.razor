@@ -40,9 +40,8 @@
                 <option value="unusable">— Unusable —</option>
             </select>
 
-            <input class="form-control form-control-sm" placeholder="Search…"
-                   value="@searchText"
-                   @oninput="OnSearchChanged" />
+            <SearchInput @bind-Value="searchText"
+                @bind-Value:after="ApplySearch" />
         </div>
 
         @if (isLoading)

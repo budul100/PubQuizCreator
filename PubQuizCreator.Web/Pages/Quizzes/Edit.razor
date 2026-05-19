@@ -212,20 +212,20 @@ else
                         @if (pickerSlot?.Id == s.Id)
                         {
                             <div class="list-group-item p-2 border-top bg-light">
+
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <span class="fw-semibold small">Assign question — @pickerSlot.Category?.Name</span>
                                     <button class="btn-close btn-sm" @onclick="() => pickerSlot = null" />
                                 </div>
 
-                                <input class="form-control form-control-sm mb-2"
-                                       placeholder="Search…"
-                                       @ref="pickerSearchInput"
-                                       value="@pickerSearch"
-                                       @oninput="e => { pickerSearch = e.Value?.ToString() ?? string.Empty; ApplyFilter(); }" />
+                                <SearchInput @ref="pickerSearchInput"
+                                             @bind-Value="pickerSearch"
+                                             @bind-Value:after="ApplySearch" />
 
                                 <div class="small text-muted mb-2">
                                     @pickerFiltered.Count of @pickerAll.Count in this category
                                 </div>
+                                
                                 <div class="list-group">
                                     @foreach (var picker in pickerFiltered.Take(Constants.PageSizePicker))
                                     {

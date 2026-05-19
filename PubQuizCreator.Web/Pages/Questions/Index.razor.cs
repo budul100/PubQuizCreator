@@ -128,7 +128,7 @@ namespace PubQuizCreator.Web.Pages.Questions
             StateHasChanged();
             await Task.Yield();
 
-            ApplySearchFilter();
+            ApplySearch();
 
             isLoading = false;
         }
@@ -140,7 +140,7 @@ namespace PubQuizCreator.Web.Pages.Questions
                 .Take(Constants.PageSizeList).ToList();
         }
 
-        private void ApplySearchFilter()
+        private void ApplySearch()
         {
             filtered = entries
                 .Where(q => filterMode switch
@@ -218,12 +218,6 @@ namespace PubQuizCreator.Web.Pages.Questions
         {
             currentPage = page;
             ApplyPaging();
-        }
-
-        private void OnSearchChanged(ChangeEventArgs e)
-        {
-            searchText = e.Value?.ToString() ?? string.Empty;
-            ApplySearchFilter();
         }
 
         private async Task ToggleAllowReuseAsync(Guid id, bool value)
