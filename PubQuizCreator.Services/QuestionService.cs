@@ -121,7 +121,7 @@ namespace PubQuizCreator.Services
         public async Task<List<Question>> GetByCategoryAsync(Guid? categoryId, HashSet<Guid> excludeIds,
             CancellationToken ct = default)
         {
-            if (categoryId == default)
+            if (categoryId == null || categoryId == Guid.Empty)
                 return [];
 
             await using var db = await dbFactory.CreateDbContextAsync(ct);

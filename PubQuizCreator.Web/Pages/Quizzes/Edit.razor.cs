@@ -159,11 +159,9 @@ namespace PubQuizCreator.Web.Pages.Quizzes
                 .Select(s => s.QuestionId!.Value)
                 .ToHashSet();
 
-            pickerAll = slot.CategoryId == null
+            pickerAll = slot.CategoryId == null || slot.CategoryId == Guid.Empty
                 ? await QuestionService.GetUnassignedAsync()
-                : await QuestionService.GetByCategoryAsync(
-                    slot.CategoryId,
-                    assignedIds);
+                : await QuestionService.GetByCategoryAsync(slot.CategoryId, assignedIds);
 
             ApplyFilter();
         }
