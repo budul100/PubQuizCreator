@@ -64,10 +64,10 @@ namespace PubQuizCreator.Web.Pages.Templates
             try
             {
                 var ids = slots
-                    .Where(s => s.CategoryId != Guid.Empty)
-                    .Select(s => s.CategoryId)
-                    .ToList();
+                    .Select(s => s.CategoryId).ToList();
+
                 await TemplateService.SaveSlotsAsync(Id, ids);
+
                 Nav.NavigateTo("/templates");
             }
             catch (Exception ex)
@@ -94,7 +94,7 @@ namespace PubQuizCreator.Web.Pages.Templates
         {
             #region Public Properties
 
-            public Guid CategoryId { get; set; }
+            public Guid? CategoryId { get; set; }
 
             #endregion Public Properties
         }

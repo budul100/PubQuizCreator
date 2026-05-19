@@ -9,6 +9,7 @@
 @inject QuestionService QuestionService
 @inject StateService AppState
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>@(quiz?.Title ?? "Quiz")</PageTitle>
 
@@ -64,22 +65,38 @@ else
             <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"
                  style="cursor: pointer;"
                  @onclick="() => ToggleRound(r.Id)">
+
                 <span>
                     <span class="me-2 text-muted">☰</span>
                     <strong>Round @r.Position</strong>
                     <span class="text-muted me-2">@(AppState.RoundsCollapsed.Contains(r.Id) ? "▶" : "▼")</span>
                     <span class="badge @roundBadge ms-2">@roundLabel</span>
                 </span>
+
                 <div class="d-flex gap-1" @onclick:stopPropagation="true">
-                    <button class="btn btn-outline-primary btn-sm" @onclick="() => OpenAddSlot(r)">+ Slot</button>
-                    <button class="btn btn-outline-danger btn-sm" @onclick="() => RemoveRoundAsync(r.Id)">Remove round</button>
+                    @if (!r.Slots.Any())
+                    {
+                        <button class="btn btn-outline-danger btn-sm" @onclick="() => RemoveRoundAsync(r.Id)">
+                            <span class="oi oi-trash" />
+                        </button>
+                    }
+
                 </div>
             </div>
 
             @if (!AppState.RoundsCollapsed.Contains(r.Id))
             {
                 <div class="list-group list-group-flush">
-                    @foreach (var slot in r.Slots.OrderBy(s => s.Position))
+
+                @if (addSlotRound?.Id == r.Id && addSlotAfterPosition == 0)
+                {
+                    <CategorySelector Categories="categories"
+                        @bind-SelectedCategoryId="addSlotCategoryId"
+                        OnConfirm="ConfirmAddSlotAsync"
+                        OnCancel="() => addSlotRound = null" />
+                }
+
+                @foreach (var slot in r.Slots.OrderBy(s => s.Position))
                     {
                         var s = slot;
                         var editUrl = s.Question != null
@@ -101,15 +118,34 @@ else
                                       style="min-width: 1.8rem; text-align: center; font-weight: 600;">
                                     @s.Position
                                 </span>
-                                <div style="flex: 1; min-width: 0;">
-                                    @{
-                                        var catColor = s.Category?.ColorHex ?? "#95a5a6";
-                                    }
-                                    <CategoryBadge ColorHex="@catColor" Name="@(s.Category?.Name ?? "")"
-                                                   CssClass="text-truncate d-inline-block"
-                                                   Style="max-width: 100%;" />
-                                </div>
+                                
+                                @{
+                                    var catColor = s.Category?.ColorHex ?? "#95a5a6";
+                                    var catCss = "text-truncate d-inline-block" + (s.Question == null ? " cursor-pointer" : "");
+                                    var catStyle = "flex: 1; min-width: 0; cursor: " + (s.Question == null ? "pointer" : "default") + ";";
+                                }
+
+                                @if (editCategorySlot?.Id == s.Id)
+                                {
+                                    <CategorySelector Categories="categories"
+                                        @bind-SelectedCategoryId="editCategorySlotCategoryId"
+                                        ConfirmLabel="Save"
+                                        OnConfirm="() => SaveCategoryAsync(s.Id)"
+                                        OnCancel="() => editCategorySlot = null" />
+                                }
+                                else
+                                {
+                                    <div style="@catStyle"
+                                        @onclick="@(s.Question == null ? EventCallback.Factory.Create(this, () => { editCategorySlot = s; editCategorySlotCategoryId = s.CategoryId; }) : default)"
+                                        @onclick:stopPropagation="true">
+                                        <CategoryBadge ColorHex="@catColor" Name="@(s.Category?.Name ?? "— no category —")"
+                                            CssClass="@catCss"
+                                            Style="max-width: 100%;" />
+                                    </div>
+                                }
+                
                                 <div class="d-flex gap-1 flex-shrink-0" @onclick:stopPropagation="true">
+
                                     @if (s.Question != null)
                                     {
                                         <button class="btn btn-outline-secondary btn-sm"
@@ -118,17 +154,32 @@ else
                                                 @onclick:stopPropagation="true">
                                             <span class="oi oi-pencil" />
                                         </button>
-                                        <button class="btn btn-outline-secondary btn-sm"
+                                        <button class="btn btn-warning btn-sm"
                                                 title="Unassign"
                                                 @onclick="() => UnassignAsync(s.Id)">
                                             <span class="oi oi-action-undo" />
                                         </button>
                                     }
-                                    <button class="btn btn-outline-danger btn-sm"
-                                            title="Remove slot"
-                                            @onclick="() => RemoveSlotAsync(s.Id)">
-                                        <span class="oi oi-trash" />
+                                    else
+                                    {
+                                        <button class="btn btn-danger btn-sm"
+                                                title="Remove slot"
+                                                @onclick="() => RemoveSlotAsync(s.Id)">
+                                            <span class="oi oi-trash" />
+                                        </button>
+                                    }
+
+                                    <button class="btn btn-outline-secondary btn-sm"
+                                            title="Insert slot above"
+                                            @onclick="() => OpenAddSlot(r, s.Position - 1)">
+                                        <span class="oi oi-arrow-top" />
                                     </button>
+                                    <button class="btn btn-outline-secondary btn-sm"
+                                            title="Insert slot below"
+                                            @onclick="() => OpenAddSlot(r, s.Position)">
+                                        <span class="oi oi-arrow-bottom" />
+                                    </button>
+
                                 </div>
                             </div>
 
@@ -165,10 +216,13 @@ else
                                     <span class="fw-semibold small">Assign question — @pickerSlot.Category?.Name</span>
                                     <button class="btn-close btn-sm" @onclick="() => pickerSlot = null" />
                                 </div>
+
                                 <input class="form-control form-control-sm mb-2"
                                        placeholder="Search…"
+                                       @ref="pickerSearchInput"
                                        value="@pickerSearch"
                                        @oninput="e => { pickerSearch = e.Value?.ToString() ?? string.Empty; ApplyFilter(); }" />
+
                                 <div class="small text-muted mb-2">
                                     @pickerFiltered.Count of @pickerAll.Count in this category
                                 </div>
@@ -197,31 +251,16 @@ else
                                 </div>
                             </div>
                         }
+
+                        @if (addSlotRound?.Id == r.Id && addSlotAfterPosition == s.Position)
+                        {
+                            <CategorySelector Categories="categories"
+                                @bind-SelectedCategoryId="addSlotCategoryId"
+                                OnConfirm="ConfirmAddSlotAsync"
+                                OnCancel="() => addSlotRound = null" />
+                        }
                     }
                 </div>
-
-                @* ── Inline Add Slot ── *@
-                @if (addSlotRound?.Id == r.Id)
-                {
-                    <div class="card-body border-top d-flex gap-2 align-items-center">
-                        <select class="form-select" @bind="addSlotCategoryId">
-                            <option value="@Guid.Empty">— select category —</option>
-                            @foreach (var cat in categories)
-                            {
-                                <option value="@cat.Id">@cat.Name</option>
-                            }
-                        </select>
-                        <button class="btn btn-success btn-sm text-nowrap"
-                                @onclick="ConfirmAddSlotAsync"
-                                disabled="@(addSlotCategoryId == Guid.Empty)">
-                            Add
-                        </button>
-                        <button class="btn btn-outline-secondary btn-sm text-nowrap"
-                                @onclick="() => addSlotRound = null">
-                            Cancel
-                        </button>
-                    </div>
-                }
             }
         </div>
     }

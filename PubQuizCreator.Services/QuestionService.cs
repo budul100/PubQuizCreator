@@ -118,9 +118,12 @@ namespace PubQuizCreator.Services
                 .FirstOrDefaultAsync(q => q.Id == id, ct);
         }
 
-        public async Task<List<Question>> GetByCategoryAsync(Guid categoryId, HashSet<Guid> excludeIds,
+        public async Task<List<Question>> GetByCategoryAsync(Guid? categoryId, HashSet<Guid> excludeIds,
             CancellationToken ct = default)
         {
+            if (categoryId == default)
+                return [];
+
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
             return await db.Questions
@@ -234,6 +237,10 @@ namespace PubQuizCreator.Services
             }
 
             await db.SaveChangesAsync(ct);
+
+            await db.RoundSlots
+                .Where(s => s.QuestionId == question.Id)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.CategoryId, existing.CategoryId), ct);
         }
 
         #endregion Public Methods

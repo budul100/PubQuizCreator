@@ -43,18 +43,6 @@
             <DataAnnotationsValidator />
 
             <div class="mb-3">
-                <label class="form-label">Category</label>
-                <select class="form-select" value="@(model.CategoryId?.ToString() ?? string.Empty)"
-                        @onchange="OnCategoryChanged">
-                    <option value="">— select —</option>
-                    @foreach (var cat in categories)
-                    {
-                        <option value="@cat.Id">@cat.Name</option>
-                    }
-                </select>
-            </div>
-
-            <div class="mb-3">
                 <label class="form-label">
                     Short text
                     <small class="text-muted">(for presentation)</small>
@@ -97,6 +85,18 @@
                        @oninput="e => { model.Answer = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
             </div>
 
+            <div class="mb-3">
+                <label class="form-label">Category</label>
+                <select class="form-select" value="@(model.CategoryId?.ToString() ?? string.Empty)"
+                        @onchange="OnCategoryChanged">
+                    <option value="">— select —</option>
+                    @foreach (var cat in categories)
+                    {
+                        <option value="@cat.Id">@cat.Name</option>
+                    }
+                </select>
+            </div>
+            
             <div class="mb-3">
                 <label class="form-label fw-semibold">Media</label>
 

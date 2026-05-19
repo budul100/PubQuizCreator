@@ -1,0 +1,21 @@
+﻿<div class="card-body border-top d-flex gap-2 align-items-center">
+
+    <select class="form-select"
+            value="@(SelectedCategoryId?.ToString() ?? "")"
+            @onchange="e => SelectedCategoryIdChanged.InvokeAsync(string.IsNullOrEmpty(e.Value?.ToString()) ? null : Guid.Parse(e.Value!.ToString()!))">
+        <option value="">— no category —</option>
+        @foreach (var cat in Categories)
+        {
+            <option value="@cat.Id">@cat.Name</option>
+        }
+    </select>
+
+    <button class="btn btn-success btn-sm text-nowrap" @onclick="OnConfirm">
+        @ConfirmLabel
+    </button>
+
+    <button class="btn btn-outline-secondary btn-sm text-nowrap" @onclick="OnCancel">
+        Cancel
+    </button>
+
+</div>

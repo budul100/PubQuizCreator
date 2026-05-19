@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Services;
+using PubQuizCreator.Web.Helpers;
 
 namespace PubQuizCreator.Web.Pages.Quizzes
 {
@@ -8,17 +10,19 @@ namespace PubQuizCreator.Web.Pages.Quizzes
     {
         #region Private Fields
 
-        private static readonly Guid DummyCategoryId = Guid.Parse("d1a45cf3-95bf-4567-b9aa-526c04d1bda2");
-
-        private Guid addSlotCategoryId;
+        private int addSlotAfterPosition;
+        private Guid? addSlotCategoryId;
         private Round? addSlotRound;
         private List<Category> categories = [];
         private Guid dragFromRound;
         private Guid dragFromSlot;
         private Guid dragFromSlotRound;
+        private RoundSlot? editCategorySlot;
+        private Guid? editCategorySlotCategoryId;
         private List<Question> pickerAll = [];
         private List<Question> pickerFiltered = [];
         private string pickerSearch = string.Empty;
+        private ElementReference pickerSearchInput;
         private RoundSlot? pickerSlot;
         private Quiz? quiz;
         private Guid selectedTemplateId;
@@ -76,23 +80,24 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
             await QuizService.AssignQuestionAsync(pickerSlot.Id, questionId);
 
-            if (pickerSlot.CategoryId == DummyCategoryId)
-            {
-                var question = pickerAll.FirstOrDefault(q => q.Id == questionId);
-                if (question?.CategoryId != null)
-                    await QuizService.UpdateCategoryAsync(
-                        slotId: pickerSlot.Id,
-                        categoryId: question.CategoryId.Value);
-            }
-
             pickerSlot = null;
+
             await ReloadAsync();
         }
 
         private async Task ConfirmAddSlotAsync()
         {
             if (addSlotRound == null) return;
-            await QuizService.AddSlotToRoundAsync(addSlotRound.Id, addSlotCategoryId);
+
+            int? afterPosition = addSlotAfterPosition == 0
+                ? null
+                : addSlotAfterPosition;
+
+            await QuizService.AddSlotToRoundAsync(
+                addSlotRound.Id,
+                addSlotCategoryId,
+                afterPosition);
+
             addSlotRound = null;
             await ReloadAsync();
         }
@@ -129,20 +134,24 @@ namespace PubQuizCreator.Web.Pages.Quizzes
             await ReloadAsync();
         }
 
-        private void OpenAddSlot(Round round)
+        private void OpenAddSlot(Round round, int afterPosition)
         {
             addSlotRound = round;
-            addSlotCategoryId = Guid.Empty;
+            addSlotAfterPosition = afterPosition;
+            addSlotCategoryId = null;
         }
 
         private async Task OpenPickerAsync(RoundSlot slot)
         {
             pickerSlot = slot;
             pickerSearch = string.Empty;
-            pickerAll = new List<Question>();
-            pickerFiltered = new List<Question>();
+            pickerAll = [];
+            pickerFiltered = [];
 
             StateHasChanged();
+
+            await Task.Yield(); // let Blazor render the input first
+            await pickerSearchInput.FocusAsync();
 
             var assignedIds = quiz!.Rounds
                 .SelectMany(r => r.Slots)
@@ -150,15 +159,11 @@ namespace PubQuizCreator.Web.Pages.Quizzes
                 .Select(s => s.QuestionId!.Value)
                 .ToHashSet();
 
-            if (slot.CategoryId == DummyCategoryId)
-            {
-                pickerAll = await QuestionService.GetUnassignedAsync();
-            }
-            else
-            {
-                pickerAll = await QuestionService
-                    .GetByCategoryAsync(slot.CategoryId, assignedIds);
-            }
+            pickerAll = slot.CategoryId == null
+                ? await QuestionService.GetUnassignedAsync()
+                : await QuestionService.GetByCategoryAsync(
+                    slot.CategoryId,
+                    assignedIds);
 
             ApplyFilter();
         }
@@ -180,12 +185,27 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
         private async Task RemoveRoundAsync(Guid roundId)
         {
+            var round = quiz!.Rounds.First(r => r.Id == roundId);
+
+            if (round.Slots.Count > 0)
+            {
+                await JS.InvokeVoidAsync("alert",
+                    $"Round {round.Position} still has {round.Slots.Count} slot(s). Remove all slots first.");
+                return;
+            }
+
+            var confirmed = await JS.ConfirmDeleteAsync($"Round {round.Position}");
+            if (!confirmed) return;
+
             await QuizService.RemoveRoundAsync(roundId);
             await ReloadAsync();
         }
 
         private async Task RemoveSlotAsync(Guid slotId)
         {
+            var confirmed = await JS.ConfirmDeleteAsync("this slot");
+            if (!confirmed) return;
+
             await QuizService.RemoveSlotAsync(slotId);
             await ReloadAsync();
         }
@@ -194,6 +214,14 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         {
             if (quiz == null) return;
             await QuizService.UpdateAsync(quiz.Id, quiz.Title, quiz.Date);
+        }
+
+        private async Task SaveCategoryAsync(Guid slotId)
+        {
+            await QuizService.AssignCategoryAsync(slotId, editCategorySlotCategoryId);
+            editCategorySlot = null;
+
+            await ReloadAsync();
         }
 
         private async Task ToggleCompletedAsync()

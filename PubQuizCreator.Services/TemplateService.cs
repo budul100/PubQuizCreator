@@ -86,7 +86,7 @@ namespace PubQuizCreator.Services
             await db.SaveChangesAsync(ct);
         }
 
-        public async Task SaveSlotsAsync(Guid templateId, List<Guid> categoryIds, CancellationToken ct = default)
+        public async Task SaveSlotsAsync(Guid templateId, List<Guid?> categoryIds, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
