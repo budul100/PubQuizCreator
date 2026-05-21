@@ -33,7 +33,6 @@ namespace PubQuizCreator.Web.Shared
         private async Task OnInput(ChangeEventArgs e)
         {
             var text = e.Value?.ToString() ?? string.Empty;
-            await Task.Yield();
             await ValueChanged.InvokeAsync(text);
         }
 
