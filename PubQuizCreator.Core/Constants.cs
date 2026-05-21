@@ -7,6 +7,9 @@
 
         #region Public Fields
 
+        public const string AutoOpenGetter = "getAutoOpenCapture";
+        public const string AutoOpenSetter = "setAutoOpenCapture";
+
         // Default Ollama embedding model. Can be overridden via appsettings.json (Ollama:EmbeddingModel).
         public const string EmbeddingDefaultModel = "mxbai-embed-large";
 

@@ -7,3 +7,11 @@ document.addEventListener("focusin", function (e) {
 
 // Returns the current inner width of the browser window.
 window.getWindowWidth = () => window.innerWidth;
+
+function getAutoOpenCapture() {
+    return localStorage.getItem("autoOpenCapture") === "true";
+}
+
+function setAutoOpenCapture(value) {
+    localStorage.setItem("autoOpenCapture", value ? "true" : "false");
+}

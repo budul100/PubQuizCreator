@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.JSInterop;
 using PubQuizCreator.Core;
+using PubQuizCreator.Core.Types;
 using PubQuizCreator.Services;
 
 namespace PubQuizCreator.Web.Pages.Settings
@@ -8,6 +10,7 @@ namespace PubQuizCreator.Web.Pages.Settings
     {
         #region Private Fields
 
+        private bool autoOpenCapture;
         private DateTime? savedAt;
         private string? saveError;
         private bool saving;
@@ -15,17 +18,14 @@ namespace PubQuizCreator.Web.Pages.Settings
 
         #endregion Private Fields
 
-        #region Private Enums
-
-        private enum TemplateRole
-        {
-            Questions,
-            Answers
-        }
-
-        #endregion Private Enums
-
         #region Protected Methods
+
+        protected override async Task OnAfterRenderAsync(bool firstRender)
+        {
+            if (!firstRender) return;
+            autoOpenCapture = await JS.InvokeAsync<bool>(Constants.AutoOpenGetter);
+            StateHasChanged();
+        }
 
         protected override void OnInitialized()
         {
@@ -58,6 +58,11 @@ namespace PubQuizCreator.Web.Pages.Settings
             {
                 saving = false;
             }
+        }
+
+        private async Task SaveAutoOpenCaptureAsync()
+        {
+            await JS.InvokeVoidAsync(Constants.AutoOpenSetter, autoOpenCapture);
         }
 
         private async Task UploadAdditionalAsync(InputFileChangeEventArgs e)

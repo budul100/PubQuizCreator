@@ -1,4 +1,5 @@
 using Microsoft.JSInterop;
+using PubQuizCreator.Core;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Services;
 
@@ -18,9 +19,12 @@ namespace PubQuizCreator.Web.Pages
         {
             if (!firstRender) return;
 
-            var width = await JS.InvokeAsync<int>("getWindowWidth");
-            if (width < 641)
+            var autoOpen = await JS.InvokeAsync<bool>(Constants.AutoOpenGetter);
+
+            if (autoOpen)
+            {
                 Nav.NavigateTo("/ideas/new");
+            }
         }
 
         protected override async Task OnInitializedAsync()

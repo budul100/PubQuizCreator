@@ -1,7 +1,9 @@
 ﻿@page "/settings"
+@using PubQuizCreator.Core.Types
 @using PubQuizCreator.Services
 @inject SettingsService SettingsService
 @inject StateService AppState
+@inject IJSRuntime JS
 
 <PageTitle>Settings</PageTitle>
 
@@ -13,6 +15,22 @@
 }
 else
 {    
+    @* Device *@
+    <div class="card mb-3">
+        <div class="card-header fw-semibold">Device</div>
+        <div class="card-body">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="autoOpenCapture"
+                       @bind="autoOpenCapture"
+                       @bind:after="SaveAutoOpenCaptureAsync" />
+                <label class="form-check-label" for="autoOpenCapture">
+                    Open capture page on startup
+                </label>
+            </div>
+        </div>
+    </div>
+
+
     @* Quiz *@
     <div class="card mb-3">
         <div class="card-header fw-semibold">Quiz</div>
