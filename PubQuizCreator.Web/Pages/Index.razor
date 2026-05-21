@@ -16,7 +16,7 @@ else
 {
     <div class="row g-3">
 
-        @* ── Ideas ──────────────────────────────────────────────────────────── *@
+        @* ── Ideas ── *@
         <div class="col-12 col-lg-4">
             <div class="card h-100">
                 <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
@@ -59,7 +59,7 @@ else
             </div>
         </div>
 
-        @* ── Questions ───────────────────────────────── *@
+        @* ── Questions ── *@
         <div class="col-12 col-lg-4">
             <div class="card h-100">
                 <div class="card-header fw-semibold">Questions</div>
@@ -92,7 +92,7 @@ else
             </div>
         </div>
 
-        @* ── Next Quiz ──────────────────────────────────────────────────────────── *@
+        @* ── Next Quiz ── *@
         <div class="col-12 col-lg-4">
             <div class="card h-100">
                 <div class="card-header fw-semibold">Next Quiz</div>
@@ -149,15 +149,21 @@ else
                         }
                     }
                 </div>
-                @if (stats.NextQuiz != null)
-                {
-                    <div class="card-footer">
-                        <a class="btn btn-outline-primary btn-sm"
-                           href="/quizzes/@stats.NextQuiz.Id">
-                            Open quiz
-                        </a>
-                    </div>
-                }
+                <div class="card-footer">
+                    @if (stats.NextQuiz != null)
+                    {
+                        <div class="card-footer">
+                            <a class="btn btn-outline-primary btn-sm"
+                               href="/quizzes/@stats.NextQuiz.Id">
+                                Open quiz
+                            </a>
+                        </div>
+                    }
+                    else
+                    {
+                        <a class="btn btn-outline-primary btn-sm" href="/quizzes">Open quizzes</a>
+                    }
+                </div>
             </div>
         </div>
 
