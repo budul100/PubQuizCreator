@@ -1,3 +1,5 @@
+using Microsoft.JSInterop;
+
 namespace PubQuizCreator.Web.Shared
 {
     public partial class NavMenu
@@ -15,6 +17,8 @@ namespace PubQuizCreator.Web.Shared
         #endregion Private Properties
 
         #region Private Methods
+
+        private async Task OnHomeClickAsync() => await JS.InvokeVoidAsync("markInternalNavigation");
 
         private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
 

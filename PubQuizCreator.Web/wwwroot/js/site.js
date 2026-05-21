@@ -15,3 +15,13 @@ function getAutoOpenCapture() {
 function setAutoOpenCapture(value) {
     localStorage.setItem("autoOpenCapture", value ? "true" : "false");
 }
+
+function markInternalNavigation() {
+    sessionStorage.setItem("internalNav", "true");
+}
+
+function consumeInternalNavigation() {
+    const was = sessionStorage.getItem("internalNav") === "true";
+    sessionStorage.removeItem("internalNav");
+    return was;
+}

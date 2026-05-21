@@ -19,8 +19,10 @@ namespace PubQuizCreator.Web.Pages
         {
             if (!firstRender) return;
 
-            var autoOpen = await JS.InvokeAsync<bool>(Constants.AutoOpenGetter);
+            var isInternal = await JS.InvokeAsync<bool>("consumeInternalNavigation");
+            if (isInternal) return;
 
+            var autoOpen = await JS.InvokeAsync<bool>("getAutoOpenCapture");
             if (autoOpen)
             {
                 Nav.NavigateTo("/ideas/new");
