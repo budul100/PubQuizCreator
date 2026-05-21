@@ -3,16 +3,14 @@ using PubQuizCreator.Core.Models;
 
 namespace PubQuizCreator.Web.Shared
 {
-    public partial class SlotBadges
+    public partial class CategoryBadges
     {
         #region Public Properties
 
-        [Parameter] public IEnumerable<SlotCategoryStat> CategoryStats { get; set; } = [];
+        [Parameter] public IEnumerable<CategoryStat> CategoryStats { get; set; } = [];
 
         [Parameter] public string CssClass { get; set; } = "";
 
         #endregion Public Properties
-
-        public record SlotCategoryStat(Category? Category, int Open, int Total);
     }
 }

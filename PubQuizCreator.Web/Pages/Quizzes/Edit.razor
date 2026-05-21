@@ -46,14 +46,8 @@ else
     {
         var r = round;
 
-        var totalInRound = r.Slots.Count;
-        var openInRound = r.Slots.Count(s => s.QuestionId == null);
-
-        var (roundLabel, roundBadge) = totalInRound == 0
-            ? ("Empty", "bg-secondary")
-            : openInRound == 0
-                ? ($"{totalInRound} questions", "bg-success")
-                : ($"{openInRound} open", "bg-warning text-dark");
+        var totalSlots = r.Slots.Count;
+        var openSlots = r.Slots.Count(s => s.QuestionId == null);
 
         <div class="card mb-3"
              draggable="true"
@@ -70,17 +64,16 @@ else
                     <span class="me-2 text-muted">☰</span>
                     <strong>Round @r.Position</strong>
                     <span class="text-muted me-2">@(AppState.RoundsCollapsed.Contains(r.Id) ? "▶" : "▼")</span>
-                    <span class="badge @roundBadge ms-2">@roundLabel</span>
+                    <SlotBadge Open="openSlots" Total="totalSlots" CssClass="ms-2" />
                 </span>
 
                 <div class="d-flex gap-1" @onclick:stopPropagation="true">
-                    @if (!r.Slots.Any())
+                    @if (r.Slots.All(s => s.QuestionId == null))
                     {
                         <button class="btn btn-outline-danger btn-sm" @onclick="() => RemoveRoundAsync(r.Id)">
                             <span class="oi oi-trash" />
                         </button>
                     }
-
                 </div>
             </div>
 

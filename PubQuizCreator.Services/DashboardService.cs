@@ -40,7 +40,7 @@ namespace PubQuizCreator.Services
                 .ToDictionary(x => x.CategoryId!.Value, x => x.Count);
 
             var questionsByCategory = visibleCategories
-                .Select(c => new QuestionStats
+                .Select(c => new QuestionStat
                 {
                     Category = c,
                     AvailableQuestions = availableCountMap.GetValueOrDefault(c.Id, 0)

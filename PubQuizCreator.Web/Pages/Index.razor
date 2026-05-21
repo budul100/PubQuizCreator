@@ -139,13 +139,13 @@ else
                         var categoryStats = stats.NextQuiz.Rounds
                             .SelectMany(r => r.Slots)
                             .GroupBy(s => s.Category)
-                            .Select(g => new SlotBadges.SlotCategoryStat(g.Key, g.Count(s => s.QuestionId == null), g.Count()))
+                            .Select(g => new CategoryStat(g.Key, g.Count(s => s.QuestionId == null), g.Count()))
                             .OrderBy(x => x.Category?.Name)
                             .ToList();
 
                         @if (categoryStats.Any() && stats.NextQuizOpenSlots > 0)
                         {
-                            <SlotBadges CategoryStats="@categoryStats" />
+                            <CategoryBadges CategoryStats="@categoryStats" />
                         }
                     }
                 </div>

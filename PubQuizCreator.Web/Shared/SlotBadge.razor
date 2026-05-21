@@ -1,0 +1,9 @@
+﻿@{
+    var (label, css) = Total == 0
+        ? ("Empty", "bg-secondary")
+        : Open == 0
+            ? ($"{Total} questions", "bg-success")
+            : ($"{Open}/{Total} open", "bg-warning text-dark");
+}
+
+<span class="badge @css @CssClass">@label</span>

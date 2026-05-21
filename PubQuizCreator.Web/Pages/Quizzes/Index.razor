@@ -54,21 +54,7 @@ else
         @foreach (var q in displayed)
         {
             var totalSlots = q.Rounds.SelectMany(r => r.Slots).Count();
-            var open = q.Rounds.SelectMany(r => r.Slots).Count(s => s.QuestionId == null);
-
-            var (quizLabel, quizBadge) = totalSlots == 0
-                ? ("Empty", "bg-secondary")
-                : open == 0
-                    ? ($"{totalSlots} questions", "bg-success")   // war: "Complete"
-                    : ($"{open} open", "bg-warning text-dark");
-
-            // Per-category open slots — only categories actually used in this quiz
-            var categoryStats = q.Rounds
-                .SelectMany(r => r.Slots)
-                .GroupBy(s => s.Category)
-                .Select(g => new SlotBadges.SlotCategoryStat(g.Key, g.Count(s => s.QuestionId == null), g.Count()))
-                .OrderBy(x => x.Category?.Name)
-                .ToList();
+            var openSlots = q.Rounds.SelectMany(r => r.Slots).Count(s => s.QuestionId == null);
 
             <div class="list-group-item">
                 <div class="d-flex justify-content-between align-items-center">
@@ -78,11 +64,20 @@ else
                             <div class="fw-semibold">@q.Title</div>
                             <small class="text-muted">@q.Date.ToString("dd.MM.yyyy")</small>
                         </div>
-                        <span class="badge @quizBadge me-3">@quizLabel</span>
                     </a>
-                    <div @onclick:stopPropagation="true">
-                        <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteAsync(q.Id)">✕</button>
-                    </div>
+
+                    @if (totalSlots == 0)
+                    {
+                        <div @onclick:stopPropagation="true">
+                            <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteAsync(q.Id)">
+                                <span class="oi oi-trash" />
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <SlotBadge Open="openSlots" Total="totalSlots" CssClass="me-3" />
+                    }
                 </div>
             </div>
         }

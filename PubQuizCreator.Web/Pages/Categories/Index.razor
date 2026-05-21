@@ -37,34 +37,41 @@
 else
 {
     <div class="list-group">
-        @foreach (var cat in categories)
-        {
-            <div class="list-group-item d-flex align-items-center gap-3">
+        <div style="display: grid; grid-template-columns: auto 1fr auto auto; gap: 0.75rem; align-items: center;">
+            @foreach (var category in categories)
+            {
                 <input type="color"
-                       class="form-control form-control-color flex-shrink-0"
-                       value="@cat.ColorHex"
-                       @onchange="e => UpdateColorAsync(cat, e.Value?.ToString() ?? cat.ColorHex)" />
-                <input class="form-control"
-                       value="@cat.Name"
-                       @onchange="e => UpdateNameAsync(cat, e.Value?.ToString() ?? cat.Name)" />
+                       class="form-control form-control-color"
+                       value="@category.ColorHex"
+                       @onchange="e => UpdateColorAsync(category, e.Value?.ToString() ?? category.ColorHex)" />
 
-                <div class="form-check form-switch mb-0 flex-shrink-0 d-flex align-items-center gap-2"
-                     style="min-width: 160px;">
+                <input class="form-control"
+                       value="@category.Name"
+                       @onchange="e => UpdateNameAsync(category, e.Value?.ToString() ?? category.Name)" />
+
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
                     <input class="form-check-input" type="checkbox"
-                           checked="@cat.IsHidden"
-                           @onchange="e => UpdateHiddenAsync(cat, (bool)(e.Value ?? false))" />
+                           checked="@category.IsHidden"
+                           @onchange="e => UpdateHiddenAsync(category, (bool)(e.Value ?? false))" />
                     <label class="form-check-label small text-muted">Hidden</label>
                 </div>
 
-                <CategoryBadge ColorHex="@cat.ColorHex"
-                    Name="@($"{questionCounts.GetValueOrDefault(cat.Id, 0)} questions")"
-                    Href="@($"/questions?categoryId={cat.Id}&showUsed=true")"
-                    Style="min-width: 90px; font-variant-numeric: tabular-nums;" />
-
-                <div class="d-flex gap-2" @onclick:stopPropagation="true">
-                    <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteAsync(cat.Id)">✕</button>
+                <div @onclick:stopPropagation="true">
+                    @if (questionCounts.GetValueOrDefault(category.Id, 0) == 0)
+                    {
+                        <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteAsync(category.Id)">
+                            <span class="oi oi-trash" />
+                        </button>
+                    }
+                    else
+                    {
+                        <CategoryBadge ColorHex="@category.ColorHex"
+                                       Name="@($"{questionCounts.GetValueOrDefault(category.Id, 0)} questions")"
+                                       Href="@($"/questions?categoryId={category.Id}&showUsed=true")"
+                                       Style="font-variant-numeric: tabular-nums;" />
+                    }
                 </div>
-            </div>
-        }
+            }
+        </div>
     </div>
 }

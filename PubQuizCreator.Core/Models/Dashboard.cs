@@ -16,7 +16,7 @@
 
         public int NextQuizTotalSlots { get; set; }
 
-        public List<QuestionStats> QuestionsByCategory { get; set; } = [];
+        public List<QuestionStat> QuestionsByCategory { get; set; } = [];
 
         #endregion Public Properties
     }
