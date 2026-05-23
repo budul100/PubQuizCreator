@@ -1,0 +1,13 @@
+﻿@using PubQuizCreator.Core.Types
+
+@if (Type is { } mt && mt != MediaType.None)
+{
+    var icon = mt switch
+    {
+        MediaType.Image => "🖼",
+        MediaType.Audio => "🎵",
+        MediaType.Video => "🎬",
+        _ => ""
+    };
+    <span class="@CssClass text-muted" title="@mt.ToString()">@Prefix@icon</span>
+}

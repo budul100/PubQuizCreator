@@ -180,20 +180,14 @@ else
                             <div style="padding-left: 2.8rem; cursor: pointer;"
                                  @onclick="async () => { if (editUrl != null) Nav.NavigateTo(editUrl); else await OpenPickerAsync(s); }"
                                  @onclick:stopPropagation="true">
+
                                 <div class="small fw-semibold @(s.Question == null ? "text-muted fst-italic" : "")">
+
                                     @(s.Question?.TextShort ?? "— click to assign —")
-                                    @if (s.Question?.MediaType is { } mt && mt != MediaType.None)
-                                    {
-                                        var icon = mt switch
-                                        {
-                                            MediaType.Image => "🖼",
-                                            MediaType.Audio => "🎵",
-                                            MediaType.Video => "🎬",
-                                            _ => ""
-                                        };
-                                        <span class="ms-1 text-muted">| @icon</span>
-                                    }
+                                    <MediaIcon Type="s.Question?.MediaType" />
+
                                 </div>
+
                                 @if (s.Question != null)
                                 {
                                     <div class="small text-muted">→ @s.Question.Answer</div>
@@ -223,23 +217,16 @@ else
                                 <div class="list-group">
                                     @foreach (var picker in pickerFiltered.Take(Constants.PageSizePicker))
                                     {
-                                        <button class="list-group-item list-group-item-action py-1"
-                                                @onclick="() => AssignAsync(picker.Id)">
+                                        <button class="list-group-item list-group-item-action py-1" @onclick="() => AssignAsync(picker.Id)">
+                                            
                                             <div class="small fw-semibold">
+                                                
                                                 @picker.TextShort
-                                                @if (picker?.MediaType is { } mts && mts != MediaType.None)
-                                                {
-                                                    var icon = mts switch
-                                                    {
-                                                        MediaType.Image => "🖼",
-                                                        MediaType.Audio => "🎵",
-                                                        MediaType.Video => "🎬",
-                                                        _ => ""
-                                                    };
-                                                    <span class="small text-muted fs-4" title="@mts.ToString()"> | @icon</span>
-                                                }
+                                                <MediaIcon Type="picker.MediaType" CssClass="small ms-1" />
                                             </div>
+                                            
                                             <div class="small text-muted">→ @picker?.Answer</div>
+
                                         </button>
                                     }
                                 </div>

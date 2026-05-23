@@ -151,6 +151,7 @@
 
                                 <tr style="cursor: pointer; @rowStyle" @onclick="() => Nav.NavigateTo(editUrl)">
                                     <td>
+
                                         @if (question.IsUnusable)
                                         {
                                             <span class="badge bg-secondary">unusable</span>
@@ -159,22 +160,14 @@
                                         {
                                             <CategoryBadge ColorHex="@categoryColor" Name="@(question.Category?.Name ?? "")" />
                                         }
+
                                     </td>
 
                                     <td>
-                                        @question.TextShort
 
-                                        @if (question.MediaType != MediaType.None)
-                                        {
-                                            var icon = question.MediaType switch
-                                            {
-                                                MediaType.Image => "🖼",
-                                                MediaType.Audio => "🎵",
-                                                MediaType.Video => "🎬",
-                                                _ => ""
-                                            };
-                                            <span class="ms-1 text-muted" title="@question.MediaType.ToString()">@icon</span>
-                                        }
+                                        @question.TextShort
+                                        <MediaIcon Type="question.MediaType" Prefix="" />
+
                                     </td>
 
                                     <td class="text-muted">@question.Answer</td>
