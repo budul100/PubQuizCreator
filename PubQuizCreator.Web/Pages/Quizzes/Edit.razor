@@ -1,8 +1,4 @@
 ﻿@page "/quizzes/{Id:guid}"
-@using PubQuizCreator.Core
-@using PubQuizCreator.Core.Models
-@using PubQuizCreator.Core.Types 
-@using PubQuizCreator.Services
 @inject QuizService QuizService
 @inject TemplateService TemplateService
 @inject CategoryService CategoryService
@@ -35,10 +31,12 @@ else
                 @onclick="ToggleCompletedAsync">
             @(quiz.IsCompleted ? "✓ Completed" : "Mark as completed")
         </button>
+
         <div class="d-flex gap-2 ms-auto flex-shrink-0">
-            <a class="btn btn-outline-secondary btn-sm" href="/export/quiz/@quiz.Id/pdf" target="_blank">⬇ PDF</a>
-            <a class="btn btn-outline-secondary btn-sm" href="/export/quiz/@quiz.Id/pptx" target="_blank">⬇ PPTX</a>
+            <ExportButton Href="@($"/export/quiz/{quiz.Id}/pdf")" Label="PDF" />
+            <ExportButton Href="@($"/export/quiz/{quiz.Id}/pptx")" Label="PPTX" />
         </div>
+
     </div>
 
     @* Rounds *@

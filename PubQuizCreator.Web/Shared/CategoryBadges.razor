@@ -1,6 +1,4 @@
-﻿@using PubQuizCreator.Core.Models
-
-<div class="d-flex flex-wrap gap-1 @CssClass">
+﻿<div class="d-flex flex-wrap gap-1 @CssClass">
     @foreach (var cs in CategoryStats)
     {
         var catColor = cs.Category?.ColorHex ?? "#95a5a6";

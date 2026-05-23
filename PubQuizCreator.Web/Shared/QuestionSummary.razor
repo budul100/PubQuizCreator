@@ -1,7 +1,4 @@
-﻿@using PubQuizCreator.Core.Models
-@using PubQuizCreator.Core.Types
-
-<div class="small fw-semibold @(Question == null ? "text-muted fst-italic" : "")">
+﻿<div class="small fw-semibold @(Question == null ? "text-muted fst-italic" : "")">
     @(Question?.TextShort ?? FallbackText)
     <MediaIcon Type="Question?.MediaType" />
 </div>

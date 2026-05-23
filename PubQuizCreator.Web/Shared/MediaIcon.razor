@@ -1,13 +1,16 @@
-﻿@using PubQuizCreator.Core.Types
-
-@if (Type is { } mt && mt != MediaType.None)
+﻿@if (Type is { } mt && mt != MediaType.None)
 {
-    var icon = mt switch
+    var iconClass = mt switch
     {
-        MediaType.Image => "🖼",
-        MediaType.Audio => "🎵",
-        MediaType.Video => "🎬",
+        MediaType.Image => "oi oi-image",
+        MediaType.Audio => "oi oi-musical-note",
+        MediaType.Video => "oi oi-video",
         _ => ""
     };
-    <span class="@CssClass text-muted" title="@mt.ToString()">@Prefix@icon</span>
+    if (iconClass != "")
+    {
+        <span class="@CssClass text-muted" title="@mt.ToString()">
+            @Prefix<span class="@iconClass" />
+        </span>
+    }
 }
