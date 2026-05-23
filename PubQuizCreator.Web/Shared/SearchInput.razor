@@ -1,6 +1,7 @@
-﻿@* SearchInput.razor *@
-<input class="@CssClass"
+﻿<input class="@CssClass"
        placeholder="@Placeholder"
-       value="@Value"
+       value="@localValue"
        @ref="inputRef"
-       @oninput="OnInput" />
+       @oninput="OnInput"
+       @onfocus="OnFocus"
+       @onblur="OnBlur" />
