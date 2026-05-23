@@ -9,7 +9,7 @@
     </div>
 </div>
 
-<div class="@NavMenuCssClass" @onclick="ToggleNavMenu">
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
     <nav class="flex-column">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="/ideas" Match="NavLinkMatch.Prefix">
@@ -57,5 +57,9 @@
         </div>
 
     </nav>
+
+    <div class="version-info">
+        Version @AppVersion
+    </div>
+
 </div>
-    

@@ -4,25 +4,42 @@
 		<TargetFramework>net9.0</TargetFramework>
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
-	  <UserSecretsId>5b714ce7-7a89-4453-bb9a-95b70e507f99</UserSecretsId>
-  </PropertyGroup>
+		<UserSecretsId>5b714ce7-7a89-4453-bb9a-95b70e507f99</UserSecretsId>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<BuildTimestamp>$([System.DateTime]::UtcNow.ToString("yyyy-MM-dd HH:mm"))</BuildTimestamp>
+	</PropertyGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.15">
-		  <PrivateAssets>all</PrivateAssets>
-		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.15" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.15"/>
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\PubQuizCreator.Core\PubQuizCreator.Core.csproj" />
-		<ProjectReference Include="..\PubQuizCreator.Data\PubQuizCreator.Data.csproj" />
-		<ProjectReference Include="..\PubQuizCreator.Services\PubQuizCreator.Services.csproj" />
+		<ProjectReference Include="..\PubQuizCreator.Core\PubQuizCreator.Core.csproj"/>
+		<ProjectReference Include="..\PubQuizCreator.Data\PubQuizCreator.Data.csproj"/>
+		<ProjectReference Include="..\PubQuizCreator.Services\PubQuizCreator.Services.csproj"/>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Include="BuildInfo.g.cs" Condition="false"/>
 	</ItemGroup>
 
 	<Target Name="StartDependencies" BeforeTargets="RunCommand;_Run">
-		<Exec Command="$(SolutionDir)start-dev.bat --no-pause" WorkingDirectory="$(SolutionDir)" ContinueOnError="true" />
+		<Exec Command="$(SolutionDir)start-dev.bat --no-pause" WorkingDirectory="$(SolutionDir)" ContinueOnError="true"/>
+	</Target>
+
+	<Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile">
+		<WriteLinesToFile 
+			File="$(IntermediateOutputPath)BuildInfo.g.cs"
+			Lines="namespace PubQuizCreator.Web%3B; public static class BuildInfo { public const string Timestamp = &quot;$(BuildTimestamp)&quot;%3B; }" Overwrite="true"/>
+		<ItemGroup>
+			<Compile Include="$(IntermediateOutputPath)BuildInfo.g.cs"/>
+		</ItemGroup>
 	</Target>
 
 </Project>
