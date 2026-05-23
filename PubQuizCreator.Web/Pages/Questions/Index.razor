@@ -3,6 +3,7 @@
 @using PubQuizCreator.Core.Models
 @using PubQuizCreator.Core.Types 
 @using PubQuizCreator.Services
+@using PubQuizCreator.Web.Shared.Questions
 @inject CategoryService CategoryService
 @inject QuestionService QuestionService
 @inject QuizService QuizService
@@ -86,8 +87,8 @@
                                 {
                                     <CategoryBadge ColorHex="@categoryColor" Name="@(question.Category?.Name ?? "")" />
                                 }
-                                <div class="d-flex gap-1" @onclick:stopPropagation="true">
 
+                                <div class="d-flex gap-1" @onclick:stopPropagation="true">
                                     <ReuseButton 
                                         AllowReuse="question.AllowReuse"
                                         IsInCompletedQuiz="question.IsInCompletedQuiz"
@@ -95,15 +96,12 @@
                                         IsUnusable="question.IsUnusable"
                                         OnToggle="v => ToggleAllowReuseAsync(question.Id, v)" />
 
-                                    @if (question.UsedInQuiz == null && !question.IsInCompletedQuiz)
-                                    {
-                                        <button class="btn btn-outline-danger btn-sm"
-                                                @onclick="() => DeleteAsync(question.Id)">
-                                            ✕
-                                        </button>
-                                    }
-
+                                    <DeleteButton 
+                                        UsedInQuiz="question.UsedInQuiz"
+                                        IsInCompletedQuiz="question.IsInCompletedQuiz"
+                                        OnDelete="() => DeleteAsync(question.Id)" />
                                 </div>
+
                             </div>
 
                             <div class="fw-semibold small">@question.TextShort</div>
@@ -155,10 +153,8 @@
                                     </td>
 
                                     <td>
-
                                         @question.TextShort
                                         <MediaIcon Type="question.MediaType" Prefix="" />
-
                                     </td>
 
                                     <td class="text-muted">@question.Answer</td>
@@ -180,10 +176,10 @@
                                     </td>
 
                                     <td @onclick:stopPropagation="true">
-                                        @if (question.UsedInQuiz == null && !question.IsInCompletedQuiz)
-                                        {
-                                            <button class="btn btn-outline-danger btn-sm w-100" @onclick="() => DeleteAsync(question.Id)">✕</button>
-                                        }
+                                        <DeleteButton 
+                                            UsedInQuiz="question.UsedInQuiz"
+                                            IsInCompletedQuiz="question.IsInCompletedQuiz"
+                                            OnDelete="() => DeleteAsync(question.Id)" />
                                     </td>
 
                                 </tr>
