@@ -70,8 +70,10 @@
                             <div style="width: 120px; flex-shrink: 0; min-width: 0;">
                                 @if (idea.Category != null)
                                 {
-                                    <CategoryBadge ColorHex="@categoryColor" Name="@idea.Category.Name"
-                                                   CssClass="d-block text-truncate mb-1" />
+                                    <ColorBadge 
+                                        ColorHex="@categoryColor" 
+                                        Name="@idea.Category.Name"
+                                        CssClass="d-block text-truncate mb-1" />
                                 }
                                 else
                                 {

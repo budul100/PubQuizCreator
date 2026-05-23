@@ -2,7 +2,8 @@ using Microsoft.AspNetCore.Components;
 
 namespace PubQuizCreator.Web.Shared
 {
-    public partial class CategoryBadge
+    public partial class ColorBadge
+
     {
         #region Public Properties
 

@@ -63,10 +63,11 @@ else
                     }
                     else
                     {
-                        <CategoryBadge ColorHex="@category.ColorHex"
-                                       Name="@($"{questionCounts.GetValueOrDefault(category.Id, 0)} questions")"
-                                       Href="@($"/questions?categoryId={category.Id}&showUsed=true")"
-                                       Style="font-variant-numeric: tabular-nums;" />
+                        <ColorBadge 
+                            ColorHex="@category.ColorHex"
+                            Name="@($"{questionCounts.GetValueOrDefault(category.Id, 0)} questions")"
+                            Href="@($"/questions?categoryId={category.Id}&showUsed=true")"
+                            Style="font-variant-numeric: tabular-nums;" />
                     }
                 </div>
             }

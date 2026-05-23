@@ -129,9 +129,13 @@ else
                                     <div style="@catStyle"
                                         @onclick="@(s.Question == null ? EventCallback.Factory.Create(this, () => { editCategorySlot = s; editCategorySlotCategoryId = s.CategoryId; }) : default)"
                                         @onclick:stopPropagation="true">
-                                        <CategoryBadge ColorHex="@catColor" Name="@(s.Category?.Name ?? "— no category —")"
+
+                                        <ColorBadge 
+                                            Name="@(s.Category?.Name ?? "— no category —")"
+                                            ColorHex="@catColor"
                                             CssClass="@catCss"
                                             Style="max-width: 100%;" />
+
                                     </div>
                                 }
                 

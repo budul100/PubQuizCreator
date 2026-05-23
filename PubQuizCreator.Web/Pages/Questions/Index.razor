@@ -65,7 +65,6 @@
                 <div class="d-md-none">
                     @foreach (var question in paged)
                     {
-                        var categoryColor = question.Category?.ColorHex ?? "#aaaaaa";
                         var editUrl = $"/questions/{question.Id}/edit";
                         var rowStyle = question.IsUnusable ? "opacity: 0.55;" : "";
 
@@ -74,14 +73,11 @@
                              @onclick="() => Nav.NavigateTo(editUrl)">
 
                             <div class="d-flex justify-content-between align-items-start">
-                                @if (question.IsUnusable)
-                                {
-                                    <span class="badge bg-secondary">unusable</span>
-                                }
-                                else
-                                {
-                                    <CategoryBadge ColorHex="@categoryColor" Name="@(question.Category?.Name ?? "")" />
-                                }
+
+                                <CategoryBadge 
+                                    Name="@(question.Category?.Name ?? "")"
+                                    IsUnusable="question.IsUnusable"
+                                    ColorHex="@(question.Category?.ColorHex ?? "#aaaaaa")" />
 
                                 <div class="d-flex gap-1" @onclick:stopPropagation="true">
                                     <ReuseButton 
@@ -129,22 +125,16 @@
                         <tbody>
                             @foreach (var question in paged)
                             {
-                                var categoryColor = question.Category?.ColorHex ?? "#aaaaaa";
                                 var editUrl = $"/questions/{question.Id}/edit";
                                 var rowStyle = question.IsUnusable ? "opacity: 0.55;" : "";
 
                                 <tr style="cursor: pointer; @rowStyle" @onclick="() => Nav.NavigateTo(editUrl)">
+
                                     <td>
-
-                                        @if (question.IsUnusable)
-                                        {
-                                            <span class="badge bg-secondary">unusable</span>
-                                        }
-                                        else
-                                        {
-                                            <CategoryBadge ColorHex="@categoryColor" Name="@(question.Category?.Name ?? "")" />
-                                        }
-
+                                        <CategoryBadge 
+                                            Name="@(question.Category?.Name ?? "")"
+                                            IsUnusable="question.IsUnusable"
+                                            ColorHex="@(question.Category?.ColorHex ?? "#aaaaaa")" />
                                     </td>
 
                                     <td>
