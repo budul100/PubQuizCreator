@@ -176,22 +176,11 @@ else
                                 </div>
                             </div>
 
-                            @* Question + Answer — klickbar für Picker/Edit *@
-                            <div style="padding-left: 2.8rem; cursor: pointer;"
-                                 @onclick="async () => { if (editUrl != null) Nav.NavigateTo(editUrl); else await OpenPickerAsync(s); }"
-                                 @onclick:stopPropagation="true">
-
-                                <div class="small fw-semibold @(s.Question == null ? "text-muted fst-italic" : "")">
-
-                                    @(s.Question?.TextShort ?? "— click to assign —")
-                                    <MediaIcon Type="s.Question?.MediaType" />
-
-                                </div>
-
-                                @if (s.Question != null)
-                                {
-                                    <div class="small text-muted">→ @s.Question.Answer</div>
-                                }
+                            <div 
+                                style="padding-left: 2.8rem; cursor: pointer;"
+                                @onclick="async () => { if (editUrl != null) Nav.NavigateTo(editUrl); else await OpenPickerAsync(s); }"
+                                @onclick:stopPropagation="true">
+                                <QuestionSummary Question="s.Question" />
                             </div>
 
                         </div>
@@ -217,16 +206,10 @@ else
                                 <div class="list-group">
                                     @foreach (var picker in pickerFiltered.Take(Constants.PageSizePicker))
                                     {
-                                        <button class="list-group-item list-group-item-action py-1" @onclick="() => AssignAsync(picker.Id)">
-                                            
-                                            <div class="small fw-semibold">
-                                                
-                                                @picker.TextShort
-                                                <MediaIcon Type="picker.MediaType" CssClass="small ms-1" />
-                                            </div>
-                                            
-                                            <div class="small text-muted">→ @picker?.Answer</div>
-
+                                        <button 
+                                            class="list-group-item list-group-item-action py-1" 
+                                            @onclick="() => AssignAsync(picker.Id)">
+                                            <QuestionSummary Question="picker" />
                                         </button>
                                     }
                                 </div>
