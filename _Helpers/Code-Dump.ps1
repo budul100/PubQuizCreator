@@ -1,15 +1,22 @@
 param(
+    [string]$root          = "",
     [string]$projectFilter = "",   # e.g. "MyApp.Core" — filters to that subfolder only
     [string[]]$excludeFiles = @()  # e.g. @("appsettings*.json", "*.Designer.cs")
 )
 
-$extensions  = @("*.sln", "*.csproj", "*.cs", "*.axaml", "*.html", "*.cshtml", "*.razor", "*.razor.cs", "*.sql", "*.yml", "*.json")
-$excludeDirs = @("bin", "obj", ".git", "node_modules")
+$excludeFiles = $excludeFiles | ForEach-Object { $_ -split ',' } | Where-Object { $_ -ne '' }
+
+$extensions  = @("sln", "csproj", "cs", "axaml", "cshtml", "razor", "sql", "yml", "json", "config", "html", "css", "ts", "js", "xml")
+$extraExts   = @("razor.cs", "config.js", "js.map")   # compound extensions handled separately
+$excludeDirs = @("bin", "obj", "dist", ".git", "node_modules")
 $maxChars    = 120000
 
-$root         = Split-Path $PSScriptRoot -Parent
-$slnFile      = Get-ChildItem -Path $root -Filter "*.sln" -File | Select-Object -First 1
-$solutionName = if ($slnFile) { [System.IO.Path]::GetFileNameWithoutExtension($slnFile.Name) } else { Split-Path $root -Leaf }
+# Determine root
+$root = if ($root -ne "") {
+    (Resolve-Path $root).Path
+} else {
+    Split-Path $PSScriptRoot -Parent
+}
 
 # Determine scan root — full solution or a single project subfolder
 $scanRoot = if ($projectFilter -ne "") {
@@ -23,43 +30,59 @@ if (-not (Test-Path $scanRoot)) {
     exit 1
 }
 
+$slnFile      = Get-ChildItem -Path $root -Filter "*.sln" -File | Select-Object -First 1
+$solutionName = if ($slnFile) { [System.IO.Path]::GetFileNameWithoutExtension($slnFile.Name) } else { Split-Path $root -Leaf }
+
 $outputLabel = if ($projectFilter -ne "") { "${solutionName}_${projectFilter}" } else { $solutionName }
 $outputBase  = Join-Path $root "${outputLabel}_Code"
 
-$allFiles = Get-ChildItem -Path $scanRoot -Recurse -Include $extensions | Where-Object {
-    $file = $_
-    $path = $file.FullName
+# --- Recursive file collection (skips excluded dirs entirely) ---
+function Get-FilesFiltered {
+    param([string]$Path)
+    foreach ($item in Get-ChildItem -Path $Path) {
+        if ($item.PSIsContainer) {
+            if ($excludeDirs -notcontains $item.Name) {
+                Get-FilesFiltered -Path $item.FullName
+            }
+            # Excluded dir → skip entirely, no recursion
+        } else {
+            $item
+        }
+    }
+}
 
-    if ($excludeDirs | Where-Object { $path -match "\\$_\\" }) { return $false }
-    if ($excludeFiles | Where-Object { $file.Name -like $_ }) { return $false }
+$allFiles = Get-FilesFiltered -Path $scanRoot | Where-Object {
+    $name = $_.Name
 
-    return $true
+    # Exclude by pattern
+    if ($excludeFiles | Where-Object { $name -like $_ }) { return $false }
+
+    # Match compound extensions first (e.g. razor.cs, js.map)
+    foreach ($ext in $extraExts) {
+        if ($name -like "*.$ext") { return $true }
+    }
+
+    # Match simple extensions
+    $simpleExt = $_.Extension.TrimStart('.')
+    if ($extensions -contains $simpleExt) { return $true }
+
+    return $false
 } | Sort-Object FullName
 
 $totalFiles = $allFiles.Count
 Write-Host "Found $totalFiles file(s) to process (scan root: $scanRoot)..."
 
-# --- Collect all blocks ---
+# --- Collect all content blocks ---
 $allBlocks = [System.Collections.Generic.List[string]]::new()
 
-$allFiles | ForEach-Object {
-    $relativePath = $_.FullName.Substring($root.Length).TrimStart('\', '/')
-    $header       = "## FILE: $relativePath`n`n``````$($_.Extension.TrimStart('.'))`n"
-    $content      = (Get-Content $_.FullName -Raw -Encoding UTF8) + "`n``````" + "`n`n"
-    $allBlocks.Add($header + $content)
+foreach ($file in $allFiles) {
+    $relativePath = $file.FullName.Substring($root.Length).TrimStart('\', '/')
+    $lang         = $file.Extension.TrimStart('.')
+    $content      = Get-Content $file.FullName -Raw -Encoding UTF8
+    if ($null -eq $content) { $content = "" }
+    $block = "## FILE: $relativePath`n`n``````$lang`n$content`n``````" + "`n`n"
+    $allBlocks.Add($block)
 }
-
-# --- Determine total chunks ---
-$tempSize  = 0
-$tempIndex = 1
-foreach ($block in $allBlocks) {
-    if (($tempSize + $block.Length) -gt $maxChars -and $tempSize -gt 0) {
-        $tempIndex++
-        $tempSize = 0
-    }
-    $tempSize += $block.Length
-}
-$totalChunks = $tempIndex
 
 # --- Preamble helper ---
 function Get-Preamble {
@@ -76,27 +99,44 @@ INSTRUCTIONS FOR AI:
 "@
 }
 
-# --- Write chunks ---
-$fileIndex   = 1
-$currentSize = 0
-$currentFile = "${outputBase}_${fileIndex}.md"
+# --- Pre-count chunks (including preamble length) ---
+# We use a placeholder preamble length based on a worst-case estimate.
+# Actual preamble is written correctly in the second pass.
+$dummyPreamble = Get-Preamble -ChunkIndex 999 -TotalChunks 999 -SolutionName $outputLabel
+$preambleLen   = $dummyPreamble.Length
 
-$preamble = Get-Preamble -ChunkIndex $fileIndex -TotalChunks $totalChunks -SolutionName $outputLabel
+$tempSize  = $preambleLen
+$tempIndex = 1
+foreach ($block in $allBlocks) {
+    if (($tempSize + $block.Length) -gt $maxChars -and $tempSize -gt $preambleLen) {
+        $tempIndex++
+        $tempSize = $preambleLen
+    }
+    $tempSize += $block.Length
+}
+$totalChunks = $tempIndex
+
+# --- Write chunks ---
+$fileIndex      = 1
+$currentSize    = 0
+$currentFile    = "${outputBase}_${fileIndex}.md"
+$filesProcessed = 0
+
+$preamble    = Get-Preamble -ChunkIndex $fileIndex -TotalChunks $totalChunks -SolutionName $outputLabel
 Set-Content $currentFile $preamble -Encoding UTF8
 $currentSize = $preamble.Length
 
-$filesProcessed = 0
 foreach ($block in $allBlocks) {
     $filesProcessed++
     Write-Progress -Activity "Dumping project files" `
                    -Status "Writing block $filesProcessed / $totalFiles" `
                    -PercentComplete (($filesProcessed / $totalFiles) * 100)
 
-    if (($currentSize + $block.Length) -gt $maxChars -and $currentSize -gt 0) {
+    if (($currentSize + $block.Length) -gt $maxChars -and $currentSize -gt $preamble.Length) {
         Write-Host "  -> Rolling over to chunk $($fileIndex + 1) (current: $currentSize chars)"
         $fileIndex++
         $currentFile = "${outputBase}_${fileIndex}.md"
-        $preamble = Get-Preamble -ChunkIndex $fileIndex -TotalChunks $totalChunks -SolutionName $outputLabel
+        $preamble    = Get-Preamble -ChunkIndex $fileIndex -TotalChunks $totalChunks -SolutionName $outputLabel
         Set-Content $currentFile $preamble -Encoding UTF8
         $currentSize = $preamble.Length
     }
