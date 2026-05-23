@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using PubQuizCreator.Core;
 using PubQuizCreator.Core.Models;
-using PubQuizCreator.Core.Types;
 using PubQuizCreator.Services;
 using PubQuizCreator.Web.Helpers;
 
@@ -12,16 +11,16 @@ namespace PubQuizCreator.Web.Pages.Questions
         #region Private Fields
 
         private List<Category> categories = [];
+        private Dictionary<Guid, int> countByCategory = [];
         private int currentPage = 1;
         private List<QuestionRow> entries = [];
         private Guid? filterCategoryId;
-        private List<QuestionRow> filtered = [];
+        private List<QuestionRow> filtereds = [];
         private CategoryFilter filterMode = CategoryFilter.All;
         private bool initialized = false;
         private bool isLoading = true;
         private Guid? lastCategoryId;
-        private List<QuestionRow> paged = [];
-        private Dictionary<Guid, int> questionCountByCategory = [];
+        private List<QuestionRow> pageds = [];
         private string searchInput = "";
         private bool showUsed = false;
 
@@ -73,7 +72,7 @@ namespace PubQuizCreator.Web.Pages.Questions
                 usageInfo.GetValueOrDefault(q.Id)?.IsCompleted ?? false,
                 q.MediaType)).ToList();
 
-            questionCountByCategory = entries
+            countByCategory = entries
                 .Where(q => !q.IsUnusable)
                 .GroupBy(q => q.Category?.Id ?? Guid.Empty)
                 .ToDictionary(g => g.Key, g => g.Count());
@@ -135,14 +134,14 @@ namespace PubQuizCreator.Web.Pages.Questions
 
         private void ApplyPaging()
         {
-            paged = filtered
+            pageds = filtereds
                 .Skip((currentPage - 1) * Constants.PageSizeList)
                 .Take(Constants.PageSizeList).ToList();
         }
 
         private void ApplySearch()
         {
-            filtered = entries
+            filtereds = entries
                 .Where(q => filterMode switch
                 {
                     CategoryFilter.Unusable => q.IsUnusable,
@@ -169,15 +168,16 @@ namespace PubQuizCreator.Web.Pages.Questions
 
         private async Task DeleteAsync(Guid id)
         {
-            var question = entries.First(q => q.Id == id);
+            var entry = entries.First(q => q.Id == id);
 
-            var confirmed = await JS.ConfirmDeleteAsync(question.TextShort);
+            var confirmed = await JS.ConfirmDeleteAsync(entry.TextShort);
             if (!confirmed) return;
 
             await QuestionService.DeleteAsync(id);
 
             entries.RemoveAll(q => q.Id == id);
-            questionCountByCategory = entries
+
+            countByCategory = entries
                 .Where(q => !q.IsUnusable)
                 .GroupBy(q => q.Category?.Id ?? Guid.Empty)
                 .ToDictionary(g => g.Key, g => g.Count());
@@ -199,6 +199,7 @@ namespace PubQuizCreator.Web.Pages.Questions
         private async Task OnCategoryChanged(ChangeEventArgs e)
         {
             var val = e.Value?.ToString();
+
             (filterMode, filterCategoryId) = val switch
             {
                 "all" => (CategoryFilter.All, (Guid?)null),
@@ -211,6 +212,7 @@ namespace PubQuizCreator.Web.Pages.Questions
                     ? (CategoryFilter.Specific, id)
                     : (CategoryFilter.All, null)
             };
+
             await ApplyFilterAsync();
         }
 
@@ -220,34 +222,20 @@ namespace PubQuizCreator.Web.Pages.Questions
             ApplyPaging();
         }
 
-        private async Task ToggleAllowReuseAsync(Guid id, bool value)
+        private async Task ToggleReuseAsync(Guid id, bool value)
         {
             await QuestionService.SetAllowReuseAsync(id, value);
 
-            var entryIdx = entries.FindIndex(q => q.Id == id);
-            if (entryIdx >= 0)
-                entries[entryIdx] = entries[entryIdx] with { AllowReuse = value };
+            var index = entries.FindIndex(q => q.Id == id);
 
-            var pagedIdx = paged.FindIndex(q => q.Id == id);
-            if (pagedIdx >= 0)
-                paged[pagedIdx] = paged[pagedIdx] with { AllowReuse = value };
+            if (index >= 0)
+            {
+                entries[index] = entries[index] with { AllowReuse = value };
+            }
 
             StateHasChanged();
         }
 
         #endregion Private Methods
-
-        private sealed record QuestionRow(
-            Guid Id,
-            string TextShort,
-            string Answer,
-            Category? Category,
-            bool WasUsed,
-            bool AllowReuse,
-            bool IsUnusable,
-            string? UsedInQuiz,
-            DateOnly? LastUsedDate,
-            bool IsInCompletedQuiz,
-            MediaType MediaType);
     }
 }

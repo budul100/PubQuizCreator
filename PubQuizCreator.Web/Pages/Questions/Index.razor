@@ -34,7 +34,7 @@
                 
                 @foreach (var cat in categories)
                 {
-                    <option value="@cat.Id">@cat.Name (@questionCountByCategory.GetValueOrDefault(cat.Id, 0))</option>
+                    <option value="@cat.Id">@cat.Name (@countByCategory.GetValueOrDefault(cat.Id, 0))</option>
                 }
                 
                 <option value="unusable">— Unusable —</option>
@@ -52,10 +52,10 @@
         else
         {
             <div class="mb-2 text-muted small">
-                Showing @paged.Count of @filtered.Count questions (@entries.Count total)
+                Showing @pageds.Count of @filtereds.Count questions (@entries.Count total)
             </div>
 
-            @if (!filtered.Any())
+            @if (!filtereds.Any())
             {
                 <p class="text-muted">No questions found.</p>
             }
@@ -63,7 +63,7 @@
             {
                 @* --- MOBILE: Card list (< md) --- *@
                 <div class="d-md-none">
-                    @foreach (var question in paged)
+                    @foreach (var question in pageds)
                     {
                         var editUrl = $"/questions/{question.Id}/edit";
                         var rowStyle = question.IsUnusable ? "opacity: 0.55;" : "";
@@ -85,7 +85,7 @@
                                         IsInCompletedQuiz="question.IsInCompletedQuiz"
                                         WasUsed="question.WasUsed"
                                         IsUnusable="question.IsUnusable"
-                                        OnToggle="v => ToggleAllowReuseAsync(question.Id, v)" />
+                                        OnToggle="v => ToggleReuseAsync(question.Id, v)" />
 
                                     <DeleteButton 
                                         UsedInQuiz="question.UsedInQuiz"
@@ -123,7 +123,7 @@
                         </thead>
 
                         <tbody>
-                            @foreach (var question in paged)
+                            @foreach (var question in pageds)
                             {
                                 var editUrl = $"/questions/{question.Id}/edit";
                                 var rowStyle = question.IsUnusable ? "opacity: 0.55;" : "";
@@ -157,7 +157,7 @@
                                             IsInCompletedQuiz="question.IsInCompletedQuiz"
                                             WasUsed="question.WasUsed"
                                             IsUnusable="question.IsUnusable"
-                                            OnToggle="v => ToggleAllowReuseAsync(question.Id, v)" />
+                                            OnToggle="v => ToggleReuseAsync(question.Id, v)" />
                                     </td>
 
                                     <td @onclick:stopPropagation="true">
@@ -174,7 +174,7 @@
 
                 </div>
 
-                <ContentPager TotalItems="filtered.Count"
+                <ContentPager TotalItems="filtereds.Count"
                    PageSize="Constants.PageSizeList"
                    CurrentPage="currentPage"
                    PageChanged="OnPageChanged" />
