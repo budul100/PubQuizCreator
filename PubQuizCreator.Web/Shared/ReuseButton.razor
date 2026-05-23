@@ -1,0 +1,9 @@
+﻿@if ((IsInCompletedQuiz || WasUsed) && !IsUnusable)
+{
+    <button 
+        class="btn btn-sm w-100 @(AllowReuse ? "btn-info" : "btn-outline-secondary")"
+        title="@(AllowReuse ? "Reuse allowed — click to revoke" : "Allow reuse")"
+        @onclick="() => OnToggle.InvokeAsync(!AllowReuse)">
+        <span class="oi oi-reload" />
+    </button>
+}
