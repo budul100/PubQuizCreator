@@ -102,26 +102,11 @@
 
                             <div class="fw-semibold small">@question.TextShort</div>
                             <div class="text-muted small">→ @question.Answer</div>
-
-                            @if (question.UsedInQuiz != null || question.WasUsed)
-                            {
-                                <div class="text-muted small fst-italic">
-                                    @if (question.IsInCompletedQuiz)
-                                    {
-                                        @question.UsedInQuiz
-                                    }
-                                    else if (question.UsedInQuiz != null)
-                                    {
-
-                                        <span>assigned: @question.UsedInQuiz</span>
-                                    }
-                                    else
-                                    {
-
-                                        <span>previously used</span>
-                                    }
-                                </div>
-                            }
+                            
+                            <UsageLabel 
+                                UsedInQuiz="question.UsedInQuiz"
+                                IsInCompletedQuiz="question.IsInCompletedQuiz"
+                                WasUsed="question.WasUsed" />
 
                         </div>
                     }
@@ -171,20 +156,12 @@
                                     </td>
 
                                     <td class="text-muted">@question.Answer</td>
-
+                                    
                                     <td @onclick:stopPropagation="true">
-                                        @if (question.UsedInQuiz != null && question.IsInCompletedQuiz)
-                                        {
-                                            <small class="text-muted">@question.UsedInQuiz</small>
-                                        }
-                                        else if (question.UsedInQuiz != null)
-                                        {
-                                            <small class="text-muted fst-italic">assigned: @question.UsedInQuiz</small>
-                                        }
-                                        else if (question.WasUsed && !question.IsUnusable)
-                                        {
-                                            <small class="text-muted fst-italic">previously used</small>
-                                        }
+                                        <UsageLabel 
+                                            UsedInQuiz="question.UsedInQuiz"
+                                            IsInCompletedQuiz="question.IsInCompletedQuiz"
+                                            WasUsed="question.WasUsed" />
                                     </td>
 
                                     <td @onclick:stopPropagation="true">
