@@ -55,13 +55,16 @@ else
                     <button class="btn btn-outline-secondary btn-sm"
                         title="Duplicate"
                         @onclick="() => DuplicateAsync(t.Id)">
-                        ⧉
+                        <span class="oi oi-fork" />
                     </button>
-                    <button class="btn btn-outline-danger btn-sm"
+
+                    <button 
+                        class="btn btn-outline-danger btn-sm"
                         title="Delete"
                         @onclick="() => DeleteAsync(t.Id)">
-                        ✕
+                        <span class="oi oi-trash" />
                     </button>
+
                 </div>
             </div>
         }

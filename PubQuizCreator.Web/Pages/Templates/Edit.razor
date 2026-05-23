@@ -46,7 +46,11 @@ else
                         <option value="@cat.Id">@cat.Name</option>
                     }
                 </select>
-                <button class="btn btn-outline-danger btn-sm" @onclick="() => slots.RemoveAt(idx)">✕</button>
+
+                <button class="btn btn-outline-danger btn-sm" @onclick="() => slots.RemoveAt(idx)">
+                    <span class="oi oi-trash" />
+                </button>
+
             </div>
         }
     </div>
