@@ -22,7 +22,7 @@ namespace PubQuizCreator.Web.Pages.Questions
         private Guid? lastCategoryId;
         private List<QuestionRow> paged = [];
         private Dictionary<Guid, int> questionCountByCategory = [];
-        private string searchText = "";
+        private string searchInput = "";
         private bool showUsed = false;
 
         #endregion Private Fields
@@ -154,9 +154,9 @@ namespace PubQuizCreator.Web.Pages.Questions
                     || q.AllowReuse
                     || showUsed
                     || (!q.WasUsed && !q.IsInCompletedQuiz))
-                .Where(q => string.IsNullOrWhiteSpace(searchText)
-                    || q.TextShort.Contains(searchText, StringComparison.OrdinalIgnoreCase)
-                    || q.Answer.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+                .Where(q => string.IsNullOrWhiteSpace(searchInput)
+                    || q.TextShort.Contains(searchInput, StringComparison.OrdinalIgnoreCase)
+                    || q.Answer.Contains(searchInput, StringComparison.OrdinalIgnoreCase))
                 .OrderBy(q => q.IsUnusable ? 1 : 0)
                 .ThenBy(q => q.Category?.Name ?? "")
                 .ThenBy(q => q.LastUsedDate.HasValue ? 0 : q.WasUsed ? 1 : 2)

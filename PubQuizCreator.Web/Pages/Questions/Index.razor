@@ -40,7 +40,8 @@
                 <option value="unusable">— Unusable —</option>
             </select>
 
-            <SearchInput @bind-Value="searchText"
+            <SearchInput 
+                @bind-Value="searchInput"
                 @bind-Value:after="ApplySearch" />
         </div>
 

@@ -211,9 +211,10 @@ else
                                     <button class="btn-close btn-sm" @onclick="() => pickerSlot = null" />
                                 </div>
 
-                                <SearchInput @ref="pickerSearchInput"
-                                             @bind-Value="pickerSearch"
-                                             @bind-Value:after="ApplySearch" />
+                                <SearchInput 
+                                    @ref="pickerSearchInput"
+                                    @bind-Value="pickerSearch"
+                                    @bind-Value:after="ApplySearch" />
 
                                 <div class="small text-muted mb-2">
                                     @pickerFiltered.Count of @pickerAll.Count in this category

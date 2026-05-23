@@ -154,7 +154,10 @@ namespace PubQuizCreator.Web.Pages.Quizzes
             await Task.Yield(); // let Blazor render the input first
 
             if (pickerSearchInput != null)
+            {
+                await pickerSearchInput.ClearAsync();
                 await pickerSearchInput.FocusAsync();
+            }
 
             var assignedIds = quiz!.Rounds
                 .SelectMany(r => r.Slots)

@@ -6,9 +6,8 @@ namespace PubQuizCreator.Web.Shared
     {
         #region Private Fields
 
-        private string localValue = string.Empty;
-        private bool hasFocus = false;
         private ElementReference inputRef;
+        private string localValue = string.Empty;
 
         #endregion Private Fields
 
@@ -26,25 +25,30 @@ namespace PubQuizCreator.Web.Shared
 
         #region Public Methods
 
+        public Task ClearAsync()
+        {
+            localValue = string.Empty;
+            StateHasChanged();
+
+            return Task.CompletedTask;
+        }
+
         public async Task FocusAsync() => await inputRef.FocusAsync();
 
         #endregion Public Methods
 
         #region Protected Methods
 
-        protected override void OnParametersSet()
+        protected override void OnInitialized()
         {
-            if (!hasFocus)
-                localValue = Value;
+            localValue = Value;
         }
+
+        protected override bool ShouldRender() => false;
 
         #endregion Protected Methods
 
         #region Private Methods
-
-        private void OnBlur() => hasFocus = false;
-
-        private void OnFocus() => hasFocus = true;
 
         private async Task OnInput(ChangeEventArgs e)
         {
