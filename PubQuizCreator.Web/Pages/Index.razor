@@ -39,12 +39,12 @@ else
                             <tbody>
                                 @foreach (var row in stats.IdeasByCategory)
                                 {
-                                    var color = row.Category.ColorHex;
+                                    var color = row.Category?.ColorHex;
                                     <tr>
                                         <td>
-                                            <ColorBadge ColorHex="@color" Name="@row.Category.Name" />
+                                            <ColorBadge ColorHex="@color" Name="@row.Category?.Name" />
                                         </td>
-                                        <td class="text-end fw-semibold">@row.IdeaCount</td>
+                                        <td class="text-end fw-semibold">@row.Open</td>
                                     </tr>
                                 }
                             </tbody>
@@ -76,12 +76,12 @@ else
                             <tbody>
                                 @foreach (var row in stats.QuestionsByCategory)
                                 {
-                                    var color = row.Category.ColorHex;
+                                    var color = row.Category?.ColorHex;
                                     <tr>
                                         <td>
-                                            <ColorBadge ColorHex="@color" Name="@row.Category.Name" />
+                                            <ColorBadge ColorHex="@color" Name="@row.Category?.Name" />
                                         </td>
-                                        <td class="text-end fw-semibold">@row.AvailableQuestions</td>
+                                        <td class="text-end fw-semibold">@row.Open</td>
                                     </tr>
                                 }
                             </tbody>
@@ -144,7 +144,7 @@ else
                         var categoryStats = stats.NextQuiz.Rounds
                             .SelectMany(r => r.Slots)
                             .GroupBy(s => s.Category)
-                            .Select(g => new Stats(g.Key, g.Count(s => s.QuestionId == null), g.Count()))
+                            .Select(g => new Count(g.Key, g.Count(s => s.QuestionId == null), g.Count()))
                             .OrderBy(x => x.Category?.Name)
                             .ToList();
 
