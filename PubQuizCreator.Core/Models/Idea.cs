@@ -1,4 +1,6 @@
-﻿namespace PubQuizCreator.Core.Models
+﻿using PubQuizCreator.Core.Types;
+
+namespace PubQuizCreator.Core.Models
 {
     public class Idea
     {
@@ -15,6 +17,10 @@
         public bool IsProcessed { get; set; } = false;
 
         public bool IsTimeSensitive { get; set; } = false;
+
+        public string? MediaFile { get; set; }
+
+        public MediaType MediaType { get; set; } = MediaType.None;
 
         public string Text { get; set; } = "";
 
