@@ -17,13 +17,6 @@
         </PageHeader>
 
         <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
-            <div class="form-check mb-0 text-nowrap">
-                <input class="form-check-input" type="checkbox"
-                       @bind="showUsed"
-                       @bind:after="ApplyFilterAsync" />
-                <label class="form-check-label small">Show used</label>
-            </div>
-
             <select 
                 class="form-select form-select-sm w-auto"
                 value="@GetCategorySelectValue()"
@@ -39,6 +32,13 @@
                 
                 <option value="unusable">— Unusable —</option>
             </select>
+
+            <div class="form-check mb-0 text-nowrap">
+                <input class="form-check-input" type="checkbox"
+                       @bind="showUsed"
+                       @bind:after="ApplyFilterAsync" />
+                <label class="form-check-label small">Include used questions</label>
+            </div>
 
             <SearchInput @bind-Value="searchInput"
                          @bind-Value:after="ApplyFilterAsync" />
