@@ -65,6 +65,8 @@ namespace PubQuizCreator.Web.Shared
         private async Task ClearAndNotifyAsync()
         {
             await ClearAsync();
+            await ValueChanged.InvokeAsync(localValue);
+            
             await FocusAsync();
         }
 
@@ -81,7 +83,6 @@ namespace PubQuizCreator.Web.Shared
 
             await ValueChanged.InvokeAsync(localValue);
         }
-
 
         #endregion Private Methods
     }
