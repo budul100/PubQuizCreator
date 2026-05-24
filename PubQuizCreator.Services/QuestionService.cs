@@ -112,8 +112,7 @@ namespace PubQuizCreator.Services
 
             return await query
                 .AsNoTracking()
-                .OrderByDescending(q => q.CreatedAt)
-                .ToListAsync(ct);
+                .OrderByDescending(q => q.CreatedAt).ToListAsync(ct);
         }
 
         public async Task<Dictionary<Guid, int>> GetCountByCategoryAsync(CancellationToken ct = default)
@@ -165,6 +164,14 @@ namespace PubQuizCreator.Services
             var sorted = query
                 .OrderBy(q => q.IsUnusable ? 1 : 0)
                 .ThenBy(q => q.Category != null ? q.Category.Name : "")
+                .ThenByDescending(q =>
+                    db.RoundSlots
+                        .Where(s => s.QuestionId == q.Id && s.Round.Quiz.IsCompleted)
+                        .Max(s => s.Round.Quiz.Date))
+                .ThenByDescending(q =>
+                    db.RoundSlots
+                        .Where(s => s.QuestionId == q.Id && s.Round.Quiz.IsCompleted)
+                        .Max(s => s.Round.Position))
                 .ThenBy(q => q.TextShort);
 
             // --- Page ---
@@ -205,7 +212,7 @@ namespace PubQuizCreator.Services
                     MediaType: q.MediaType,
                     UsedInQuiz: usage?.QuizInfo,
                     LastUsedDate: usage?.LastUsedDate);
-            }).OrderByDescending(q => q.LastUsedDate).ToList();
+            }).ToList();
 
             return (rows, total);
         }

@@ -17,6 +17,7 @@ else
         @* ── Ideas ── *@
         <div class="col-12 col-lg-4">
             <div class="card h-100">
+
                 <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
                     <span>Ideas</span>
                     @if (stats.IdeasWithoutCategory > 0)
@@ -26,6 +27,7 @@ else
                         </span>
                     }
                 </div>
+
                 <div class="card-body p-0">
                     @if (!stats.IdeasByCategory.Any())
                     {
@@ -49,9 +51,10 @@ else
                         </table>
                     }
                 </div>
+
                 <div class="card-footer d-flex gap-2">
-                    <a class="btn btn-primary btn-sm" href="/ideas/new">+ Capture idea</a>
-                    <a class="btn btn-outline-secondary btn-sm" href="/ideas">Open ideas</a>
+                    <a class="btn btn-outline-primary btn-sm" href="/ideas">Open ideas</a>
+                    <a class="btn btn-primary btn-sm ms-auto" href="/ideas/new">+ Capture idea</a>
                 </div>
 
             </div>
@@ -59,6 +62,7 @@ else
 
         @* ── Questions ── *@
         <div class="col-12 col-lg-4">
+
             <div class="card h-100">
                 <div class="card-header fw-semibold">Questions</div>
                 <div class="card-body p-0">
@@ -84,14 +88,17 @@ else
                         </table>
                     }
                 </div>
+
                 <div class="card-footer">
                     <a class="btn btn-outline-primary btn-sm" href="/questions">Open questions</a>
                 </div>
+
             </div>
         </div>
 
         @* ── Quizzes ── *@
         <div class="col-12 col-lg-4">
+
             <div class="card h-100">
                 <div class="card-header fw-semibold">Next Quiz</div>
                 <div class="card-body">
@@ -147,6 +154,7 @@ else
                         }
                     }
                 </div>
+
                 <div class="card-footer">
                     @if (stats.NextQuiz != null)
                     {
@@ -162,6 +170,7 @@ else
                         <a class="btn btn-outline-primary btn-sm" href="/quizzes">Open quizzes</a>
                     }
                 </div>
+
             </div>
         </div>
 
