@@ -50,11 +50,6 @@
     color: white;
 }
 
-.nav-scrollable {
-    display: flex;
-    flex-direction: column;
-}
-
 .version-info {
     color: rgba(255,255,255,0.3);
     font-size: 0.7rem;
@@ -70,6 +65,11 @@
     .collapse {
         /* Never collapse the sidebar for wide screens */
         display: block;
+    }
+
+    .nav-scrollable {
+        display: flex;
+        flex-direction: column;
     }
 
     .version-info {
