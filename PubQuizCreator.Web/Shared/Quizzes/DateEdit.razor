@@ -1,0 +1,16 @@
+﻿@if (IsEditing)
+{
+    <input type="date"
+           class="form-control form-control-sm"
+           style="@InputStyle"
+           value="@currentValue"
+           @onchange="HandleChange"
+           @onblur="CancelAsync"
+           @onkeydown="HandleKeyDown" />
+}
+else
+{
+    <span style="cursor: text; @LabelStyle" @onclick="StartEditing">
+        @Value.ToString("dd.MM.yyyy")
+    </span>
+}

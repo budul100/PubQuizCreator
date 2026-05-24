@@ -70,9 +70,18 @@ namespace PubQuizCreator.Web.Shared
 
         private async Task OnInput(ChangeEventArgs e)
         {
+            var previous = localValue;
             localValue = e.Value?.ToString() ?? string.Empty;
+
+            if (string.IsNullOrEmpty(previous) != string.IsNullOrEmpty(localValue))
+            {
+                forceRender = true;
+                StateHasChanged();
+            }
+
             await ValueChanged.InvokeAsync(localValue);
         }
+
 
         #endregion Private Methods
     }

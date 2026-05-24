@@ -15,20 +15,22 @@
 }
 else
 {
-    @* Header row: Title + Date + Export buttons *@
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-        <input class="form-control"
-               style="min-width: 0; flex: 1 1 180px; max-width: 400px;"
-               value="@quiz.Title"
-               @onchange="e => quiz.Title = e.Value?.ToString() ?? string.Empty"
-               @onblur="SaveHeaderAsync" />
-        <input type="date"
-               class="form-control"
-               style="width: auto; flex-shrink: 0;"
-               value="@quiz.Date.ToString("yyyy-MM-dd")"
-               @onchange="e => { quiz.Date = DateOnly.Parse(e.Value?.ToString() ?? string.Empty); _ = SaveHeaderAsync(); }" />
-        <button class="btn btn-sm @(quiz.IsCompleted ? "btn-success" : "btn-outline-secondary")"
-                @onclick="ToggleCompletedAsync">
+
+        <InlineEdit 
+            Value="@quiz.Title"
+            OnConfirm="async v => { quiz.Title = v ?? string.Empty; await SaveHeaderAsync(); }"
+            InputStyle="max-width: 400px;"
+            LabelStyle="font-weight: 600;" />
+
+        <DateEdit 
+            Value="@quiz.Date"
+            OnConfirm="async d => { quiz.Date = d; await SaveHeaderAsync(); }"
+            LabelStyle="color: #6c757d;" />
+
+        <button 
+            class="btn btn-sm @(quiz.IsCompleted ? "btn-success" : "btn-outline-secondary")"
+            @onclick="ToggleCompletedAsync">
             @(quiz.IsCompleted ? "✓ Completed" : "Mark as completed")
         </button>
 
@@ -54,18 +56,34 @@ else
              @ondragover:preventDefault="true"
              @ondrop="() => DropRound(r.Id)">
 
-            <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"
-                 style="cursor: pointer;"
-                 @onclick="() => ToggleRound(r.Id)">
+            <div class="card-header d-flex align-items-center gap-2"
+                 @onmousedown:preventDefault="true"
+                 @onclick="() => ToggleRound(r.Id)"
+                 style="cursor: pointer;">
 
-                <span>
-                    <span class="me-2 text-muted">☰</span>
-                    <strong>Round @r.Position</strong>
-                    <span class="text-muted me-2">@(AppState.RoundsCollapsed.Contains(r.Id) ? "▶" : "▼")</span>
-                    <SlotBadge Open="openSlots" Total="totalSlots" CssClass="ms-2" />
+                <span class="text-muted flex-shrink-0">☰</span>
+
+                <div @onclick:stopPropagation="true"
+                     @onmousedown:stopPropagation="true"
+                     class="flex-shrink-0">
+                    <InlineEdit Value="@(r.Title ?? string.Empty)"
+                                Placeholder="@($"Round {r.Position}")"
+                                OnConfirm="async v => await SaveRoundTitleAsync(r, v)"
+                                InputStyle="max-width: 300px;"
+                                LabelStyle="font-weight: 600;" />
+                </div>
+
+                <span class="text-muted flex-shrink-0">
+                    @(AppState.RoundsCollapsed.Contains(r.Id) ? "▶" : "▼")
                 </span>
 
-                <div class="d-flex gap-1" @onclick:stopPropagation="true">
+                <div class="flex-grow-1"></div>
+
+                <SlotBadge Open="openSlots" Total="totalSlots" />
+
+                <div class="d-flex gap-1 flex-shrink-0"
+                     @onclick:stopPropagation="true"
+                     @onmousedown:stopPropagation="true">
                     @if (r.Slots.All(s => s.QuestionId == null))
                     {
                         <button class="btn btn-outline-danger btn-sm" @onclick="() => RemoveRoundAsync(r.Id)">
@@ -73,6 +91,7 @@ else
                         </button>
                     }
                 </div>
+
             </div>
 
             @if (!AppState.RoundsCollapsed.Contains(r.Id))

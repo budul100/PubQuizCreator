@@ -148,7 +148,7 @@ namespace PubQuizCreator.Services
             if (!showUsed && filterMode != CategoryFilter.Unusable)
             {
                 query = query.Where(q => q.AllowReuse
-                || !db.RoundSlots.Any(s => s.QuestionId == q.Id && s.Round.Quiz.IsCompleted));
+                    || !db.RoundSlots.Any(s => s.QuestionId == q.Id && s.Round.Quiz.IsCompleted));
             }
 
             if (!string.IsNullOrWhiteSpace(search))

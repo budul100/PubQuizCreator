@@ -222,6 +222,12 @@ namespace PubQuizCreator.Web.Pages.Quizzes
             await QuizService.UpdatePropsAsync(quiz.Id, quiz.Title, quiz.Date);
         }
 
+        private async Task SaveRoundTitleAsync(Round round, string? newTitle)
+        {
+            round.Title = newTitle;
+            await QuizService.UpdateRoundTitleAsync(round.Id, newTitle);
+        }
+
         private async Task ToggleCompletedAsync()
         {
             if (quiz == null) return;

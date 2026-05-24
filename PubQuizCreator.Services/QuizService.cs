@@ -287,7 +287,7 @@ namespace PubQuizCreator.Services
             }
         }
 
-        public async Task UpdatePropsAsync(Guid quizId, string title, DateOnly date, CancellationToken ct = default)
+        public async Task UpdatePropsAsync(Guid quizId, string? title, DateOnly date, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -296,6 +296,15 @@ namespace PubQuizCreator.Services
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(q => q.Title, title)
                     .SetProperty(q => q.Date, date), ct);
+        }
+
+        public async Task UpdateRoundTitleAsync(Guid roundId, string? title, CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            await db.Rounds
+                .Where(r => r.Id == roundId)
+                .ExecuteUpdateAsync(s => s.SetProperty(r => r.Title, title), ct);
         }
 
         #endregion Public Methods

@@ -1,0 +1,30 @@
+﻿@if (IsEditing)
+{
+    <div class="d-flex align-items-center gap-2" @onclick:stopPropagation="true">
+        <input class="form-control form-control-sm"
+               style="@InputStyle"
+               value="@currentValue"
+               placeholder="@Placeholder"
+               @oninput="e => currentValue = e.Value?.ToString() ?? string.Empty" 
+               @onblur="HandleBlur"
+               @onkeydown="HandleKeyDown" />
+
+        @if (ShowButtons)
+        {
+            <button class="btn btn-success btn-sm text-nowrap" @onclick="ConfirmAsync">
+                @ConfirmLabel
+            </button>
+            <button class="btn btn-outline-secondary btn-sm text-nowrap" @onclick="CancelAsync">
+                Cancel
+            </button>
+        }
+    </div>
+}
+else
+{
+    <span style="cursor: text; @LabelStyle" @onclick="StartEditing">
+        @(string.IsNullOrWhiteSpace(displayValue) ? Placeholder : displayValue)
+    </span>
+}
+
+
