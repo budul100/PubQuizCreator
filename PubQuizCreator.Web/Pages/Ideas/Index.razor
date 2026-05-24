@@ -16,7 +16,8 @@
             <a class="btn btn-primary btn-sm" href="/ideas/new">+ New idea</a>
         </PageHeader>
 
-        <div class="d-flex flex-wrap gap-2 mb-3">
+        <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+
             <select class="form-select form-select-sm w-auto"
                     value="@GetCategorySelectValue()"
                     @onchange="OnCategoryChanged">
@@ -27,13 +28,23 @@
                     <option value="@cat.Id">@cat.Name</option>
                 }
             </select>
-            <input class="form-control form-control-sm" placeholder="Search…"
-                   value="@searchText"
-                   @oninput="async e => { searchText = e.Value?.ToString() ?? string.Empty; ApplyFilter(); }" />
-            <button class="btn btn-outline-secondary btn-sm text-nowrap"
-                    @onclick="async () => { sortAscending = !sortAscending; ApplyFilter(); }">
-                📅 @(sortAscending ? "↑" : "↓")
-            </button>
+
+            <div class="w-100 m-0 p-0"></div>
+
+            <div class="d-flex gap-2" style="flex: 1; min-width: 0;">
+
+                <SearchInput @ref="searchInputRef"
+                             Placeholder="Search…"
+                             ValueChanged="async v => { searchText = v; ApplyFilter(); }" />
+
+                <button class="btn btn-outline-secondary btn-sm text-nowrap flex-shrink-0"
+                        @onclick="async () => { sortAscending = !sortAscending; ApplyFilter(); }">
+                    <span class="oi oi-calendar" />
+                    <span class="oi @(sortAscending ? "oi-arrow-top" : "oi-arrow-bottom")" />
+                </button>
+
+            </div>
+
         </div>
 
         @if (lastAssignment != null)
@@ -96,7 +107,6 @@
 
                             <div style="flex: 1; min-width: 0;">
                                 <div>@idea.Text</div>
-                                <div class="text-muted small mt-1">@idea.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</div>
                             </div>
 
                             <div class="d-flex gap-1 flex-shrink-0 align-self-start">

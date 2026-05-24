@@ -4,6 +4,7 @@ using PubQuizCreator.Core.Helpers;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Services;
 using PubQuizCreator.Web.Helpers;
+using PubQuizCreator.Web.Shared;
 
 namespace PubQuizCreator.Web.Pages.Ideas
 {
@@ -11,6 +12,7 @@ namespace PubQuizCreator.Web.Pages.Ideas
     {
         #region Private Fields
 
+        private SearchInput searchInputRef = default!;
         private List<Category> categories = [];
         private int currentPage = 1;
         private List<Idea> entries = [];

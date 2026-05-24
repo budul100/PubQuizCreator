@@ -121,45 +121,55 @@ else
                              @ondrop="() => DropSlot(r.Id, s.Id)"
                              style="cursor: grab;">
 
-                            @* Top row: handle + position + category + buttons *@
-                            <div class="d-flex align-items-center gap-2 mb-1">
-                                <span class="text-muted flex-shrink-0">☰</span>
-                                <span class="badge bg-light text-secondary border flex-shrink-0"
+                            <div class="d-flex gap-2 align-items-center">
+
+                                <span class="text-muted flex-shrink-0 mt-1">☰</span>
+                                <span class="badge bg-light text-secondary border flex-shrink-0 mt-1"
                                       style="min-width: 1.8rem; text-align: center; font-weight: 600;">
                                     @s.Position
                                 </span>
-                                
+
                                 @{
                                     var catColor = s.Category?.ColorHex ?? "#95a5a6";
-                                    var catCss = "text-truncate d-inline-block" + (s.Question == null ? " cursor-pointer" : "");
-                                    var catStyle = "flex: 1; min-width: 0; cursor: " + (s.Question == null ? "pointer" : "default") + ";";
+                                    var catCursor = s.Question == null ? "pointer" : "default";
                                 }
 
-                                @if (editCategorySlot?.Id == s.Id)
-                                {
-                                    <CategorySelector Categories="categories"
-                                        @bind-SelectedCategoryId="editCategorySlotCategoryId"
-                                        ConfirmLabel="Save"
-                                        OnConfirm="() => SaveCategoryAsync(s.Id)"
-                                        OnCancel="() => editCategorySlot = null" />
-                                }
-                                else
-                                {
-                                    <div style="@catStyle"
-                                        @onclick="@(s.Question == null ? EventCallback.Factory.Create(this, () => { editCategorySlot = s; editCategorySlotCategoryId = s.CategoryId; }) : default)"
-                                        @onclick:stopPropagation="true">
+                                <div style="width: 120px; flex-shrink: 0; min-width: 0;"
+                                     @onclick:stopPropagation="true">
+                                    @if (editCategorySlot?.Id == s.Id)
+                                    {
+                                        <CategorySelector Categories="categories"
+                                                          @bind-SelectedCategoryId="editCategorySlotCategoryId"
+                                                          ConfirmLabel="Save"
+                                                          OnConfirm="() => SaveCategoryAsync(s.Id)"
+                                                          OnCancel="() => editCategorySlot = null" />
+                                    }
+                                    else
+                                    {
+                                        <div style="cursor: @catCursor;"
+                                             @onclick="@(s.Question == null ? EventCallback.Factory.Create(this, () => { editCategorySlot = s; editCategorySlotCategoryId = s.CategoryId; }) : default)">
+                                            <ColorBadge Name="@(s.Category?.Name ?? "— no category —")"
+                                                        ColorHex="@catColor"
+                                                        CssClass="text-truncate d-block"
+                                                        Style="max-width: 100%;" />
+                                        </div>
+                                    }
+                                </div>
 
-                                        <ColorBadge 
-                                            Name="@(s.Category?.Name ?? "— no category —")"
-                                            ColorHex="@catColor"
-                                            CssClass="@catCss"
-                                            Style="max-width: 100%;" />
+                                <div style="flex: 1; min-width: 0; cursor: pointer;"
+                                     @onclick="async () => { if (editUrl != null) Nav.NavigateTo(editUrl); else await OpenPickerAsync(s); }"
+                                     @onclick:stopPropagation="true">
+                                    @if (s.Question != null)
+                                    {
+                                        <QuestionVisualizer Question="s.Question" />
+                                    }
+                                    else if (pickerSlot?.Id != s.Id)
+                                    {
+                                        <span class="small text-muted fst-italic">[Click to assign]</span>
+                                    }
+                                </div>
 
-                                    </div>
-                                }
-                
                                 <div class="d-flex gap-1 flex-shrink-0" @onclick:stopPropagation="true">
-
                                     @if (s.Question != null)
                                     {
                                         <button class="btn btn-outline-secondary btn-sm"
@@ -182,7 +192,6 @@ else
                                             <span class="oi oi-trash" />
                                         </button>
                                     }
-
                                     <button class="btn btn-outline-secondary btn-sm"
                                             title="Insert slot above"
                                             @onclick="() => OpenAddSlot(r, s.Position - 1)">
@@ -193,21 +202,8 @@ else
                                             @onclick="() => OpenAddSlot(r, s.Position)">
                                         <span class="oi oi-arrow-bottom" />
                                     </button>
-
                                 </div>
-                            </div>
 
-                            <div style="padding-left: 2.8rem; cursor: pointer;"
-                                 @onclick="async () => { if (editUrl != null) Nav.NavigateTo(editUrl); else await OpenPickerAsync(s); }"
-                                 @onclick:stopPropagation="true">
-                                @if (s.Question != null)
-                                {
-                                    <QuestionVisualizer Question="s.Question" />
-                                }
-                                else if (pickerSlot?.Id != s.Id)
-                                {
-                                    <span class="small text-muted fst-italic">[Click to assign]</span>
-                                }
                             </div>
 
                         </div>
