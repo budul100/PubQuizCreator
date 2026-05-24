@@ -44,6 +44,12 @@ namespace PubQuizCreator.Web.Shared
             localValue = Value;
         }
 
+        protected override void OnParametersSet()
+        {
+            // Intentionally empty — Value flows from input to parent only, never back.
+            // External reset is handled explicitly via ClearAsync().
+        }
+
         #endregion Protected Methods
 
         #region Private Methods
