@@ -25,28 +25,30 @@ namespace PubQuizCreator.Services
                 .Distinct()
                 .ToListAsync(ct)).ToHashSet();
 
-            var availableCounts = await db.Questions
+            var questionCounts = await db.Questions
                 .Where(q => !q.IsUnusable
-                    && !assignedIds.Contains(q.Id)
                     && q.CategoryId != null
                     && !q.Category!.IsHidden)
                 .GroupBy(q => q.CategoryId)
                 .Select(g => new { CategoryId = g.Key, Count = g.Count() })
                 .ToListAsync(ct);
 
-            var availableCountMap = availableCounts
-                .Where(x => x.CategoryId.HasValue)
+            var openCountsMap = questionCounts
+                .Where(c => c.CategoryId.HasValue
+                    && !assignedIds.Contains(c.CategoryId.Value))
+                .ToDictionary(x => x.CategoryId!.Value, x => x.Count);
+
+            var totalCountsMap = questionCounts
+                .Where(c => c.CategoryId.HasValue)
                 .ToDictionary(x => x.CategoryId!.Value, x => x.Count);
 
             var questionsByCategory = visibleCategories
-                .Select(c => new QuestionStat
-                {
-                    Category = c,
-                    AvailableQuestions = availableCountMap.GetValueOrDefault(c.Id, 0)
-                })
-                .OrderByDescending(x => x.AvailableQuestions)
-                .ThenBy(x => x.Category.Name)
-                .ToList();
+                .Select(c => new Count(
+                    category: c,
+                    open: openCountsMap.GetValueOrDefault(c.Id, 0),
+                    total: totalCountsMap.GetValueOrDefault(c.Id, 0)))
+                .OrderByDescending(x => x.Open)
+                .ThenBy(x => x.Category?.Name).ToList();
 
             var openIdeas = await db.Ideas
                 .Include(i => i.Category)
@@ -59,13 +61,9 @@ namespace PubQuizCreator.Services
                 .ToDictionary(g => g.Key, g => g.Count());
 
             var ideasByCategory = visibleCategories
-                .Select(c => new IdeaStats
-                {
-                    Category = c,
-                    IdeaCount = ideaCountMap.GetValueOrDefault(c.Id, 0)
-                })
-                .OrderByDescending(x => x.IdeaCount)
-                .ThenBy(x => x.Category.Name)
+                .Select(c => new Count(c, ideaCountMap.GetValueOrDefault(c.Id, 0)))
+                .OrderByDescending(x => x.Open)
+                .ThenBy(x => x.Category?.Name)
                 .ToList();
 
             var nextQuiz = await db.Quizzes
@@ -116,8 +114,9 @@ namespace PubQuizCreator.Services
                 .ToHashSet();
 
             var openSlotsByCategory = upcomingSlots
-                .Where(s => s.QuestionId == null)
-                .GroupBy(s => s.CategoryId)
+                .Where(s => s.CategoryId.HasValue
+                    && s.QuestionId == null)
+                .GroupBy(s => s.CategoryId!.Value)
                 .ToDictionary(g => g.Key, g => g.Count());
 
             var availableCounts = await db.Questions
@@ -147,8 +146,7 @@ namespace PubQuizCreator.Services
                 })
                 .OrderBy(x => x.IsCovered)
                 .ThenByDescending(x => x.Deficit)
-                .ThenBy(x => x.Category.Name)
-                .ToList();
+                .ThenBy(x => x.Category.Name).ToList();
         }
 
         public async Task<int> GetUpcomingDeficitAsync(CancellationToken ct = default)

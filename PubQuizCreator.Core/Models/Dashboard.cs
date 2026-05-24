@@ -4,7 +4,7 @@
     {
         #region Public Properties
 
-        public List<IdeaStats> IdeasByCategory { get; set; } = [];
+        public List<Count> IdeasByCategory { get; set; } = [];
 
         public int IdeasTotal { get; set; }
 
@@ -16,7 +16,7 @@
 
         public int NextQuizTotalSlots { get; set; }
 
-        public List<QuestionStat> QuestionsByCategory { get; set; } = [];
+        public List<Count> QuestionsByCategory { get; set; } = [];
 
         #endregion Public Properties
     }

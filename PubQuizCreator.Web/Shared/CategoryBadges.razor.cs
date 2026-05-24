@@ -7,7 +7,7 @@ namespace PubQuizCreator.Web.Shared
     {
         #region Public Properties
 
-        [Parameter] public IEnumerable<CategoryStat> CategoryStats { get; set; } = [];
+        [Parameter] public IEnumerable<Count> CategoryStats { get; set; } = [];
 
         [Parameter] public string CssClass { get; set; } = "";
 
