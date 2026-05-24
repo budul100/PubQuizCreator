@@ -7,7 +7,7 @@ namespace PubQuizCreator.Web.Shared
     {
         #region Public Properties
 
-        [Parameter] public string FallbackText { get; set; } = "— click to assign —";
+        [Parameter] public string FallbackText { get; set; } = "[Click to assign]";
 
         [Parameter] public Question? Question { get; set; }
 
