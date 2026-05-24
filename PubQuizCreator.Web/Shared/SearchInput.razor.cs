@@ -6,6 +6,7 @@ namespace PubQuizCreator.Web.Shared
     {
         #region Private Fields
 
+        private bool forceRender = false;
         private ElementReference inputRef;
         private string localValue = string.Empty;
 
@@ -25,12 +26,14 @@ namespace PubQuizCreator.Web.Shared
 
         #region Public Methods
 
-        public async Task ClearAsync()
+        public Task ClearAsync()
         {
             localValue = string.Empty;
-            await ValueChanged.InvokeAsync(string.Empty);
 
+            forceRender = true;
             StateHasChanged();
+
+            return Task.CompletedTask;
         }
 
         public async Task FocusAsync() => await inputRef.FocusAsync();
@@ -44,10 +47,15 @@ namespace PubQuizCreator.Web.Shared
             localValue = Value;
         }
 
-        protected override void OnParametersSet()
+        protected override bool ShouldRender()
         {
-            // Intentionally empty — Value flows from input to parent only, never back.
-            // External reset is handled explicitly via ClearAsync().
+            if (forceRender)
+            {
+                forceRender = false;
+                return true;
+            }
+
+            return false;
         }
 
         #endregion Protected Methods
