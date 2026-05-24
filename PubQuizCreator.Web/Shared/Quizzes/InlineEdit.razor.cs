@@ -9,7 +9,7 @@ namespace PubQuizCreator.Web.Shared.Quizzes
 
         private string currentValue = string.Empty;
         private string displayValue = string.Empty;
-        private bool IsEditing;
+        private bool forceRender = false;
 
         #endregion Private Fields
 
@@ -33,14 +33,28 @@ namespace PubQuizCreator.Web.Shared.Quizzes
 
         #endregion Public Properties
 
+        #region Private Properties
+
+        private bool IsEditing { get; set; }
+
+        #endregion Private Properties
+
         #region Protected Methods
 
         protected override void OnParametersSet()
         {
             if (!IsEditing)
-            {
                 displayValue = Value;
+        }
+
+        protected override bool ShouldRender()
+        {
+            if (forceRender)
+            {
+                forceRender = false;
+                return true;
             }
+            return true; // InlineEdit muss bei IsEditing-Wechsel immer rendern
         }
 
         #endregion Protected Methods
@@ -50,50 +64,40 @@ namespace PubQuizCreator.Web.Shared.Quizzes
         private async Task CancelAsync()
         {
             IsEditing = false;
-
+            forceRender = true;
             await OnCancel.InvokeAsync();
         }
 
         private async Task ConfirmAsync()
         {
             IsEditing = false;
-
-            var trimmed = string.IsNullOrWhiteSpace(currentValue)
-                ? null
-                : currentValue.Trim();
-            var previous = string.IsNullOrWhiteSpace(displayValue)
-                ? null
-                : displayValue.Trim();
-            if (trimmed == previous) return;
-
-            displayValue = trimmed ?? string.Empty;
-            await OnConfirm.InvokeAsync(trimmed);
+            var trimmed = string.IsNullOrWhiteSpace(currentValue) ? null : currentValue.Trim();
+            var previous = string.IsNullOrWhiteSpace(displayValue) ? null : displayValue.Trim();
+            if (trimmed != previous)
+            {
+                displayValue = trimmed ?? string.Empty;
+                await OnConfirm.InvokeAsync(trimmed);
+            }
+            forceRender = true;
         }
 
         private async Task HandleBlur()
         {
             if (!ShowButtons)
-            {
                 await ConfirmAsync();
-            }
         }
 
         private async Task HandleKeyDown(KeyboardEventArgs e)
         {
-            if (e.Key == "Enter" && !ShowButtons)
-            {
-                await ConfirmAsync();
-            }
-            else if (e.Key == "Escape")
-            {
-                await CancelAsync();
-            }
+            if (e.Key == "Enter" && !ShowButtons) await ConfirmAsync();
+            else if (e.Key == "Escape") await CancelAsync();
         }
 
         private void StartEditing()
         {
             currentValue = displayValue;
             IsEditing = true;
+            forceRender = true;
         }
 
         #endregion Private Methods

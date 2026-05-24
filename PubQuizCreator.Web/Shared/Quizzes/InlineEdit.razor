@@ -3,9 +3,9 @@
     <div class="d-flex align-items-center gap-2" @onclick:stopPropagation="true">
         <input class="form-control form-control-sm"
                style="@InputStyle"
-               value="@currentValue"
                placeholder="@Placeholder"
-               @oninput="e => currentValue = e.Value?.ToString() ?? string.Empty" 
+               value="@currentValue"
+               @oninput="e => currentValue = e.Value?.ToString() ?? string.Empty"
                @onblur="HandleBlur"
                @onkeydown="HandleKeyDown" />
 
@@ -26,5 +26,3 @@ else
         @(string.IsNullOrWhiteSpace(displayValue) ? Placeholder : displayValue)
     </span>
 }
-
-
