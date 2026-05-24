@@ -14,6 +14,8 @@
 
         public List<RoundSlot> Slots { get; set; } = [];
 
+        public string? Title { get; set; }
+
         #endregion Public Properties
     }
 }
