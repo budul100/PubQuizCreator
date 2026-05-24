@@ -31,8 +31,6 @@ namespace PubQuizCreator.Core.Models
 
         public string TextShort { get; set; } = "";
 
-        public bool WasUsed { get; set; } = false;
-
         #endregion Public Properties
     }
 }

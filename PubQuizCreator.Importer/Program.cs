@@ -119,7 +119,6 @@ internal partial class Program
                     CategoryId = category.Id,
                     MediaType = mediaType,
                     MediaFile = mediaFile,
-                    WasUsed = true,
                 };
 
                 try
@@ -222,7 +221,6 @@ internal partial class Program
                 TextLong = "",
                 Answer = answer,
                 IsUnusable = true,
-                WasUsed = true,
                 CategoryId = null,
             };
 

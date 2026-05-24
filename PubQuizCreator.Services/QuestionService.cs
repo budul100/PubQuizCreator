@@ -147,9 +147,8 @@ namespace PubQuizCreator.Services
 
             if (!showUsed && filterMode != CategoryFilter.Unusable)
             {
-                query = query.Where(q => q.AllowReuse || !q.WasUsed &&
-                    !db.RoundSlots.Any(s => s.QuestionId == q.Id &&
-                        s.Round.Quiz.IsCompleted));
+                query = query.Where(q => q.AllowReuse
+                || !db.RoundSlots.Any(s => s.QuestionId == q.Id && s.Round.Quiz.IsCompleted));
             }
 
             if (!string.IsNullOrWhiteSpace(search))
@@ -195,13 +194,12 @@ namespace PubQuizCreator.Services
             var rows = questions.Select(q =>
             {
                 var usage = usageMap.GetValueOrDefault(q.Id);
-                var isUsed = q.WasUsed || (usage?.IsCompleted ?? false);
                 return new QuestionRow(
                     Id: q.Id,
                     TextShort: q.TextShort,
                     Answer: q.Answer,
                     Category: q.Category,
-                    IsUsed: isUsed,
+                    IsUsed: usage?.IsCompleted ?? false,
                     AllowReuse: q.AllowReuse,
                     IsUnusable: q.IsUnusable,
                     MediaType: q.MediaType,
@@ -238,7 +236,6 @@ namespace PubQuizCreator.Services
             existing.MediaFile = question.MediaFile;
             existing.MediaType = question.MediaType;
             existing.IsUnusable = question.IsUnusable;
-            existing.WasUsed = question.WasUsed;
             existing.AllowReuse = question.AllowReuse;
 
             try

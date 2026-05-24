@@ -363,7 +363,6 @@ namespace PubQuizCreator.Web.Pages.Questions
                 MediaFile = q.MediaFile,
                 MediaType = q.MediaType,
                 IsUnusable = q.IsUnusable,
-                WasUsed = q.WasUsed,
                 AllowReuse = q.AllowReuse,
             };
 
@@ -377,7 +376,6 @@ namespace PubQuizCreator.Web.Pages.Questions
                 MediaFile = MediaFile,
                 MediaType = MediaType,
                 IsUnusable = IsUnusable,
-                WasUsed = WasUsed,
                 AllowReuse = AllowReuse,
             };
 

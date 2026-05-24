@@ -26,8 +26,7 @@ namespace PubQuizCreator.Services
                 .ToListAsync(ct)).ToHashSet();
 
             var availableCounts = await db.Questions
-                .Where(q => !q.WasUsed
-                    && !q.IsUnusable
+                .Where(q => !q.IsUnusable
                     && !assignedIds.Contains(q.Id)
                     && q.CategoryId != null
                     && !q.Category!.IsHidden)
@@ -124,7 +123,6 @@ namespace PubQuizCreator.Services
             var availableCounts = await db.Questions
                 .Where(q => q.CategoryId.HasValue
                     && categoryIds.Contains(q.CategoryId.Value)
-                    && !q.WasUsed
                     && !q.IsUnusable
                     && !assignedIds.Contains(q.Id)
                     && !q.Category!.IsHidden)

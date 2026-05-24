@@ -25,12 +25,12 @@ namespace PubQuizCreator.Web.Shared
 
         #region Public Methods
 
-        public Task ClearAsync()
+        public async Task ClearAsync()
         {
             localValue = string.Empty;
-            StateHasChanged();
+            await ValueChanged.InvokeAsync(string.Empty);
 
-            return Task.CompletedTask;
+            StateHasChanged();
         }
 
         public async Task FocusAsync() => await inputRef.FocusAsync();
@@ -44,11 +44,15 @@ namespace PubQuizCreator.Web.Shared
             localValue = Value;
         }
 
-        protected override bool ShouldRender() => false;
-
         #endregion Protected Methods
 
         #region Private Methods
+
+        private async Task ClearAndNotifyAsync()
+        {
+            await ClearAsync();
+            await FocusAsync();
+        }
 
         private async Task OnInput(ChangeEventArgs e)
         {

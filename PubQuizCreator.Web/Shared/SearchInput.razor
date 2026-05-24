@@ -1,5 +1,14 @@
-﻿<input class="@CssClass"
-       placeholder="@Placeholder"
-       value="@localValue"
-       @ref="inputRef"
-       @oninput="OnInput" />
+﻿<div class="search-input-wrapper">
+    <input class="@CssClass"
+           placeholder="@Placeholder"
+           value="@localValue"
+           @ref="inputRef"
+           @oninput="OnInput" />
+
+    @if (!string.IsNullOrEmpty(localValue))
+    {
+        <button class="search-clear-btn" @onclick="ClearAndNotifyAsync" tabindex="-1" type="button">
+            &times;
+        </button>
+    }
+</div>

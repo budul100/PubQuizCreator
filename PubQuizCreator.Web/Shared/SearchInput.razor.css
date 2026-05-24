@@ -1,0 +1,29 @@
+﻿.search-input-wrapper {
+    position: relative;
+    display: flex; /* war: inline-flex */
+    width: 100%;
+}
+
+.search-clear-btn {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    color: #6c757d;
+    padding: 0 2px;
+    z-index: 10;
+}
+
+.search-clear-btn:hover {
+    color: #000;
+}
+
+.search-input-wrapper .form-control {
+    flex: 1; /* neu: Input füllt den ganzen Wrapper */
+    padding-right: 1.8rem;
+}
