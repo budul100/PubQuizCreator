@@ -1,4 +1,4 @@
-﻿@if ((IsInCompletedQuiz || WasUsed) && !IsUnusable)
+﻿@if (IsUsed && !IsUnusable)
 {
     <button 
         class="btn btn-sm w-100 @(AllowReuse ? "btn-info" : "btn-outline-secondary")"

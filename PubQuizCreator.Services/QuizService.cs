@@ -108,7 +108,7 @@ namespace PubQuizCreator.Services
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            var slot = await db.RoundSlots.FindAsync(new object[] { slotId }, ct);
+            var slot = await db.RoundSlots.FindAsync([slotId], ct);
             if (slot == null) return;
 
             slot.CategoryId = categoryId;
@@ -267,24 +267,35 @@ namespace PubQuizCreator.Services
             await db.SaveChangesAsync(ct);
         }
 
-        public async Task SetCompletedAsync(Guid quizId, bool value, CancellationToken ct = default)
+        public async Task UpdateCompletedAsync(Guid quizId, bool isCompleted, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
+
             await db.Quizzes
                 .Where(q => q.Id == quizId)
-                .ExecuteUpdateAsync(s => s.SetProperty(q => q.IsCompleted, value), ct);
+                .ExecuteUpdateAsync(s => s.SetProperty(q => q.IsCompleted, isCompleted), ct);
+
+            if (isCompleted)
+            {
+                var questionIds = db.RoundSlots
+                    .Where(s => s.Round.QuizId == quizId && s.QuestionId != null)
+                    .Select(s => s.QuestionId!.Value);
+
+                await db.Questions
+                    .Where(q => questionIds.Contains(q.Id))
+                    .ExecuteUpdateAsync(s => s.SetProperty(q => q.AllowReuse, false), ct);
+            }
         }
 
-        public async Task UpdateAsync(Guid quizId, string title, DateOnly date, CancellationToken ct = default)
+        public async Task UpdatePropsAsync(Guid quizId, string title, DateOnly date, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            var quiz = await db.Quizzes.FindAsync([quizId], ct);
-            if (quiz == null) return;
-
-            quiz.Title = title;
-            quiz.Date = date;
-            await db.SaveChangesAsync(ct);
+            await db.Quizzes
+                .Where(q => q.Id == quizId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(q => q.Title, title)
+                    .SetProperty(q => q.Date, date), ct);
         }
 
         #endregion Public Methods

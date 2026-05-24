@@ -1,8 +1,9 @@
-﻿@if (UsedInQuiz == null && !IsInCompletedQuiz)
+﻿@if (!IsUsed)
 {
-    <button class="btn btn-outline-danger btn-sm w-100"
-            title="Delete"
-            @onclick="OnDelete">
+    <button 
+        class="btn btn-outline-danger btn-sm w-100"
+        title="Delete"
+        @onclick="OnDelete">
         <span class="oi oi-trash" />
     </button>
 }

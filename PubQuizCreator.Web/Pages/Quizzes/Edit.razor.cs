@@ -151,7 +151,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
             StateHasChanged();
 
-            await Task.Yield(); // let Blazor render the input first
+            await Task.Yield();
 
             if (pickerSearchInput != null)
             {
@@ -159,15 +159,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
                 await pickerSearchInput.FocusAsync();
             }
 
-            var assignedIds = quiz!.Rounds
-                .SelectMany(r => r.Slots)
-                .Where(s => s.QuestionId != null && s.Id != slot.Id)
-                .Select(s => s.QuestionId!.Value)
-                .ToHashSet();
-
-            pickerAll = slot.CategoryId == null || slot.CategoryId == Guid.Empty
-                ? await QuestionService.GetUnassignedAsync()
-                : await QuestionService.GetByCategoryAsync(slot.CategoryId, assignedIds);
+            pickerAll = await QuestionService.GetAvailableAsync(slot.CategoryId);
 
             ApplySearch();
         }
@@ -182,7 +174,9 @@ namespace PubQuizCreator.Web.Pages.Quizzes
                 foreach (var round in quiz.Rounds)
                 {
                     if (AppState.RoundsKnown.Add(round.Id))
+                    {
                         AppState.RoundsCollapsed.Add(round.Id);
+                    }
                 }
             }
         }
@@ -225,14 +219,14 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         private async Task SaveHeaderAsync()
         {
             if (quiz == null) return;
-            await QuizService.UpdateAsync(quiz.Id, quiz.Title, quiz.Date);
+            await QuizService.UpdatePropsAsync(quiz.Id, quiz.Title, quiz.Date);
         }
 
         private async Task ToggleCompletedAsync()
         {
             if (quiz == null) return;
 
-            await QuizService.SetCompletedAsync(quiz.Id, !quiz.IsCompleted);
+            await QuizService.UpdateCompletedAsync(quiz.Id, !quiz.IsCompleted);
             quiz.IsCompleted = !quiz.IsCompleted;
         }
 

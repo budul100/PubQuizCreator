@@ -40,9 +40,9 @@
                 <option value="unusable">— Unusable —</option>
             </select>
 
-            <SearchInput 
-                @bind-Value="searchInput"
-                @bind-Value:after="ApplySearch" />
+            <SearchInput @bind-Value="searchInput"
+                         @bind-Value:after="ApplyFilterAsync" />
+
         </div>
 
         @if (isLoading)
@@ -52,10 +52,10 @@
         else
         {
             <div class="mb-2 text-muted small">
-                Showing @pageds.Count of @filtereds.Count questions (@entries.Count total)
+                Showing @pageds.Count of @totalCount questions
             </div>
 
-            @if (!filtereds.Any())
+            @if (totalCount == 0)
             {
                 <p class="text-muted">No questions found.</p>
             }
@@ -76,33 +76,33 @@
 
                                 <CategoryBadge 
                                     Name="@(question.Category?.Name ?? "")"
-                                    IsUnusable="question.IsUnusable"
+                                    IsUnusable="@question.IsUnusable"
                                     ColorHex="@(question.Category?.ColorHex ?? "#aaaaaa")" />
 
                                 <div class="d-flex gap-1" @onclick:stopPropagation="true">
-                                    <ReuseButton 
-                                        AllowReuse="question.AllowReuse"
-                                        IsInCompletedQuiz="question.IsInCompletedQuiz"
-                                        WasUsed="question.WasUsed"
-                                        IsUnusable="question.IsUnusable"
-                                        OnToggle="v => ToggleReuseAsync(question.Id, v)" />
+                                    @if (question.IsUsed)
+                                    {
+                                        <ReuseButton IsUsed="@question.IsUsed"
+                                                     IsUnusable="@question.IsUnusable"
+                                                     AllowReuse="@question.AllowReuse"
+                                                     OnToggle="v => ToggleReuseAsync(question.Id, v)" />
 
-                                    <DeleteButton 
-                                        UsedInQuiz="question.UsedInQuiz"
-                                        IsInCompletedQuiz="question.IsInCompletedQuiz"
-                                        OnDelete="() => DeleteAsync(question.Id)" />
+                                    }
+                                    else
+                                    {
+                                        <DeleteButton IsUsed="@question.IsUsed"
+                                                      OnDelete="() => DeleteAsync(question.Id)" />
+                                    }
                                 </div>
 
                             </div>
 
                             <div class="fw-semibold small">@question.TextShort</div>
                             <div class="text-muted small">→ @question.Answer</div>
-                            
-                            <UsageLabel 
-                                UsedInQuiz="question.UsedInQuiz"
-                                IsInCompletedQuiz="question.IsInCompletedQuiz"
-                                WasUsed="question.WasUsed" />
 
+                            <UsageLabel 
+                                UsedInQuiz="@question.UsedInQuiz"
+                                IsUsed="@question.IsUsed" />
                         </div>
                     }
                 </div>
@@ -118,7 +118,6 @@
                                 <th style="width: calc((100% - 250px) * 3 / 8)">Answer</th>
                                 <th style="width: 200px">Used in</th>
                                 <th style="width: 40px"></th>
-                                <th style="width: 40px"></th>
                             </tr>
                         </thead>
 
@@ -133,38 +132,37 @@
                                     <td>
                                         <CategoryBadge 
                                             Name="@(question.Category?.Name ?? "")"
-                                            IsUnusable="question.IsUnusable"
+                                            IsUnusable="@question.IsUnusable"
                                             ColorHex="@(question.Category?.ColorHex ?? "#aaaaaa")" />
                                     </td>
 
                                     <td>
                                         @question.TextShort
-                                        <MediaIcon Type="question.MediaType" Prefix="" />
+                                        <MediaIcon Type="@question.MediaType" Prefix="" />
                                     </td>
 
                                     <td class="text-muted">@question.Answer</td>
                                     
                                     <td @onclick:stopPropagation="true">
                                         <UsageLabel 
-                                            UsedInQuiz="question.UsedInQuiz"
-                                            IsInCompletedQuiz="question.IsInCompletedQuiz"
-                                            WasUsed="question.WasUsed" />
+                                            UsedInQuiz="@question.UsedInQuiz"
+                                            IsUsed="@question.IsUsed" />
                                     </td>
 
                                     <td @onclick:stopPropagation="true">
-                                        <ReuseButton 
-                                            AllowReuse="question.AllowReuse"
-                                            IsInCompletedQuiz="question.IsInCompletedQuiz"
-                                            WasUsed="question.WasUsed"
-                                            IsUnusable="question.IsUnusable"
-                                            OnToggle="v => ToggleReuseAsync(question.Id, v)" />
-                                    </td>
+                                        @if (question.IsUsed)
+                                        {
+                                            <ReuseButton IsUsed="@question.IsUsed"
+                                                         IsUnusable="@question.IsUnusable"
+                                                         AllowReuse="@question.AllowReuse"
+                                                         OnToggle="v => ToggleReuseAsync(question.Id, v)" />
 
-                                    <td @onclick:stopPropagation="true">
-                                        <DeleteButton 
-                                            UsedInQuiz="question.UsedInQuiz"
-                                            IsInCompletedQuiz="question.IsInCompletedQuiz"
-                                            OnDelete="() => DeleteAsync(question.Id)" />
+                                        }
+                                        else
+                                        {
+                                            <DeleteButton IsUsed="@question.IsUsed"
+                                                          OnDelete="() => DeleteAsync(question.Id)" />
+                                        }
                                     </td>
 
                                 </tr>
@@ -174,10 +172,11 @@
 
                 </div>
 
-                <ContentPager TotalItems="filtereds.Count"
-                   PageSize="Constants.PageSizeList"
-                   CurrentPage="currentPage"
-                   PageChanged="OnPageChanged" />
+                <ContentPager TotalItems="@totalCount"
+                              PageSize="@Constants.PageSizeList"
+                              CurrentPage="@currentPage"
+                              PageChanged="@OnPageChanged" />
+
             }
         }
 

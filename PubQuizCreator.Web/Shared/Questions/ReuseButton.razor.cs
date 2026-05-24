@@ -8,13 +8,11 @@ namespace PubQuizCreator.Web.Shared.Questions
 
         [Parameter] public bool AllowReuse { get; set; }
 
-        [Parameter] public bool IsInCompletedQuiz { get; set; }
-
         [Parameter] public bool IsUnusable { get; set; }
 
+        [Parameter] public bool IsUsed { get; set; }
+        
         [Parameter] public EventCallback<bool> OnToggle { get; set; }
-
-        [Parameter] public bool WasUsed { get; set; }
 
         #endregion Public Properties
     }

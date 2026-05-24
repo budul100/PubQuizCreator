@@ -6,11 +6,9 @@ namespace PubQuizCreator.Web.Shared.Questions
     {
         #region Public Properties
 
-        [Parameter] public bool IsInCompletedQuiz { get; set; }
+        [Parameter] public bool IsUsed { get; set; }
 
         [Parameter] public EventCallback OnDelete { get; set; }
-
-        [Parameter] public string? UsedInQuiz { get; set; }
 
         #endregion Public Properties
     }

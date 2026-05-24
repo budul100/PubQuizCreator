@@ -27,21 +27,10 @@ namespace PubQuizCreator.Core.Models
 
         public MediaType MediaType { get; set; } = MediaType.None;
 
-        public List<RoundSlot> QuizSlots { get; set; } = [];
-
         public string TextLong { get; set; } = "";
 
         public string TextShort { get; set; } = "";
 
-        /// <summary>
-        /// Indicates that this question should no longer appear in the available pool.
-        /// Set to <c>true</c> in any of the following cases:
-        /// <list type="bullet">
-        ///   <item>The question was played in a quiz (set on PPTX export).</item>
-        ///   <item>The question was imported from historical data (already played before this system existed).</item>
-        ///   <item>The question is marked as unusable (<see cref="IsUnusable"/> = true).</item>
-        /// </list>
-        /// </summary>
         public bool WasUsed { get; set; } = false;
 
         #endregion Public Properties

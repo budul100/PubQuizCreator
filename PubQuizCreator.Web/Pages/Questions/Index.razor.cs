@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using PubQuizCreator.Core;
 using PubQuizCreator.Core.Models;
+using PubQuizCreator.Core.Types;
 using PubQuizCreator.Services;
 using PubQuizCreator.Web.Helpers;
 
@@ -13,9 +14,7 @@ namespace PubQuizCreator.Web.Pages.Questions
         private List<Category> categories = [];
         private Dictionary<Guid, int> countByCategory = [];
         private int currentPage = 1;
-        private List<QuestionRow> entries = [];
         private Guid? filterCategoryId;
-        private List<QuestionRow> filtereds = [];
         private CategoryFilter filterMode = CategoryFilter.All;
         private bool initialized = false;
         private bool isLoading = true;
@@ -24,19 +23,9 @@ namespace PubQuizCreator.Web.Pages.Questions
         private string searchInput = "";
         private bool showUsed = false;
 
+        private int totalCount = 0;
+
         #endregion Private Fields
-
-        #region Private Enums
-
-        private enum CategoryFilter
-        {
-            All,
-            AllIncludingHidden,
-            Unusable,
-            Specific
-        }
-
-        #endregion Private Enums
 
         #region Public Properties
 
@@ -51,31 +40,10 @@ namespace PubQuizCreator.Web.Pages.Questions
         protected override async Task OnInitializedAsync()
         {
             StateService.SetPageTitle("Questions");
-
             isLoading = true;
 
             categories = await CategoryService.GetAllAsync();
-
-            var all = await QuestionService.GetAllAsync();
-            var usageInfo = await QuestionService.GetUsageInfoMapAsync();
-
-            entries = all.Select(q => new QuestionRow(
-                q.Id,
-                q.TextShort,
-                q.Answer,
-                q.Category,
-                q.WasUsed,
-                q.AllowReuse,
-                q.IsUnusable,
-                usageInfo.GetValueOrDefault(q.Id)?.QuizInfo,
-                usageInfo.GetValueOrDefault(q.Id)?.LastUsedDate,
-                usageInfo.GetValueOrDefault(q.Id)?.IsCompleted ?? false,
-                q.MediaType)).ToList();
-
-            countByCategory = entries
-                .Where(q => !q.IsUnusable)
-                .GroupBy(q => q.Category?.Id ?? Guid.Empty)
-                .ToDictionary(g => g.Key, g => g.Count());
+            countByCategory = await QuestionService.GetCountByCategoryAsync(); // see below
 
             if (InitialCategoryId.HasValue && InitialCategoryId != Guid.Empty)
             {
@@ -86,10 +54,9 @@ namespace PubQuizCreator.Web.Pages.Questions
             if (InitialShowUsed)
                 showUsed = true;
 
-            await ApplyFilterAsync();
+            await LoadCurrentPageAsync();
 
             isLoading = false;
-
             lastCategoryId = InitialCategoryId;
             initialized = true;
         }
@@ -113,7 +80,8 @@ namespace PubQuizCreator.Web.Pages.Questions
             }
 
             showUsed = InitialShowUsed;
-            await ApplyFilterAsync();
+
+            await LoadCurrentPageAsync();
         }
 
         #endregion Protected Methods
@@ -122,67 +90,26 @@ namespace PubQuizCreator.Web.Pages.Questions
 
         private async Task ApplyFilterAsync()
         {
-            isLoading = true;
-
-            StateHasChanged();
-            await Task.Yield();
-
-            ApplySearch();
-
-            isLoading = false;
-        }
-
-        private void ApplyPaging()
-        {
-            pageds = filtereds
-                .Skip((currentPage - 1) * Constants.PageSizeList)
-                .Take(Constants.PageSizeList).ToList();
-        }
-
-        private void ApplySearch()
-        {
-            filtereds = entries
-                .Where(q => filterMode switch
-                {
-                    CategoryFilter.Unusable => q.IsUnusable,
-                    CategoryFilter.AllIncludingHidden => !q.IsUnusable,
-                    CategoryFilter.Specific => !q.IsUnusable && q.Category?.Id == filterCategoryId,
-                    _ => !q.IsUnusable && q.Category?.IsHidden != true
-                })
-                .Where(q => filterMode == CategoryFilter.Unusable
-                    || q.AllowReuse
-                    || showUsed
-                    || (!q.WasUsed && !q.IsInCompletedQuiz))
-                .Where(q => string.IsNullOrWhiteSpace(searchInput)
-                    || q.TextShort.Contains(searchInput, StringComparison.OrdinalIgnoreCase)
-                    || q.Answer.Contains(searchInput, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(q => q.IsUnusable ? 1 : 0)
-                .ThenBy(q => q.Category?.Name ?? "")
-                .ThenBy(q => q.LastUsedDate.HasValue ? 0 : q.WasUsed ? 1 : 2)
-                .ThenByDescending(q => q.LastUsedDate ?? DateOnly.MinValue)
-                .ThenBy(q => q.TextShort).ToList();
-
             currentPage = 1;
-            ApplyPaging();
+            await LoadCurrentPageAsync();
         }
+
+
 
         private async Task DeleteAsync(Guid id)
         {
-            var entry = entries.First(q => q.Id == id);
+            var current = pageds.First(q => q.Id == id);
 
-            var confirmed = await JS.ConfirmDeleteAsync(entry.TextShort);
+            var confirmed = await JS.ConfirmDeleteAsync(current.TextShort);
             if (!confirmed) return;
 
             await QuestionService.DeleteAsync(id);
 
-            entries.RemoveAll(q => q.Id == id);
+            pageds.RemoveAll(q => q.Id == id);
 
-            countByCategory = entries
-                .Where(q => !q.IsUnusable)
-                .GroupBy(q => q.Category?.Id ?? Guid.Empty)
-                .ToDictionary(g => g.Key, g => g.Count());
+            countByCategory = await QuestionService.GetCountByCategoryAsync();
 
-            await ApplyFilterAsync();
+            await LoadCurrentPageAsync();
         }
 
         private string GetCategorySelectValue() => filterMode switch
@@ -195,6 +122,23 @@ namespace PubQuizCreator.Web.Pages.Questions
 
             _ => "all"
         };
+
+        private async Task LoadCurrentPageAsync()
+        {
+            isLoading = true;
+            StateHasChanged();
+            await Task.Yield();
+
+            (pageds, totalCount) = await QuestionService.GetPagedAsync(
+                page: currentPage,
+                pageSize: Constants.PageSizeList,
+                filterMode: filterMode,
+                categoryId: filterCategoryId,
+                showUsed: showUsed,
+                search: searchInput);
+
+            isLoading = false;
+        }
 
         private async Task OnCategoryChanged(ChangeEventArgs e)
         {
@@ -213,24 +157,24 @@ namespace PubQuizCreator.Web.Pages.Questions
                     : (CategoryFilter.All, null)
             };
 
-            await ApplyFilterAsync();
+            await LoadCurrentPageAsync();
         }
 
-        private void OnPageChanged(int page)
+        private async Task OnPageChanged(int page)
         {
             currentPage = page;
-            ApplyPaging();
+            await LoadCurrentPageAsync();
         }
 
         private async Task ToggleReuseAsync(Guid id, bool value)
         {
             await QuestionService.SetAllowReuseAsync(id, value);
 
-            var index = entries.FindIndex(q => q.Id == id);
+            var index = pageds.FindIndex(q => q.Id == id);
 
             if (index >= 0)
             {
-                entries[index] = entries[index] with { AllowReuse = value };
+                pageds[index] = pageds[index] with { AllowReuse = value };
             }
 
             StateHasChanged();

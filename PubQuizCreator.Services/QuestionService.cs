@@ -3,6 +3,7 @@ using Pgvector;
 using Pgvector.EntityFrameworkCore;
 using PubQuizCreator.Core.Interfaces;
 using PubQuizCreator.Core.Models;
+using PubQuizCreator.Core.Types;
 using PubQuizCreator.Data;
 
 namespace PubQuizCreator.Services
@@ -84,31 +85,6 @@ namespace PubQuizCreator.Services
                 .ToListAsync(ct);
         }
 
-        public async Task<List<Question>> GetAllAsync(CancellationToken ct = default)
-        {
-            await using var db = await dbFactory.CreateDbContextAsync(ct);
-
-            return await db.Questions
-                .Include(q => q.Category)
-                .Select(q => new Question
-                {
-                    Id = q.Id,
-                    TextShort = q.TextShort,
-                    TextLong = q.TextLong,
-                    Answer = q.Answer,
-                    CategoryId = q.CategoryId,
-                    Category = q.Category,
-                    MediaFile = q.MediaFile,
-                    MediaType = q.MediaType,
-                    WasUsed = q.WasUsed,
-                    AllowReuse = q.AllowReuse,
-                    IsUnusable = q.IsUnusable,
-                    CreatedAt = q.CreatedAt,
-                })
-                .AsNoTracking()
-                .ToListAsync(ct);
-        }
-
         public async Task<Question?> GetAsync(Guid id, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
@@ -118,77 +94,122 @@ namespace PubQuizCreator.Services
                 .FirstOrDefaultAsync(q => q.Id == id, ct);
         }
 
-        public async Task<List<Question>> GetByCategoryAsync(Guid? categoryId, HashSet<Guid> excludeIds,
-            CancellationToken ct = default)
+        public async Task<List<Question>> GetAvailableAsync(Guid? categoryId, CancellationToken ct = default)
         {
-            if (categoryId == null || categoryId == Guid.Empty)
-                return [];
-
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            return await db.Questions
-                .Where(q => q.CategoryId == categoryId
-                    && !q.IsUnusable
-                    && !excludeIds.Contains(q.Id)
-                    && (q.AllowReuse || (!db.RoundSlots.Any(s =>
-                            s.QuestionId == q.Id
-                            && s.Round.Quiz.IsCompleted))))
-                .Select(q => new Question
-                {
-                    Id = q.Id,
-                    TextShort = q.TextShort,
-                    TextLong = q.TextLong,
-                    Answer = q.Answer,
-                    CategoryId = q.CategoryId,
-                    Category = q.Category,
-                    MediaFile = q.MediaFile,
-                    MediaType = q.MediaType,
-                    WasUsed = q.WasUsed,
-                    AllowReuse = q.AllowReuse,
-                    IsUnusable = q.IsUnusable,
-                    CreatedAt = q.CreatedAt,
-                })
+            var query = db.Questions
+                .Include(q => q.Category)
+                .Where(q => !q.IsUnusable
+                    && q.CategoryId != null
+                    && (q.AllowReuse || !db.RoundSlots.Any(s => s.QuestionId == q.Id)));
+
+            if (categoryId != null
+                && categoryId != Guid.Empty)
+            {
+                query = query.Where(q => q.CategoryId == categoryId);
+            }
+
+            return await query
                 .AsNoTracking()
                 .OrderByDescending(q => q.CreatedAt)
                 .ToListAsync(ct);
         }
 
-        public async Task<List<Question>> GetUnassignedAsync(CancellationToken ct = default)
+        public async Task<Dictionary<Guid, int>> GetCountByCategoryAsync(CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
-
-            var assignedIds = await db.RoundSlots
-                .Where(s => s.QuestionId != null)
-                .Select(s => s.QuestionId!.Value)
-                .Distinct()
-                .ToListAsync(ct);
 
             return await db.Questions
-                .Include(q => q.Category)
-                .Where(q => !q.IsUnusable
-                    && q.CategoryId != null
-                    && !assignedIds.Contains(q.Id))
-                .ToListAsync(ct);
+                .Where(q => !q.IsUnusable && q.CategoryId != null)
+                .GroupBy(q => q.CategoryId!.Value)
+                .Select(g => new { CategoryId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.CategoryId, x => x.Count, ct);
         }
 
-        public async Task<Dictionary<Guid, Usage>> GetUsageInfoMapAsync(CancellationToken ct = default)
+        public async Task<(List<QuestionRow> Items, int TotalCount)> GetPagedAsync(int page, int pageSize,
+            CategoryFilter filterMode, Guid? categoryId, bool showUsed, string? search, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
+            var query = db.Questions
+                .Include(q => q.Category)
+                .AsNoTracking();
+
+            // --- Filter ---
+            query = filterMode switch
+            {
+                CategoryFilter.Unusable => query.Where(q => q.IsUnusable),
+                CategoryFilter.AllIncludingHidden => query.Where(q => !q.IsUnusable),
+                CategoryFilter.Specific => query.Where(q => !q.IsUnusable && q.CategoryId == categoryId),
+                _ => query.Where(q => !q.IsUnusable && (q.Category == null || !q.Category.IsHidden))
+            };
+
+            if (!showUsed && filterMode != CategoryFilter.Unusable)
+            {
+                query = query.Where(q => q.AllowReuse || !q.WasUsed &&
+                    !db.RoundSlots.Any(s => s.QuestionId == q.Id &&
+                        s.Round.Quiz.IsCompleted));
+            }
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(q => EF.Functions.ILike(q.TextShort, $"%{search}%")
+                    || EF.Functions.ILike(q.TextLong, $"%{search}%")
+                    || EF.Functions.ILike(q.Answer, $"%{search}%"));
+            }
+
+            // --- Count (before paging) ---
+            var total = await query.CountAsync(ct);
+
+            // --- Sort ---
+            var sorted = query
+                .OrderBy(q => q.IsUnusable ? 1 : 0)
+                .ThenBy(q => q.Category != null ? q.Category.Name : "")
+                .ThenBy(q => q.TextShort);
+
+            // --- Page ---
+            var questions = await sorted
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
+
+            // --- Usage info only for this page ---
+            var ids = questions.Select(q => q.Id).ToHashSet();
+
             var slots = await db.RoundSlots
-                .Where(s => s.QuestionId != null)
+                .Where(s => s.QuestionId != null && ids.Contains(s.QuestionId!.Value))
                 .Include(s => s.Round).ThenInclude(r => r.Quiz)
                 .Select(s => new { s.QuestionId, s.Round.Quiz.Title, s.Round.Quiz.Date, s.Round.Quiz.IsCompleted })
                 .ToListAsync(ct);
 
-            return slots
-                .GroupBy(x => x.QuestionId!.Value)
+            var usageMap = slots
+                .GroupBy(s => s.QuestionId!.Value)
                 .ToDictionary(
                     g => g.Key,
                     g => new Usage(
-                        QuizInfo: string.Join(", ", g.Select(x => $"{x.Title} ({x.Date:dd.MM.yyyy})").Distinct()),
-                        LastUsedDate: g.Max(x => x.Date),
-                        IsCompleted: g.Any(x => x.IsCompleted)));
+                        QuizInfo: string.Join(", ", g.Select(s => $"{s.Title} ({s.Date:dd.MM.yyyy})").Distinct()),
+                        LastUsedDate: g.Max(s => s.Date),
+                        IsCompleted: g.Any(s => s.IsCompleted)));
+
+            var rows = questions.Select(q =>
+            {
+                var usage = usageMap.GetValueOrDefault(q.Id);
+                var isUsed = q.WasUsed || (usage?.IsCompleted ?? false);
+                return new QuestionRow(
+                    Id: q.Id,
+                    TextShort: q.TextShort,
+                    Answer: q.Answer,
+                    Category: q.Category,
+                    IsUsed: isUsed,
+                    AllowReuse: q.AllowReuse,
+                    IsUnusable: q.IsUnusable,
+                    MediaType: q.MediaType,
+                    UsedInQuiz: usage?.QuizInfo,
+                    LastUsedDate: usage?.LastUsedDate);
+            }).OrderByDescending(q => q.LastUsedDate).ToList();
+
+            return (rows, total);
         }
 
         public async Task SetAllowReuseAsync(Guid id, bool value, CancellationToken ct = default)
