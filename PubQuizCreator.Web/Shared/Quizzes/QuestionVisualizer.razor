@@ -1,0 +1,8 @@
+﻿@if (Question != null)
+{
+    <div class="small fw-semibold">
+        @Question?.TextShort
+        <MediaIcon Type="Question?.MediaType" />
+    </div>
+    <div class="small text-muted">→ @Question?.Answer</div>
+}

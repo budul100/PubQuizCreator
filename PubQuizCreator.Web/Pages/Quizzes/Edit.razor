@@ -197,11 +197,17 @@ else
                                 </div>
                             </div>
 
-                            <div 
-                                style="padding-left: 2.8rem; cursor: pointer;"
-                                @onclick="async () => { if (editUrl != null) Nav.NavigateTo(editUrl); else await OpenPickerAsync(s); }"
-                                @onclick:stopPropagation="true">
-                                <QuestionSummary Question="s.Question" />
+                            <div style="padding-left: 2.8rem; cursor: pointer;"
+                                 @onclick="async () => { if (editUrl != null) Nav.NavigateTo(editUrl); else await OpenPickerAsync(s); }"
+                                 @onclick:stopPropagation="true">
+                                @if (s.Question != null)
+                                {
+                                    <QuestionVisualizer Question="s.Question" />
+                                }
+                                else if (pickerSlot?.Id != s.Id)
+                                {
+                                    <span class="small text-muted fst-italic">[Click to assign]</span>
+                                }
                             </div>
 
                         </div>
@@ -211,7 +217,9 @@ else
                             <div class="list-group-item p-2 border-top bg-light">
 
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="fw-semibold small">Assign question — @pickerSlot.Category?.Name</span>
+                                    <span class="fw-semibold small">
+                                        Assign question @(pickerSlot.Category != null ? $"— {pickerSlot.Category?.Name}" : "")
+                                    </span>
                                     <button class="btn-close btn-sm" @onclick="() => pickerSlot = null" />
                                 </div>
 
@@ -230,7 +238,7 @@ else
                                         <button 
                                             class="list-group-item list-group-item-action py-1" 
                                             @onclick="() => AssignAsync(picker.Id)">
-                                            <QuestionSummary Question="picker" />
+                                            <QuestionVisualizer Question="picker" />
                                         </button>
                                     }
                                 </div>

@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Components;
 using PubQuizCreator.Core.Models;
 
-namespace PubQuizCreator.Web.Shared
+namespace PubQuizCreator.Web.Shared.Quizzes
 {
-    public partial class QuestionSummary
+    public partial class QuestionVisualizer
     {
         #region Public Properties
-
-        [Parameter] public string FallbackText { get; set; } = "[Click to assign]";
 
         [Parameter] public Question? Question { get; set; }
 

@@ -1,9 +1,0 @@
-﻿<div class="small fw-semibold @(Question == null ? "text-muted fst-italic" : "")">
-    @(Question?.TextShort ?? FallbackText)
-    <MediaIcon Type="Question?.MediaType" />
-</div>
-
-@if (Question != null)
-{
-    <div class="small text-muted">→ @Question.Answer</div>
-}
