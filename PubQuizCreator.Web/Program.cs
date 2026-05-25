@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -7,34 +7,79 @@ using Microsoft.Extensions.FileProviders;
 using Npgsql;
 using PubQuizCreator.Core;
 using PubQuizCreator.Core.Interfaces;
-using PubQuizCreator.Core.Models;
 using PubQuizCreator.Data;
 using PubQuizCreator.Services;
+using PubQuizCreator.Web.Helpers;
 using QuestPDF.Infrastructure;
 
 internal class Program
 {
-    #region Private Fields
-
-    private static readonly JsonSerializerOptions ExportJsonOptions = new()
-    {
-        WriteIndented = true
-    };
-
-    #endregion Private Fields
-
     #region Private Methods
 
-    private static async Task<IResult> CreateExportAsync(Guid id, QuizService quizService,
-        ExportService exportService, SettingsService settingsService,
+    private static async Task<IResult> CreateJsonAsync(Guid id, string? rounds, QuizService quizService,
         CancellationToken cancellationToken)
     {
-        var quiz = await quizService.GetDetailAsync(
-            quizId: id,
-            ct: cancellationToken);
-
+        var quiz = await quizService.GetDetailAsync(quizId: id, ct: cancellationToken);
         if (quiz == default) return Results.NotFound();
 
+        var roundIds = ParseGuids(rounds);
+
+        var selectedRounds = quiz.Rounds
+            .Where(r => r.Slots.Count > 0
+                && (roundIds.Count == 0 || roundIds.Contains(r.Id)))
+            .OrderBy(r => r.Position)
+            .ToArray();
+
+        var jsonBytes = quiz.CreateJson(selectedRounds);
+        var filename = $"quiz_{quiz.Date:yyyy-MM-dd}_data.json";
+
+        return Results.File(
+            fileContents: jsonBytes,
+            contentType: "application/json",
+            fileDownloadName: filename);
+    }
+
+    private static async Task<IResult> CreatePptxAsync(Guid id, string? rounds, string? template,
+        QuizService quizService, ExportService exportService, SettingsService settingsService,
+        CancellationToken cancellationToken)
+    {
+        var quiz = await quizService.GetDetailAsync(quizId: id, ct: cancellationToken);
+        if (quiz == default) return Results.NotFound();
+
+        if (string.IsNullOrWhiteSpace(template))
+            return Results.BadRequest("Query parameter 'template' is required.");
+
+        var templatePath = settingsService.GetPptxTemplatePath(template);
+        if (templatePath == null)
+            return Results.NotFound($"Template '{template}' not found.");
+
+        var roundIds = ParseGuids(rounds);
+
+        var selectedRounds = quiz.Rounds
+            .Where(r => r.Slots.Count > 0
+                && (roundIds.Count == 0 || roundIds.Contains(r.Id)))
+            .OrderBy(r => r.Position)
+            .ToArray();
+
+        if (selectedRounds.Length == 0)
+            return Results.BadRequest("No rounds with slots found for the given selection.");
+
+        var date = quiz.Date;
+
+        // Single round → direct .pptx file
+        if (selectedRounds.Length == 1)
+        {
+            var round = selectedRounds[0];
+            var pptx = await exportService.ExportAsync(round, templatePath, cancellationToken);
+            var filename = $"quiz_{date:yyyy-MM-dd}_r{round.Position:D1}.pptx";
+
+            return Results.File(
+                fileContents: pptx,
+                contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                fileDownloadName: filename);
+        }
+
+        // Multiple rounds → ZIP
         var zipStream = new MemoryStream();
 
         using (var zip = new ZipArchive(
@@ -42,127 +87,50 @@ internal class Program
             mode: ZipArchiveMode.Create,
             leaveOpen: true))
         {
-            var rounds = quiz.Rounds
-                .Where(r => r.Slots.Count > 0)
-                .OrderBy(r => r.Position).ToArray();
-
-            foreach (var round in rounds)
+            foreach (var round in selectedRounds)
             {
-                var questions = await exportService.ExportAsync(
-                    round: round,
-                    isAnswers: false,
-                    ct: cancellationToken);
+                var pptx = await exportService.ExportAsync(round, templatePath, cancellationToken);
 
-                using (var questionStream = zip.CreateEntry(
-                    entryName: $"quiz_{quiz.Date:yyyy-MM-dd}_r{round.Position:D1}a_questions.pptx",
-                    compressionLevel: CompressionLevel.Fastest).Open())
-                {
-                    questionStream.Write(questions);
-                }
-
-                var answers = await exportService.ExportAsync(
-                    round: round,
-                    isAnswers: true,
-                    ct: cancellationToken);
-
-                using var answerStream = zip.CreateEntry(
-                    entryName: $"quiz_{quiz.Date:yyyy-MM-dd}_r{round.Position:D1}b_answers.pptx",
+                using var entry = zip.CreateEntry(
+                    entryName: $"quiz_{date:yyyy-MM-dd}_r{round.Position:D1}.pptx",
                     compressionLevel: CompressionLevel.Fastest).Open();
 
-                answerStream.Write(answers);
+                entry.Write(pptx);
             }
-
-            var additionalPaths = settingsService
-                .GetPathAdditionals().ToArray();
-
-            foreach (var additionalPath in additionalPaths)
-            {
-                var additionalName = Path.GetFileName(additionalPath);
-                var entryName = $"quiz_{quiz.Date:yyyy-MM-dd}_{additionalName}";
-
-                using var fileStream = zip.CreateEntry(
-                    entryName: entryName,
-                    compressionLevel: CompressionLevel.Fastest).Open();
-
-                await using var source = File.OpenRead(additionalPath);
-
-                await source.CopyToAsync(
-                    fileStream,
-                    cancellationToken);
-            }
-
-            var jsonBytes = CreateExportJson(quiz);
-
-            using var jsonStream = zip.CreateEntry(
-                entryName: $"quiz_{quiz.Date:yyyy-MM-dd}_data.json",
-                compressionLevel: CompressionLevel.Fastest).Open();
-
-            jsonStream.Write(jsonBytes);
         }
 
         zipStream.Position = 0;
 
-        var filename = $"quiz_{quiz.Date:yyyy-MM-dd}_slides.zip".Replace(" ", "_");
+        var zipFilename = $"quiz_{date:yyyy-MM-dd}_slides.zip";
 
-        var result = Results.File(
+        return Results.File(
             fileStream: zipStream,
             contentType: "application/zip",
-            fileDownloadName: filename);
-
-        return result;
+            fileDownloadName: zipFilename);
     }
 
-    private static byte[] CreateExportJson(Quiz quiz)
-    {
-        var export = new
-        {
-            title = quiz.Title,
-            date = quiz.Date.ToString("yyyy-MM-dd"),
-            rounds = quiz.Rounds
-                .Where(r => r.Slots.Count > 0)
-                .OrderBy(r => r.Position)
-                .Select(r => new
-                {
-                    position = r.Position,
-                    questions = r.Slots
-                        .OrderBy(s => s.Position)
-                        .Select(s => new
-                        {
-                            position = s.Position,
-                            category = s.Category?.Name,
-                            textShort = s.Question?.TextShort,
-                            textLong = s.Question?.TextLong,
-                            answer = s.Question?.Answer,
-                        })
-                })
-        };
-
-        var json = JsonSerializer.Serialize(
-            value: export,
-            options: ExportJsonOptions);
-
-        return System.Text.Encoding.UTF8.GetBytes(json);
-    }
-
-    private static async Task<IResult> CreatePrintAsync(Guid id, QuizService quizService,
+    private static async Task<IResult> CreatePrintAsync(Guid id, string? rounds, QuizService quizService,
         PrintService printService, CancellationToken cancellationToken)
     {
-        var quiz = await quizService.GetDetailAsync(
-            quizId: id,
-            ct: cancellationToken);
-
+        var quiz = await quizService.GetDetailAsync(quizId: id, ct: cancellationToken);
         if (quiz == default) return Results.NotFound();
 
-        var contents = printService.Print(quiz);
+        var roundIds = ParseGuids(rounds);
 
+        // Filter rounds if selection provided; keep original order
+        if (roundIds.Count > 0)
+        {
+            quiz.Rounds = quiz.Rounds
+                .Where(r => roundIds.Contains(r.Id)).ToList();
+        }
+
+        var contents = printService.Print(quiz);
         var filename = $"quiz_{quiz.Date:yyyy-MM-dd}_questions.pdf";
 
-        var result = Results.File(
+        return Results.File(
             fileContents: contents,
             contentType: "application/pdf",
             fileDownloadName: filename);
-
-        return result;
     }
 
     private static async Task<IResult> LogOutAsync(HttpContext ctx)
@@ -291,14 +259,33 @@ internal class Program
 
         app.MapGet(
             pattern: "/export/quiz/{id:guid}/pdf",
-            handler: (Guid id, QuizService qs, PrintService ps, CancellationToken ct) => CreatePrintAsync(id, qs, ps, ct));
+            handler: (Guid id, string? rounds, QuizService qs, PrintService ps, CancellationToken ct)
+                => CreatePrintAsync(id, rounds, qs, ps, ct));
+
+        app.MapGet(
+            pattern: "/export/quiz/{id:guid}/json",
+            handler: (Guid id, string? rounds, QuizService qs, CancellationToken ct)
+                => CreateJsonAsync(id, rounds, qs, ct));
+
         app.MapGet(
             pattern: "/export/quiz/{id:guid}/pptx",
-            handler: (Guid id, QuizService qs, ExportService es, SettingsService sc, CancellationToken ct) => CreateExportAsync(id, qs, es, sc, ct));
+            handler: (Guid id, string? rounds, string? template, QuizService qs, ExportService es, SettingsService sc, CancellationToken ct)
+                => CreatePptxAsync(id, rounds, template, qs, es, sc, ct));
 
         app.MapFallbackToPage("/_Host");
 
         app.Run();
+    }
+
+    private static HashSet<Guid> ParseGuids(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return [];
+
+        return input
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+            .Where(g => g != Guid.Empty)
+            .ToHashSet();
     }
 
     #endregion Private Methods

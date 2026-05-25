@@ -14,6 +14,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         private int addSlotAfterPosition;
         private Guid? addSlotCategoryId;
         private Round? addSlotRound;
+        private List<string> availableTemplates = [];
         private List<Category> categories = [];
         private Guid dragFromRound;
         private Guid dragFromSlot;
@@ -26,6 +27,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         private Quiz? quiz;
         private SearchInput? searchInput;
         private string searchText = string.Empty;
+        private HashSet<Guid> selectedRoundIds = [];
         private Guid selectedTemplateId;
         private bool showTemplatePicker;
         private List<Template> templates = [];
@@ -44,6 +46,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         {
             templates = await TemplateService.GetAllAsync();
             categories = await CategoryService.GetAllAsync();
+            availableTemplates = SettingsService.GetPptxTemplateNames().ToList();
 
             await ReloadAsync();
         }
@@ -120,7 +123,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         private async Task DropSlot(Guid roundId, Guid dropToSlotId)
         {
             if (dragFromSlot == Guid.Empty || dragFromSlot == dropToSlotId) return;
-            if (dragFromSlotRound != roundId) return; // only within same round
+            if (dragFromSlotRound != roundId) return;
 
             var round = quiz!.Rounds.First(r => r.Id == roundId);
             var ordered = round.Slots.OrderBy(s => s.Position).Select(s => s.Id).ToList();
@@ -177,6 +180,23 @@ namespace PubQuizCreator.Web.Pages.Quizzes
                         AppState.RoundsCollapsed.Add(round.Id);
                     }
                 }
+
+                // Pre-select all rounds that have slots; preserve existing selection on reload
+                var roundsWithSlots = quiz.Rounds
+                    .Where(r => r.Slots.Count > 0)
+                    .Select(r => r.Id)
+                    .ToHashSet();
+
+                // Keep previously selected rounds that still exist;
+                // add newly appeared rounds with slots
+                selectedRoundIds = selectedRoundIds.Count == 0
+                    ? roundsWithSlots
+                    : selectedRoundIds
+                        .Intersect(quiz.Rounds.Select(r => r.Id))
+                        .Union(roundsWithSlots.Except(
+                            quiz.Rounds.Select(r => r.Id)
+                                .Except(roundsWithSlots)))
+                        .ToHashSet();
             }
         }
 
@@ -195,6 +215,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
             if (!confirmed) return;
 
             await QuizService.RemoveRoundAsync(roundId);
+            selectedRoundIds.Remove(roundId);
             await ReloadAsync();
         }
 
@@ -227,6 +248,25 @@ namespace PubQuizCreator.Web.Pages.Quizzes
             await QuizService.UpdateRoundTitleAsync(round.Id, newTitle);
         }
 
+        private void ToggleAllRounds()
+        {
+            if (quiz == null) return;
+
+            var withSlots = quiz.Rounds
+                .Where(r => r.Slots.Count > 0)
+                .Select(r => r.Id)
+                .ToHashSet();
+
+            if (withSlots.IsSubsetOf(selectedRoundIds))
+            {
+                selectedRoundIds.ExceptWith(withSlots);
+            }
+            else
+            {
+                selectedRoundIds.UnionWith(withSlots);
+            }
+        }
+
         private async Task ToggleCompletedAsync()
         {
             if (quiz == null) return;
@@ -239,6 +279,12 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         {
             if (!AppState.RoundsCollapsed.Add(roundId))
                 AppState.RoundsCollapsed.Remove(roundId);
+        }
+
+        private void ToggleRoundSelection(Guid roundId)
+        {
+            if (!selectedRoundIds.Add(roundId))
+                selectedRoundIds.Remove(roundId);
         }
 
         private async Task UnassignAsync(Guid slotId)

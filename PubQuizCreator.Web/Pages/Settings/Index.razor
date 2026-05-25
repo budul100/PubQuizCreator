@@ -12,7 +12,7 @@
     <p class="text-muted">Loading…</p>
 }
 else
-{    
+{
     @* Device *@
     <div class="card mb-3">
         <div class="card-header fw-semibold">Device</div>
@@ -28,11 +28,9 @@ else
         </div>
     </div>
 
-
     @* Quiz *@
     <div class="card mb-3">
         <div class="card-header fw-semibold">Quiz</div>
-
         <div class="card-body d-flex flex-column gap-2">
             <div>
                 <label class="form-label mb-1">TextShort Warn Length</label>
@@ -53,7 +51,6 @@ else
     @* Print *@
     <div class="card mb-3">
         <div class="card-header fw-semibold">Print</div>
-
         <div class="card-body d-flex flex-column gap-2">
             <div>
                 <label class="form-label mb-1">Default Font Size</label>
@@ -65,11 +62,10 @@ else
             </div>
         </div>
     </div>
-    
+
     @* Export *@
     <div class="card mb-3">
         <div class="card-header fw-semibold">Export</div>
-
         <div class="card-body d-flex flex-column gap-3">
 
             <div>
@@ -79,51 +75,52 @@ else
             </div>
 
             <div>
-                <label class="form-label mb-1">Questions Template File</label>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="font-monospace text-truncate flex-grow-1">
-                        @(string.IsNullOrEmpty(settings.TemplateQuestions)
-                            ? "— no file —"
-                            : settings.TemplateQuestions)
-                    </span>
-                    <label class="btn btn-outline-secondary btn-sm mb-0 text-nowrap" style="cursor:pointer;">
-                        Upload
-                        <InputFile OnChange="e => UploadTemplateAsync(e, TemplateRole.Questions)"
-                            accept=".pptx,.potx"
-                            style="display:none;" />
+                <label class="form-label mb-1">PPTX Templates</label>
+
+                @if (settings.PptxTemplates.Count == 0)
+                {
+                    <p class="text-muted small mb-1">No templates uploaded yet.</p>
+                }
+                else
+                {
+                    @foreach (var fileName in settings.PptxTemplates)
+                    {
+                        var name = fileName;
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="font-monospace text-truncate flex-grow-1">@name</span>
+                            <button class="btn btn-outline-danger btn-sm"
+                                    @onclick="() => RemoveTemplate(name)">
+                                <span class="oi oi-trash" />
+                            </button>
+                        </div>
+                    }
+                }
+
+                <div>
+                    <label class="btn btn-outline-secondary btn-sm mb-0" style="cursor:pointer;">
+                        + Upload template
+                        <InputFile OnChange="UploadTemplateAsync" accept=".pptx,.potx"
+                                   style="display:none;" />
                     </label>
                 </div>
+                <div class="form-text">
+                    Each uploaded file appears as a selectable template when exporting a round.
+                </div>
             </div>
-
-            <div>
-                <label class="form-label mb-1">Answers Template File</label>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="font-monospace text-truncate flex-grow-1">
-                        @(string.IsNullOrEmpty(settings.TemplateAnswers)
-                            ? "— no file —"
-                            : settings.TemplateAnswers)
-                    </span>
-                    <label class="btn btn-outline-secondary btn-sm mb-0 text-nowrap" style="cursor:pointer;">
-                        Upload
-                        <InputFile OnChange="e => UploadTemplateAsync(e, TemplateRole.Answers)"
-                            accept=".pptx,.potx"
-                            style="display:none;" />
-                </label>
-            </div>
-        </div>
 
             <hr class="my-1" />
 
             <label class="form-label mb-1">Additional Export Files</label>
 
-        @for (var i = 0; i < settings.AdditionalFiles.Count; i++)
+            @for (var i = 0; i < settings.AdditionalFiles.Count; i++)
             {
                 var index = i;
                 <div class="d-flex align-items-center gap-2">
                     <span class="font-monospace text-truncate flex-grow-1">
                         @settings.AdditionalFiles[index]
                     </span>
-                    <button class="btn btn-outline-danger btn-sm" @onclick="() => settings.AdditionalFiles.RemoveAt(index)">
+                    <button class="btn btn-outline-danger btn-sm"
+                            @onclick="() => settings.AdditionalFiles.RemoveAt(index)">
                         <span class="oi oi-trash" />
                     </button>
                 </div>
@@ -135,7 +132,6 @@ else
                     <InputFile OnChange="UploadAdditionalAsync" style="display:none;" />
                 </label>
             </div>
-
             <div class="form-text">
                 Files are saved immediately on upload. Included in every quiz export as
                 <code>quiz_yyyy-MM-dd_filename</code>.

@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 using PubQuizCreator.Core;
-using PubQuizCreator.Core.Types;
 using PubQuizCreator.Services;
 
 namespace PubQuizCreator.Web.Pages.Settings
@@ -36,6 +35,14 @@ namespace PubQuizCreator.Web.Pages.Settings
         #endregion Protected Methods
 
         #region Private Methods
+
+        private void RemoveTemplate(string fileName)
+        {
+            if (settings == null) return;
+
+            settings.PptxTemplates.Remove(fileName);
+            // Note: does not delete the file from disk — only removes it from the list
+        }
 
         private async Task SaveAsync()
         {
@@ -75,26 +82,17 @@ namespace PubQuizCreator.Web.Pages.Settings
 
                 await using var stream = file.OpenReadStream(
                     maxAllowedSize: Constants.MaxUploadSizeBytes);
-                await SettingsService.SaveFileAsync(
-                    content: stream,
-                    fileName: fileName);
+                await SettingsService.SaveFileAsync(content: stream, fileName: fileName);
 
-                var existingIndex = settings.AdditionalFiles.FindIndex(f => string.Equals(
-                    a: f,
-                    b: fileName,
-                    comparisonType: StringComparison.OrdinalIgnoreCase));
+                var existingIndex = settings.AdditionalFiles.FindIndex(f =>
+                    string.Equals(f, fileName, StringComparison.OrdinalIgnoreCase));
 
                 if (existingIndex >= 0)
-                {
                     settings.AdditionalFiles[existingIndex] = fileName;
-                }
                 else
-                {
                     settings.AdditionalFiles.Add(fileName);
-                }
 
                 await SettingsService.SaveAsync(settings);
-
                 savedAt = DateTime.Now;
             }
             catch (Exception ex)
@@ -103,7 +101,7 @@ namespace PubQuizCreator.Web.Pages.Settings
             }
         }
 
-        private async Task UploadTemplateAsync(InputFileChangeEventArgs e, TemplateRole role)
+        private async Task UploadTemplateAsync(InputFileChangeEventArgs e)
         {
             if (settings == null) return;
             try
@@ -113,21 +111,16 @@ namespace PubQuizCreator.Web.Pages.Settings
 
                 await using var stream = file.OpenReadStream(
                     maxAllowedSize: Constants.MaxUploadSizeBytes);
-                await SettingsService.SaveFileAsync(
-                    content: stream,
-                    fileName: fileName);
+                await SettingsService.SaveFileAsync(content: stream, fileName: fileName);
 
-                if (role == TemplateRole.Questions)
+                // Add to list if not already present (case-insensitive)
+                if (!settings.PptxTemplates.Any(f =>
+                    string.Equals(f, fileName, StringComparison.OrdinalIgnoreCase)))
                 {
-                    settings.TemplateQuestions = fileName;
-                }
-                else
-                {
-                    settings.TemplateAnswers = fileName;
+                    settings.PptxTemplates.Add(fileName);
                 }
 
                 await SettingsService.SaveAsync(settings);
-
                 savedAt = DateTime.Now;
             }
             catch (Exception ex)

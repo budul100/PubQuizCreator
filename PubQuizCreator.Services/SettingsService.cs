@@ -25,18 +25,12 @@ namespace PubQuizCreator.Services
 
             if (string.IsNullOrWhiteSpace(result))
             {
-                var defaultPath = Path.Combine(
-                    AppContext.BaseDirectory,
-                    "settings.override.json");
-
-                return defaultPath;
+                return Path.Combine(AppContext.BaseDirectory, "settings.override.json");
             }
 
             if (!Path.IsPathRooted(result))
             {
-                result = Path.Combine(
-                    AppContext.BaseDirectory,
-                    result);
+                result = Path.Combine(AppContext.BaseDirectory, result);
             }
 
             return result;
@@ -48,14 +42,11 @@ namespace PubQuizCreator.Services
         public IEnumerable<string> GetPathAdditionals()
         {
             var additionalFiles = GetAdditionalFiles().ToArray();
-
             var templatesPath = GetPathTemplates() ?? "";
 
             foreach (var additionalFile in additionalFiles)
             {
-                var path = Path.Combine(
-                    templatesPath,
-                    additionalFile);
+                var path = Path.Combine(templatesPath, additionalFile);
 
                 if (File.Exists(path))
                 {
@@ -64,32 +55,29 @@ namespace PubQuizCreator.Services
             }
         }
 
-        public string GetPathMedia() => GetFolder(
-            configValue: configuration["Media:StoragePath"],
-            configKey: "Media:StoragePath");
+        public string GetPathMedia() => GetFolder("Media:StoragePath");
 
-        public string GetPathTemplate(string name)
+        public string GetPathTemplates() => GetFolder("Export:TemplatesPath");
+
+        // Returns all configured PPTX template file names.
+        public IEnumerable<string> GetPptxTemplateNames()
         {
-            var fileName = configuration[$"Export:Templates:{name}"]
-                ?? throw new InvalidOperationException(
-                    $"Template '{name}' not configured under Export:Templates:{name}.");
-
-            var result = Path.Combine(
-                GetPathTemplates(),
-                fileName);
-
-            if (!File.Exists(result))
-            {
-                throw new FileNotFoundException(
-                    $"Template file not found: {result}", result);
-            }
-
-            return result;
+            return configuration
+                .GetSection("Export:PptxTemplates")
+                .Get<List<string>>()
+                ?.Where(f => !string.IsNullOrWhiteSpace(f))
+                ?? [];
         }
 
-        public string GetPathTemplates() => GetFolder(
-            configValue: configuration["Export:TemplatesPath"],
-            configKey: "Export:TemplatesPath");
+        // Returns the full path for a given template file name, or null if not found.
+        public string? GetPptxTemplatePath(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName)) return null;
+
+            var path = Path.Combine(GetPathTemplates(), fileName);
+
+            return File.Exists(path) ? path : null;
+        }
 
         public Settings Read()
         {
@@ -100,8 +88,7 @@ namespace PubQuizCreator.Services
                 AiUrl = configuration["Quiz:AiUrl"] ?? "",
                 PrintFontSizeDefault = configuration.GetValue("Print:FontSizeDefault", 8f),
                 PrintFontSizeHeader = configuration.GetValue("Print:FontSizeHeader", 11f),
-                TemplateAnswers = configuration["Export:Templates:Answers"] ?? "",
-                TemplateQuestions = configuration["Export:Templates:Questions"] ?? "",
+                PptxTemplates = GetPptxTemplateNames().ToList(),
                 TextShortWarnLength = configuration.GetValue("Quiz:TextShortWarnLength", 100),
                 TitleFormat = configuration["Export:TitleFormat"] ?? "Question {position}"
             };
@@ -114,83 +101,71 @@ namespace PubQuizCreator.Services
                 Export = new
                 {
                     settings.TitleFormat,
-                    Templates = new
-                    {
-                        Questions = settings.TemplateQuestions,
-                        Answers = settings.TemplateAnswers,
-                    },
-                    settings.AdditionalFiles,
+                    settings.PptxTemplates,
+                    settings.AdditionalFiles
                 },
                 Quiz = new
                 {
                     PromptTemplate = settings.AiPrompt,
                     settings.AiUrl,
-                    settings.TextShortWarnLength,
+                    settings.TextShortWarnLength
                 },
                 Print = new
                 {
                     FontSizeDefault = settings.PrintFontSizeDefault,
-                    FontSizeHeader = settings.PrintFontSizeHeader,
-                },
+                    FontSizeHeader = settings.PrintFontSizeHeader
+                }
             };
 
-            var json = JsonSerializer.Serialize(
-                value: data,
-                options: jsonOptions);
+            var json = JsonSerializer.Serialize(data, jsonOptions);
+            await File.WriteAllTextAsync(overridePath, json, ct);
 
-            await File.WriteAllTextAsync(
-                path: overridePath,
-                contents: json,
-                cancellationToken: ct);
+            // Reload configuration so in-memory values reflect the saved state
+            if (configuration is IConfigurationRoot root)
+            {
+                root.Reload();
+            }
         }
 
-        public async Task SaveFileAsync(Stream content, string fileName, CancellationToken ct = default)
+        public async Task SaveFileAsync(Stream content, string fileName,
+            CancellationToken ct = default)
         {
-            var safeName = Path.GetFileName(fileName);
+            var dir = GetPathTemplates();
+            Directory.CreateDirectory(dir);
 
-            if (string.IsNullOrWhiteSpace(safeName))
-            {
-                throw new ArgumentException("Invalid filename.");
-            }
+            var path = Path.Combine(dir, fileName);
 
-            var targetPath = Path.Combine(
-                GetPathTemplates(),
-                safeName);
-
-            await using var fs = new FileStream(
-                path: targetPath,
-                mode: FileMode.Create,
-                access: FileAccess.Write);
-
-            await content.CopyToAsync(
-                destination: fs,
-                cancellationToken: ct);
+            await using var fs = File.Create(path);
+            await content.CopyToAsync(fs, ct);
         }
 
         #endregion Public Methods
 
         #region Private Methods
 
-        private static string GetFolder(string? configValue, string configKey)
-        {
-            if (string.IsNullOrWhiteSpace(configValue))
-                throw new InvalidOperationException(
-                    $"Configuration key '{configKey}' is required but not set.");
-
-            if (!Path.IsPathRooted(configValue))
-                throw new InvalidOperationException(
-                    $"Configuration key '{configKey}' must be an absolute path. Current value: '{configValue}'");
-
-            Directory.CreateDirectory(configValue);
-
-            return configValue;
-        }
-
-        private List<string> GetAdditionalFiles()
+        private IEnumerable<string> GetAdditionalFiles()
         {
             return configuration
                 .GetSection("Export:AdditionalFiles")
-                .Get<List<string>>() ?? [];
+                .Get<List<string>>()
+                ?.Where(f => !string.IsNullOrWhiteSpace(f))
+                ?? [];
+        }
+
+        private string GetFolder(string configKey)
+        {
+            var configValue = configuration[configKey];
+
+            if (!string.IsNullOrWhiteSpace(configValue))
+            {
+                return Path.IsPathRooted(configValue)
+                    ? configValue
+                    : Path.Combine(AppContext.BaseDirectory, configValue);
+            }
+
+            return Path.Combine(
+                AppContext.BaseDirectory,
+                "export");
         }
 
         #endregion Private Methods

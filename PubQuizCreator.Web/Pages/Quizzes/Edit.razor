@@ -1,9 +1,10 @@
 ﻿@page "/quizzes/{Id:guid}"
-@inject QuizService QuizService
-@inject TemplateService TemplateService
 @inject CategoryService CategoryService
 @inject QuestionService QuestionService
+@inject QuizService QuizService
+@inject SettingsService SettingsService
 @inject StateService AppState
+@inject TemplateService TemplateService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -36,11 +37,25 @@ else
             @(quiz.IsCompleted ? "✓ Completed" : "Mark as completed")
         </button>
 
-        <div class="d-flex gap-2 ms-auto flex-shrink-0">
-            <ExportButton Href="@($"/export/quiz/{quiz.Id}/pdf")" Label="PDF" />
-            <ExportButton Href="@($"/export/quiz/{quiz.Id}/pptx")" Label="PPTX" />
-        </div>
+        <div class="d-flex gap-2 ms-auto flex-shrink-0 align-items-center">
 
+            @{
+                var roundsWithSlots = quiz.Rounds.Where(r => r.Slots.Count > 0).ToList();
+                var allSelected = roundsWithSlots.Count > 0 && roundsWithSlots.All(r => selectedRoundIds.Contains(r.Id));
+            }
+
+            <button class="btn btn-sm btn-outline-secondary"
+                    title="@(allSelected ? "Deselect all rounds" : "Select all rounds")"
+                    @onclick="ToggleAllRounds">
+                @(allSelected ? "☐ Deselect all" : "☑ Select all")
+            </button>
+
+            <ExportButton 
+                QuizId="quiz.Id"
+                SelectedRoundIds="selectedRoundIds"
+                AvailableTemplates="availableTemplates" />
+
+        </div>
     </div>
 
     @* Rounds *@
@@ -62,6 +77,17 @@ else
                  @onmousedown:preventDefault="true"
                  @onclick="() => ToggleRound(r.Id)"
                  style="cursor: pointer;">
+
+                <div @onclick:stopPropagation="true"
+                     @onmousedown:stopPropagation="true"
+                     class="flex-shrink-0">
+                    <input type="checkbox"
+                           class="form-check-input"
+                           checked="@selectedRoundIds.Contains(r.Id)"
+                           disabled="@(r.Slots.Count == 0)"
+                           @onclick="() => ToggleRoundSelection(r.Id)"
+                           @onclick:stopPropagation="true" />
+                </div>
 
                 <span class="text-muted flex-shrink-0">☰</span>
 

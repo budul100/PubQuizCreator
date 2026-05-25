@@ -1,3 +1,58 @@
-﻿<a class="btn btn-outline-secondary btn-sm @CssClass" href="@Href" target="_blank">
-    <span class="oi oi-cloud-download" /> @Label
-</a>
+﻿<div class="d-flex gap-1 flex-shrink-0">
+
+    @* PDF *@
+    <a class="btn btn-outline-secondary btn-sm"
+       href="@PdfHref"
+       target="_blank"
+       title="Download PDF">
+        <span class="oi oi-cloud-download" /> PDF
+    </a>
+
+    @* JSON *@
+    <a class="btn btn-outline-secondary btn-sm"
+       href="@JsonHref"
+       target="_blank"
+       title="Download JSON">
+        <span class="oi oi-data-transfer-download" /> JSON
+    </a>
+
+    @* PPTX Dropdown *@
+    <div class="btn-group">
+        @if (AvailableTemplates.Count == 0)
+        {
+            <button class="btn btn-outline-secondary btn-sm" disabled title="No PPTX templates configured">
+                <span class="oi oi-cloud-download" /> PPTX
+            </button>
+        }
+        else if (AvailableTemplates.Count == 1)
+        {
+            <a class="btn btn-outline-secondary btn-sm"
+               href="@PptxHref(AvailableTemplates[0])"
+               target="_blank"
+               title="@AvailableTemplates[0]">
+                <span class="oi oi-cloud-download" /> PPTX
+            </a>
+        }
+        else
+        {
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false">
+                <span class="oi oi-cloud-download" /> PPTX
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                @foreach (var template in AvailableTemplates)
+                {
+                    var t = template;
+                    <li>
+                        <a class="dropdown-item" href="@PptxHref(t)" target="_blank">
+                            @t
+                        </a>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+
+</div>

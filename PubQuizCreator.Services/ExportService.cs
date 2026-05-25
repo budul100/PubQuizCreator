@@ -1,5 +1,4 @@
 ﻿using System.IO.Compression;
-using Microsoft.EntityFrameworkCore;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
 using PubQuizCreator.Core;
@@ -11,33 +10,18 @@ namespace PubQuizCreator.Services
 {
     public class ExportService(MediaService mediaService, SettingsService settingsService)
     {
-        #region Private Fields
-
-        private readonly string answersPath = settingsService.GetPathTemplate("Answers");
-        private readonly string questionsPath = settingsService.GetPathTemplate("Questions");
-
-        #endregion Private Fields
-
         #region Public Methods
 
-        public async Task<byte[]> ExportAsync(Round round, bool isAnswers, CancellationToken ct)
+        public async Task<byte[]> ExportAsync(Round round, string templatePath, CancellationToken ct)
         {
-            var templatePath = isAnswers
-                ? answersPath
-                : questionsPath;
-
             var templateBytes = await File.ReadAllBytesAsync(templatePath, ct);
 
             using var stream = new MemoryStream();
-
             stream.Write(templateBytes);
             stream.Position = 0;
 
-            using (var doc = PresentationDocument.Open(
-                stream: stream,
-                isEditable: true))
+            using (var doc = PresentationDocument.Open(stream: stream, isEditable: true))
             {
-
                 var presentationPart = doc.PresentationPart
                     ?? throw new InvalidOperationException("PresentationPart is null.");
 
@@ -49,10 +33,7 @@ namespace PubQuizCreator.Services
                 var answerTemplate = templateMap.GetValueOrDefault(Constants.TemplateSlideAnswer);
 
                 var titleFormat = settingsService.GetFormatTitle();
-
                 var slideIndex = 0;
-
-                // Build new slides for each question slot
                 var newSlides = new List<SlidePart>();
 
                 foreach (var slot in round.Slots.OrderBy(s => s.Position))
@@ -62,11 +43,11 @@ namespace PubQuizCreator.Services
                     var hasMedia = slot.Question.MediaType == MediaType.Image
                         && !string.IsNullOrWhiteSpace(slot.Question.MediaFile);
 
-                    var sourceTemplate = isAnswers
-                        ? answerTemplate
-                        : hasMedia
-                        ? contentTemplate
-                        : questionTemplate;
+                    // Use answer template if available, otherwise content or question template
+                    var sourceTemplate = answerTemplate
+                        ?? (hasMedia ? contentTemplate : questionTemplate)
+                        ?? contentTemplate
+                        ?? questionTemplate;
 
                     if (sourceTemplate == null) continue;
 
@@ -74,166 +55,64 @@ namespace PubQuizCreator.Services
                         presentationPart: presentationPart,
                         sourceSlide: sourceTemplate);
 
-                    // Set the slide name for later identification
                     var cSld = clonedSlide.Slide?.CommonSlideData;
 
                     if (cSld != null)
                     {
                         slideIndex++;
-
-                        cSld.Name = isAnswers
-                            ? $"Answer{slideIndex}"
-                            : $"Question{slideIndex}";
+                        cSld.Name = $"Slide{slideIndex}";
                     }
 
-                    var title = titleFormat.Replace(
-                        oldValue: "{position}",
-                        newValue: slot.Position.ToString());
+                    var title = titleFormat.Replace("{position}", slot.Position.ToString());
 
-                    SetShapeText(
-                        slidePart: clonedSlide,
-                        shapeName: Constants.TemplateShapeTitle,
-                        text: title);
+                    // Populate all shapes — missing shapes are silently skipped
+                    SetShapeText(clonedSlide, Constants.TemplateShapeTitle, title);
+                    SetShapeText(clonedSlide, Constants.TemplateShapeQuestion, slot.Question.TextShort);
+                    SetShapeText(clonedSlide, Constants.TemplateShapeAnswer, slot.Question.Answer);
 
-                    SetShapeText(
-                        slidePart: clonedSlide,
-                        shapeName: Constants.TemplateShapeQuestion,
-                        text: slot.Question.TextShort);
-
-                    SetShapeText(
-                        slidePart: clonedSlide,
-                        shapeName: Constants.TemplateShapeAnswer,
-                        text: slot.Question.Answer);
-
-                    // Add speaker notes
                     var notesText = !string.IsNullOrWhiteSpace(slot.Question.TextLong)
                         ? slot.Question.TextLong
                         : slot.Question.TextShort;
 
                     SetSpeakerNotes(presentationPart, clonedSlide, notesText);
 
-                    // Replace media image if applicable
                     if (hasMedia)
                     {
-                        var imageBytes = await mediaService.LoadAsync(
-                            fileName: slot.Question.MediaFile!,
-                            ct: ct);
+                        byte[]? imageBytes = null;
 
-                        ReplaceMediaImage(
-                            slidePart: clonedSlide,
-                            imageBytes: imageBytes,
-                            fileName: slot.Question.MediaFile!);
+                        try
+                        {
+                            imageBytes = await mediaService.LoadAsync(
+                                fileName: slot.Question.MediaFile!,
+                                ct: ct);
+                        }
+                        catch (FileNotFoundException) { }
+
+                        if (imageBytes != null)
+                        {
+                            ReplaceMediaImage(
+                                slidePart: clonedSlide,
+                                imageBytes: imageBytes,
+                                fileName: slot.Question.MediaFile!);
+                        }
                     }
 
                     newSlides.Add(clonedSlide);
                 }
 
-                // Rebuild the slide order generically:
-                // all slides before the template block + [question slides] + all slides after the template block
                 RebuildSlideOrder(
                     presentationPart: presentationPart,
                     originalOrder: slideParts,
                     templateMap: templateMap,
                     questionSlides: newSlides);
             }
-            
+
             return ConvertPotxToPptx(stream.ToArray());
         }
 
         #endregion Public Methods
 
         #region Private Methods
-
-        private static void SetSpeakerNotes(PresentationPart presentationPart,
-            SlidePart slidePart, string notesText)
-        {
-            NotesSlidePart notesPart;
-
-            if (slidePart.NotesSlidePart != null)
-            {
-                notesPart = slidePart.NotesSlidePart;
-            }
-            else
-            {
-                notesPart = slidePart.AddNewPart<NotesSlidePart>();
-
-                // Link to the notes master
-                var notesMasterPart = presentationPart.NotesMasterPart;
-
-                if (notesMasterPart != null)
-                {
-                    notesPart.AddPart(notesMasterPart);
-                }
-
-                // Create the notes slide structure
-                notesPart.NotesSlide = new NotesSlide(
-                    new CommonSlideData(
-                        new ShapeTree(
-                            new NonVisualGroupShapeProperties(
-                                new NonVisualDrawingProperties { Id = 1U, Name = "" },
-                                new NonVisualGroupShapeDrawingProperties(),
-                                new ApplicationNonVisualDrawingProperties()),
-                            new GroupShapeProperties(
-                                new Drawing.TransformGroup(
-                                    new Drawing.Offset { X = 0, Y = 0 },
-                                    new Drawing.Extents { Cx = 0, Cy = 0 },
-                                    new Drawing.ChildOffset { X = 0, Y = 0 },
-                                    new Drawing.ChildExtents { Cx = 0, Cy = 0 })),
-
-                            // Slide image placeholder
-                            new Shape(
-                                new NonVisualShapeProperties(
-                                    new NonVisualDrawingProperties { Id = 2U, Name = "Slide Image" },
-                                    new NonVisualShapeDrawingProperties(
-                                        new Drawing.ShapeLocks { NoGrouping = true, NoRotation = true, NoChangeAspect = true }),
-                                    new ApplicationNonVisualDrawingProperties(
-                                        new PlaceholderShape { Type = PlaceholderValues.SlideImage })),
-                                new ShapeProperties()),
-
-                            // Notes body placeholder
-                            new Shape(
-                                new NonVisualShapeProperties(
-                                    new NonVisualDrawingProperties { Id = 3U, Name = "Notes Placeholder" },
-                                    new NonVisualShapeDrawingProperties(
-                                        new Drawing.ShapeLocks { NoGrouping = true }),
-                                    new ApplicationNonVisualDrawingProperties(
-                                        new PlaceholderShape { Type = PlaceholderValues.Body, Index = 1U })),
-                                new ShapeProperties(),
-                                new TextBody(
-                                    new Drawing.BodyProperties(),
-                                    new Drawing.ListStyle(),
-                                    new Drawing.Paragraph(
-                                        new Drawing.Run(
-                                            new Drawing.RunProperties { Language = "en-US" },
-                                            new Drawing.Text(notesText))))))),
-                    new ColorMapOverride(new Drawing.MasterColorMapping()));
-
-                return;
-            }
-
-            // Update existing notes: find the body placeholder and replace text
-            var notesBody = notesPart.NotesSlide?
-                .Descendants<Shape>()
-                .FirstOrDefault(s =>
-                {
-                    var ph = s.NonVisualShapeProperties?
-                        .ApplicationNonVisualDrawingProperties?
-                        .GetFirstChild<PlaceholderShape>();
-
-                    return ph?.Type?.Value == PlaceholderValues.Body;
-                });
-
-            if (notesBody?.TextBody != null)
-            {
-                var txBody = notesBody.TextBody;
-                txBody.RemoveAllChildren<Drawing.Paragraph>();
-
-                txBody.Append(new Drawing.Paragraph(
-                    new Drawing.Run(
-                        new Drawing.RunProperties { Language = "en-US" },
-                        new Drawing.Text(notesText))));
-            }
-        }
 
         private static SlidePart CloneSlidePart(PresentationPart presentationPart,
             SlidePart sourceSlide)
@@ -334,10 +213,12 @@ namespace PubQuizCreator.Services
                     stream: output,
                     mode: ZipArchiveMode.Create,
                     leaveOpen: true);
-                
+
                 foreach (var entry in zipIn.Entries)
                 {
-                    var newEntry = zipOut.CreateEntry(entry.FullName, CompressionLevel.Optimal);
+                    var newEntry = zipOut.CreateEntry(
+                        entryName: entry.FullName,
+                        compressionLevel: CompressionLevel.Optimal);
 
                     using var reader = entry.Open();
                     using var writer = newEntry.Open();
@@ -569,6 +450,96 @@ namespace PubQuizCreator.Services
             newRun.Append(new Drawing.Text(text));
             newPara.Append(newRun);
             txBody.Append(newPara);
+        }
+
+        private static void SetSpeakerNotes(PresentationPart presentationPart, SlidePart slidePart, string notesText)
+        {
+            NotesSlidePart notesPart;
+
+            if (slidePart.NotesSlidePart != null)
+            {
+                notesPart = slidePart.NotesSlidePart;
+            }
+            else
+            {
+                notesPart = slidePart.AddNewPart<NotesSlidePart>();
+
+                // Link to the notes master
+                var notesMasterPart = presentationPart.NotesMasterPart;
+
+                if (notesMasterPart != null)
+                {
+                    notesPart.AddPart(notesMasterPart);
+                }
+
+                // Create the notes slide structure
+                notesPart.NotesSlide = new NotesSlide(
+                    new CommonSlideData(
+                        new ShapeTree(
+                            new NonVisualGroupShapeProperties(
+                                new NonVisualDrawingProperties { Id = 1U, Name = "" },
+                                new NonVisualGroupShapeDrawingProperties(),
+                                new ApplicationNonVisualDrawingProperties()),
+                            new GroupShapeProperties(
+                                new Drawing.TransformGroup(
+                                    new Drawing.Offset { X = 0, Y = 0 },
+                                    new Drawing.Extents { Cx = 0, Cy = 0 },
+                                    new Drawing.ChildOffset { X = 0, Y = 0 },
+                                    new Drawing.ChildExtents { Cx = 0, Cy = 0 })),
+
+                            // Slide image placeholder
+                            new Shape(
+                                new NonVisualShapeProperties(
+                                    new NonVisualDrawingProperties { Id = 2U, Name = "Slide Image" },
+                                    new NonVisualShapeDrawingProperties(
+                                        new Drawing.ShapeLocks { NoGrouping = true, NoRotation = true, NoChangeAspect = true }),
+                                    new ApplicationNonVisualDrawingProperties(
+                                        new PlaceholderShape { Type = PlaceholderValues.SlideImage })),
+                                new ShapeProperties()),
+
+                            // Notes body placeholder
+                            new Shape(
+                                new NonVisualShapeProperties(
+                                    new NonVisualDrawingProperties { Id = 3U, Name = "Notes Placeholder" },
+                                    new NonVisualShapeDrawingProperties(
+                                        new Drawing.ShapeLocks { NoGrouping = true }),
+                                    new ApplicationNonVisualDrawingProperties(
+                                        new PlaceholderShape { Type = PlaceholderValues.Body, Index = 1U })),
+                                new ShapeProperties(),
+                                new TextBody(
+                                    new Drawing.BodyProperties(),
+                                    new Drawing.ListStyle(),
+                                    new Drawing.Paragraph(
+                                        new Drawing.Run(
+                                            new Drawing.RunProperties { Language = "en-US" },
+                                            new Drawing.Text(notesText))))))),
+                    new ColorMapOverride(new Drawing.MasterColorMapping()));
+
+                return;
+            }
+
+            // Update existing notes: find the body placeholder and replace text
+            var notesBody = notesPart.NotesSlide?
+                .Descendants<Shape>()
+                .FirstOrDefault(s =>
+                {
+                    var ph = s.NonVisualShapeProperties?
+                        .ApplicationNonVisualDrawingProperties?
+                        .GetFirstChild<PlaceholderShape>();
+
+                    return ph?.Type?.Value == PlaceholderValues.Body;
+                });
+
+            if (notesBody?.TextBody != null)
+            {
+                var txBody = notesBody.TextBody;
+                txBody.RemoveAllChildren<Drawing.Paragraph>();
+
+                txBody.Append(new Drawing.Paragraph(
+                    new Drawing.Run(
+                        new Drawing.RunProperties { Language = "en-US" },
+                        new Drawing.Text(notesText))));
+            }
         }
 
         #endregion Private Methods

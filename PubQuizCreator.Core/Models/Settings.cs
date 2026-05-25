@@ -10,13 +10,11 @@
 
         public string AiUrl { get; set; } = "";
 
+        public List<string> PptxTemplates { get; set; } = [];
+
         public float PrintFontSizeDefault { get; set; }
 
         public float PrintFontSizeHeader { get; set; }
-
-        public string TemplateAnswers { get; set; } = "";
-
-        public string TemplateQuestions { get; set; } = "";
 
         public int TextShortWarnLength { get; set; }
 
