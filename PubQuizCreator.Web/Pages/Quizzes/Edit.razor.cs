@@ -274,6 +274,24 @@ namespace PubQuizCreator.Web.Pages.Quizzes
             await QuizService.UpdateRoundTitleAsync(round.Id, newTitle);
         }
 
+        private void ToggleAllCollapsed()
+        {
+            if (quiz == null) return;
+
+            var allCollapsed = quiz.Rounds.All(r => AppState.RoundsCollapsed.Contains(r.Id));
+
+            if (allCollapsed)
+            {
+                foreach (var r in quiz.Rounds)
+                    AppState.RoundsCollapsed.Remove(r.Id);
+            }
+            else
+            {
+                foreach (var r in quiz.Rounds)
+                    AppState.RoundsCollapsed.Add(r.Id);
+            }
+        }
+
         private void ToggleAllRounds()
         {
             if (quiz == null) return;

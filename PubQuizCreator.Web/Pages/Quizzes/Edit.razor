@@ -40,6 +40,16 @@ else
             @(isLocked ? "✓ Completed" : "Mark as completed")
         </button>
 
+        @{
+            var allCollapsed = quiz.Rounds.All(r => AppState.RoundsCollapsed.Contains(r.Id));
+        }
+
+        <button class="btn btn-sm btn-outline-secondary"
+                title="@(allCollapsed ? "Expand all rounds" : "Collapse all rounds")"
+                @onclick="ToggleAllCollapsed">
+            @(allCollapsed ? "▼ Expand all" : "▶ Collapse all")
+        </button>
+
         <div class="d-flex gap-2 ms-auto flex-shrink-0 align-items-center">
 
             @{
