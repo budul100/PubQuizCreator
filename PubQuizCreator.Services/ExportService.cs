@@ -8,7 +8,7 @@ using Drawing = DocumentFormat.OpenXml.Drawing;
 
 namespace PubQuizCreator.Services
 {
-    public class ExportService(MediaService mediaService, SettingsService settingsService)
+    public class ExportService(MediaService mediaService, SettingsService settingsService, ToastService toastService)
     {
         #region Public Methods
 
@@ -86,7 +86,11 @@ namespace PubQuizCreator.Services
                                 fileName: slot.Question.MediaFile!,
                                 ct: ct);
                         }
-                        catch (FileNotFoundException) { }
+                        catch (FileNotFoundException)
+                        {
+                            toastService.ShowError(
+                                $"Media file not found: {slot.Question.MediaFile}");
+                        }
 
                         if (imageBytes != null)
                         {

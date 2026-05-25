@@ -5,6 +5,7 @@
 @inject SettingsService SettingsService
 @inject StateService AppState
 @inject TemplateService TemplateService
+@inject ToastService ToastService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -44,9 +45,10 @@ else
                 var allSelected = roundsWithSlots.Count > 0 && roundsWithSlots.All(r => selectedRoundIds.Contains(r.Id));
             }
 
-            <button class="btn btn-sm btn-outline-secondary"
-                    title="@(allSelected ? "Deselect all rounds" : "Select all rounds")"
-                    @onclick="ToggleAllRounds">
+            <button 
+                class="btn btn-sm btn-outline-secondary"
+                title="@(allSelected ? "Deselect all rounds" : "Select all rounds")"
+                @onclick="ToggleAllRounds">
                 @(allSelected ? "☐ Deselect all" : "☑ Select all")
             </button>
 

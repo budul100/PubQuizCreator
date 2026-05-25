@@ -1,5 +1,4 @@
 ﻿using System.IO.Compression;
-using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -152,6 +151,8 @@ internal class Program
 
         builder.Services
             .AddSingleton<SettingsService>();
+        builder.Services
+            .AddSingleton<ToastService>();
 
         builder.Services
             .AddScoped<QuizService>();

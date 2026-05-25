@@ -1,7 +1,7 @@
 using PubQuizCreator.Core;
 using PubQuizCreator.Services;
 
-namespace PubQuizCreator.Web.Shared
+namespace PubQuizCreator.Web.Shared.Main
 {
     public partial class MainLayout
     {
