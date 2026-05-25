@@ -4,8 +4,6 @@
     {
         #region Public Properties
 
-        public List<string> AdditionalFiles { get; set; } = [];
-
         public string AiPrompt { get; set; } = "";
 
         public string AiUrl { get; set; } = "";

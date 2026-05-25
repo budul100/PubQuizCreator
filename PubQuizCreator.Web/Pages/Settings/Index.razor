@@ -107,36 +107,6 @@ else
                     Each uploaded file appears as a selectable template when exporting a round.
                 </div>
             </div>
-
-            <hr class="my-1" />
-
-            <label class="form-label mb-1">Additional Export Files</label>
-
-            @for (var i = 0; i < settings.AdditionalFiles.Count; i++)
-            {
-                var index = i;
-                <div class="d-flex align-items-center gap-2">
-                    <span class="font-monospace text-truncate flex-grow-1">
-                        @settings.AdditionalFiles[index]
-                    </span>
-                    <button class="btn btn-outline-danger btn-sm"
-                            @onclick="() => settings.AdditionalFiles.RemoveAt(index)">
-                        <span class="oi oi-trash" />
-                    </button>
-                </div>
-            }
-
-            <div>
-                <label class="btn btn-outline-secondary btn-sm mb-0" style="cursor:pointer;">
-                    + Upload file
-                    <InputFile OnChange="UploadAdditionalAsync" style="display:none;" />
-                </label>
-            </div>
-            <div class="form-text">
-                Files are saved immediately on upload. Included in every quiz export as
-                <code>quiz_yyyy-MM-dd_filename</code>.
-            </div>
-
         </div>
     </div>
 

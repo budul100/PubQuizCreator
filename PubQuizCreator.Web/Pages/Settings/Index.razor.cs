@@ -72,35 +72,6 @@ namespace PubQuizCreator.Web.Pages.Settings
             await JS.InvokeVoidAsync(Constants.AutoOpenSetter, autoOpenCapture);
         }
 
-        private async Task UploadAdditionalAsync(InputFileChangeEventArgs e)
-        {
-            if (settings == null) return;
-            try
-            {
-                var file = e.File;
-                var fileName = Path.GetFileName(file.Name);
-
-                await using var stream = file.OpenReadStream(
-                    maxAllowedSize: Constants.MaxUploadSizeBytes);
-                await SettingsService.SaveFileAsync(content: stream, fileName: fileName);
-
-                var existingIndex = settings.AdditionalFiles.FindIndex(f =>
-                    string.Equals(f, fileName, StringComparison.OrdinalIgnoreCase));
-
-                if (existingIndex >= 0)
-                    settings.AdditionalFiles[existingIndex] = fileName;
-                else
-                    settings.AdditionalFiles.Add(fileName);
-
-                await SettingsService.SaveAsync(settings);
-                savedAt = DateTime.Now;
-            }
-            catch (Exception ex)
-            {
-                saveError = $"Upload failed: {ex.Message}";
-            }
-        }
-
         private async Task UploadTemplateAsync(InputFileChangeEventArgs e)
         {
             if (settings == null) return;

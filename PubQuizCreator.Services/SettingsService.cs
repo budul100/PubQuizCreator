@@ -39,27 +39,10 @@ namespace PubQuizCreator.Services
         public string GetFormatTitle() => configuration["Export:TitleFormat"]
             ?? "Question {position}";
 
-        public IEnumerable<string> GetPathAdditionals()
-        {
-            var additionalFiles = GetAdditionalFiles().ToArray();
-            var templatesPath = GetPathTemplates() ?? "";
-
-            foreach (var additionalFile in additionalFiles)
-            {
-                var path = Path.Combine(templatesPath, additionalFile);
-
-                if (File.Exists(path))
-                {
-                    yield return path;
-                }
-            }
-        }
-
         public string GetPathMedia() => GetFolder("Media:StoragePath");
 
         public string GetPathTemplates() => GetFolder("Export:TemplatesPath");
 
-        // Returns all configured PPTX template file names.
         public IEnumerable<string> GetPptxTemplateNames()
         {
             return configuration
@@ -69,7 +52,6 @@ namespace PubQuizCreator.Services
                 ?? [];
         }
 
-        // Returns the full path for a given template file name, or null if not found.
         public string? GetPptxTemplatePath(string fileName)
         {
             if (string.IsNullOrWhiteSpace(fileName)) return null;
@@ -83,7 +65,6 @@ namespace PubQuizCreator.Services
         {
             return new()
             {
-                AdditionalFiles = GetAdditionalFiles()?.ToList() ?? [],
                 AiPrompt = configuration["Quiz:PromptTemplate"] ?? "",
                 AiUrl = configuration["Quiz:AiUrl"] ?? "",
                 PrintFontSizeDefault = configuration.GetValue("Print:FontSizeDefault", 8f),
@@ -101,15 +82,16 @@ namespace PubQuizCreator.Services
                 Export = new
                 {
                     settings.TitleFormat,
-                    settings.PptxTemplates,
-                    settings.AdditionalFiles
+                    settings.PptxTemplates
                 },
+
                 Quiz = new
                 {
                     PromptTemplate = settings.AiPrompt,
                     settings.AiUrl,
                     settings.TextShortWarnLength
                 },
+
                 Print = new
                 {
                     FontSizeDefault = settings.PrintFontSizeDefault,
@@ -142,15 +124,6 @@ namespace PubQuizCreator.Services
         #endregion Public Methods
 
         #region Private Methods
-
-        private IEnumerable<string> GetAdditionalFiles()
-        {
-            return configuration
-                .GetSection("Export:AdditionalFiles")
-                .Get<List<string>>()
-                ?.Where(f => !string.IsNullOrWhiteSpace(f))
-                ?? [];
-        }
 
         private string GetFolder(string configKey)
         {
