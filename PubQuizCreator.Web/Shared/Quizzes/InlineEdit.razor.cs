@@ -19,6 +19,8 @@ namespace PubQuizCreator.Web.Shared.Quizzes
 
         [Parameter] public string? InputStyle { get; set; }
 
+        [Parameter] public bool IsReadOnly { get; set; } = false;
+        
         [Parameter] public string? LabelStyle { get; set; }
 
         [Parameter] public EventCallback OnCancel { get; set; }
@@ -54,7 +56,9 @@ namespace PubQuizCreator.Web.Shared.Quizzes
                 forceRender = false;
                 return true;
             }
-            return true; // InlineEdit muss bei IsEditing-Wechsel immer rendern
+
+            // InlineEdit muss bei IsEditing-Wechsel immer rendern
+            return true;
         }
 
         #endregion Protected Methods
@@ -95,6 +99,8 @@ namespace PubQuizCreator.Web.Shared.Quizzes
 
         private void StartEditing()
         {
+            if (IsReadOnly) return;
+            
             currentValue = displayValue;
             IsEditing = true;
             forceRender = true;

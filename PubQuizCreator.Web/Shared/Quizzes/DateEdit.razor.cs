@@ -16,6 +16,8 @@ namespace PubQuizCreator.Web.Shared.Quizzes
 
         [Parameter] public string? InputStyle { get; set; }
 
+        [Parameter] public bool IsReadOnly { get; set; } = false;
+        
         [Parameter] public string? LabelStyle { get; set; }
 
         [Parameter, EditorRequired] public EventCallback<DateOnly> OnConfirm { get; set; }
@@ -48,6 +50,8 @@ namespace PubQuizCreator.Web.Shared.Quizzes
 
         private void StartEditing()
         {
+            if (IsReadOnly) return;
+
             currentValue = Value.ToString("yyyy-MM-dd");
             IsEditing = true;
         }

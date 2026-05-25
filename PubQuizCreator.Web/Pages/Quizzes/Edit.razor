@@ -19,12 +19,14 @@ else
 
         <InlineEdit 
             Value="@quiz.Title"
+            IsReadOnly="@quiz.IsCompleted"
             OnConfirm="async v => { quiz.Title = v ?? string.Empty; await SaveHeaderAsync(); }"
             InputStyle="max-width: 400px;"
             LabelStyle="font-weight: 600;" />
 
         <DateEdit 
             Value="@quiz.Date"
+            IsReadOnly="@quiz.IsCompleted"
             OnConfirm="async d => { quiz.Date = d; await SaveHeaderAsync(); }"
             LabelStyle="color: #6c757d;" />
 
@@ -66,11 +68,14 @@ else
                 <div @onclick:stopPropagation="true"
                      @onmousedown:stopPropagation="true"
                      class="flex-shrink-0">
-                    <InlineEdit Value="@(r.Title ?? string.Empty)"
-                                Placeholder="@($"Round {r.Position}")"
-                                OnConfirm="async v => await SaveRoundTitleAsync(r, v)"
-                                InputStyle="max-width: 300px;"
-                                LabelStyle="font-weight: 600;" />
+
+                    <InlineEdit 
+                        Value="@(r.Title ?? string.Empty)"
+                        Placeholder="@($"Round {r.Position}")"
+                        IsReadOnly="@quiz.IsCompleted"
+                        OnConfirm="async v => await SaveRoundTitleAsync(r, v)"
+                        InputStyle="max-width: 300px;"
+                        LabelStyle="font-weight: 600;" />
                 </div>
 
                 <span class="text-muted flex-shrink-0">
