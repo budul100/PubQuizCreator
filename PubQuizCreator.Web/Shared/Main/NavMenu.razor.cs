@@ -8,11 +8,11 @@ namespace PubQuizCreator.Web.Shared.Main
 
         private bool collapseNavMenu = true;
 
-        private string AppVersion { get; } = BuildInfo.Timestamp;
-
         #endregion Private Fields
 
         #region Private Properties
+
+        private string AppVersion { get; } = BuildInfo.Timestamp;
 
         private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
 

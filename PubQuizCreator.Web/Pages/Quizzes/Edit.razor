@@ -17,25 +17,27 @@
 }
 else
 {
+    @* Convenience flag used throughout this template *@
+    var isLocked = quiz.IsCompleted;
+
     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
 
         <InlineEdit 
             Value="@quiz.Title"
-            IsReadOnly="@quiz.IsCompleted"
+            IsReadOnly="@isLocked"
             OnConfirm="async v => { quiz.Title = v ?? string.Empty; await SaveHeaderAsync(); }"
             InputStyle="max-width: 400px;"
             LabelStyle="font-weight: 600;" />
 
         <DateEdit 
             Value="@quiz.Date"
-            IsReadOnly="@quiz.IsCompleted"
+            IsReadOnly="@isLocked"
             OnConfirm="async d => { quiz.Date = d; await SaveHeaderAsync(); }"
             LabelStyle="color: #6c757d;" />
 
-        <button 
-            class="btn btn-sm @(quiz.IsCompleted ? "btn-success" : "btn-outline-secondary")"
-            @onclick="ToggleCompletedAsync">
-            @(quiz.IsCompleted ? "✓ Completed" : "Mark as completed")
+        <button class="btn btn-sm @(isLocked ? "btn-success" : "btn-outline-secondary")"
+                @onclick="ToggleCompletedAsync">
+            @(isLocked ? "✓ Completed" : "Mark as completed")
         </button>
 
         <div class="d-flex gap-2 ms-auto flex-shrink-0 align-items-center">
@@ -45,10 +47,9 @@ else
                 var allSelected = roundsWithSlots.Count > 0 && roundsWithSlots.All(r => selectedRoundIds.Contains(r.Id));
             }
 
-            <button 
-                class="btn btn-sm btn-outline-secondary"
-                title="@(allSelected ? "Deselect all rounds" : "Select all rounds")"
-                @onclick="ToggleAllRounds">
+            <button class="btn btn-sm btn-outline-secondary"
+                    title="@(allSelected ? "Deselect all rounds" : "Select all rounds")"
+                    @onclick="ToggleAllRounds">
                 @(allSelected ? "☐ Deselect all" : "☑ Select all")
             </button>
 
@@ -69,11 +70,11 @@ else
         var openSlots = r.Slots.Count(s => s.QuestionId == null);
 
         <div class="card mb-3"
-             draggable="true"
-             @ondragstart="() => dragFromRound = r.Id"
+             draggable="@(!isLocked)"
+             @ondragstart="() => { if (!isLocked) dragFromRound = r.Id; }"
              @ondragover="_ => { }"
              @ondragover:preventDefault="true"
-             @ondrop="() => DropRound(r.Id)">
+             @ondrop="async () => { if (!isLocked) await DropRound(r.Id); }">
 
             <div class="card-header d-flex align-items-center gap-2"
                  @onmousedown:preventDefault="true"
@@ -91,7 +92,10 @@ else
                            @onclick:stopPropagation="true" />
                 </div>
 
-                <span class="text-muted flex-shrink-0">☰</span>
+                @if (!isLocked)
+                {
+                    <span class="text-muted flex-shrink-0">☰</span>
+                }
 
                 <div @onclick:stopPropagation="true"
                      @onmousedown:stopPropagation="true"
@@ -100,7 +104,7 @@ else
                     <InlineEdit 
                         Value="@(r.Title ?? string.Empty)"
                         Placeholder="@($"Round {r.Position}")"
-                        IsReadOnly="@quiz.IsCompleted"
+                        IsReadOnly="@isLocked"
                         OnConfirm="async v => await SaveRoundTitleAsync(r, v)"
                         InputStyle="max-width: 300px;"
                         LabelStyle="font-weight: 600;" />
@@ -114,16 +118,20 @@ else
 
                 <SlotBadge Open="openSlots" Total="totalSlots" />
 
-                <div class="d-flex gap-1 flex-shrink-0"
-                     @onclick:stopPropagation="true"
-                     @onmousedown:stopPropagation="true">
-                    @if (r.Slots.All(s => s.QuestionId == null))
-                    {
-                        <button class="btn btn-outline-danger btn-sm" @onclick="() => RemoveRoundAsync(r.Id)">
-                            <span class="oi oi-trash" />
-                        </button>
-                    }
-                </div>
+                @* Remove-round button: only visible when not locked and round is empty *@
+                @if (!isLocked)
+                {
+                    <div class="d-flex gap-1 flex-shrink-0"
+                         @onclick:stopPropagation="true"
+                         @onmousedown:stopPropagation="true">
+                        @if (r.Slots.All(s => s.QuestionId == null))
+                        {
+                            <button class="btn btn-outline-danger btn-sm" @onclick="() => RemoveRoundAsync(r.Id)">
+                                <span class="oi oi-trash" />
+                            </button>
+                        }
+                    </div>
+                }
 
             </div>
 
@@ -131,32 +139,38 @@ else
             {
                 <div class="list-group list-group-flush">
 
-                @if (addSlotRound?.Id == r.Id && addSlotAfterPosition == 0)
-                {
-                    <CategorySelector Categories="categories"
-                        @bind-SelectedCategoryId="addSlotCategoryId"
-                        OnConfirm="ConfirmAddSlotAsync"
-                        OnCancel="() => addSlotRound = null" />
-                }
+                    @* Insert-slot-at-top widget — hidden when locked *@
+                    @if (!isLocked && addSlotRound?.Id == r.Id && addSlotAfterPosition == 0)
+                    {
+                        <CategorySelector 
+                            Categories="categories"
+                            @bind-SelectedCategoryId="addSlotCategoryId"
+                            OnConfirm="ConfirmAddSlotAsync"
+                            OnCancel="() => addSlotRound = null" />
+                    }
 
-                @foreach (var slot in r.Slots.OrderBy(s => s.Position))
+                    @foreach (var slot in r.Slots.OrderBy(s => s.Position))
                     {
                         var s = slot;
                         var editUrl = s.Question != null
-                            ? $"/questions/{s.Question.Id}/edit?returnUrl=/quizzes/{Id}"
-                            : null;
+                        ? $"/questions/{s.Question.Id}/edit?returnUrl=/quizzes/{Id}"
+                        : null;
 
                         <div class="list-group-item py-2"
-                             draggable="true"
-                             @ondragstart="() => { dragFromSlot = s.Id; dragFromSlotRound = r.Id; }"
+                             draggable="@(!isLocked)"
+                             @ondragstart="() => { if (!isLocked) { dragFromSlot = s.Id; dragFromSlotRound = r.Id; } }"
                              @ondragover="_ => { }"
                              @ondragover:preventDefault="true"
-                             @ondrop="() => DropSlot(r.Id, s.Id)"
-                             style="cursor: grab;">
+                             @ondrop="async () => { if (!isLocked) await DropSlot(r.Id, s.Id); }"
+                             style="cursor: @(isLocked ? "default" : "grab");">
 
                             <div class="d-flex gap-2 align-items-center">
 
-                                <span class="text-muted flex-shrink-0 mt-1">☰</span>
+                                @if(!isLocked)
+                                {
+                                    <span class="text-muted flex-shrink-0 mt-1">☰</span>
+                                }
+                                
                                 <span class="badge bg-light text-secondary border flex-shrink-0 mt-1"
                                       style="min-width: 1.8rem; text-align: center; font-weight: 600;">
                                     @s.Position
@@ -164,12 +178,13 @@ else
 
                                 @{
                                     var catColor = s.Category?.ColorHex ?? "#95a5a6";
-                                    var catCursor = s.Question == null ? "pointer" : "default";
+                                    @* When locked: category is never editable, so cursor is always default *@
+                                    var catCursor = (!isLocked && s.Question == null) ? "pointer" : "default";
                                 }
 
                                 <div style="width: 120px; flex-shrink: 0; min-width: 0;"
                                      @onclick:stopPropagation="true">
-                                    @if (editCategorySlot?.Id == s.Id)
+                                    @if (!isLocked && editCategorySlot?.Id == s.Id)
                                     {
                                         <CategorySelector Categories="categories"
                                                           @bind-SelectedCategoryId="editCategorySlotCategoryId"
@@ -179,69 +194,77 @@ else
                                     }
                                     else
                                     {
-                                        <div style="cursor: @catCursor;"
-                                             @onclick="@(s.Question == null ? EventCallback.Factory.Create(this, () => { editCategorySlot = s; editCategorySlotCategoryId = s.CategoryId; }) : default)">
-                                            <ColorBadge Name="@(s.Category?.Name ?? "— no category —")"
-                                                        ColorHex="@catColor"
-                                                        CssClass="text-truncate d-block"
-                                                        Style="max-width: 100%;" />
-                                        </div>
-                                    }
+                    @* Click-to-edit category only when not locked and slot has no question *@
+                    <div style="cursor: @catCursor;"
+                         @onclick="@(!isLocked && s.Question == null
+                            ? EventCallback.Factory.Create(this, () => { editCategorySlot = s; editCategorySlotCategoryId = s.CategoryId; })
+                            : default)">
+                        <ColorBadge Name="@(s.Category?.Name ?? "— no category —")"
+                                    ColorHex="@catColor"
+                                    CssClass="text-truncate d-block"
+                                    Style="max-width: 100%;" />
+                    </div>
+                                        }
                                 </div>
 
-                                <div style="flex: 1; min-width: 0; cursor: pointer;"
-                                     @onclick="async () => { if (editUrl != null) Nav.NavigateTo(editUrl); else await OpenPickerAsync(s); }"
+                                <div style="flex: 1; min-width: 0; cursor: @(isLocked ? "default" : "pointer");"
+                                     @onclick="async () => { if (!isLocked) { if (editUrl != null) Nav.NavigateTo(editUrl); else await OpenPickerAsync(s); } }"
                                      @onclick:stopPropagation="true">
                                     @if (s.Question != null)
                                     {
                                         <QuestionVisualizer Question="s.Question" />
                                     }
-                                    else if (pickerSlot?.Id != s.Id)
+                                    else if (!isLocked && pickerSlot?.Id != s.Id)
                                     {
                                         <span class="small text-muted fst-italic">[Click to assign]</span>
                                     }
                                 </div>
 
-                                <div class="d-flex gap-1 flex-shrink-0" @onclick:stopPropagation="true">
-                                    @if (s.Question != null)
-                                    {
+                                @* Action buttons — hidden entirely when locked *@
+                                @if (!isLocked)
+                                {
+                                    <div class="d-flex gap-1 flex-shrink-0" @onclick:stopPropagation="true">
+                                        @if (s.Question != null)
+                                        {
+                                            <button class="btn btn-outline-secondary btn-sm"
+                                                    title="Reassign"
+                                                    @onclick="async () => await OpenPickerAsync(s)"
+                                                    @onclick:stopPropagation="true">
+                                                <span class="oi oi-pencil" />
+                                            </button>
+                                            <button class="btn btn-warning btn-sm"
+                                                    title="Unassign"
+                                                    @onclick="() => UnassignAsync(s.Id)">
+                                                <span class="oi oi-action-undo" />
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-danger btn-sm"
+                                                    title="Remove slot"
+                                                    @onclick="() => RemoveSlotAsync(s.Id)">
+                                                <span class="oi oi-trash" />
+                                            </button>
+                                        }
                                         <button class="btn btn-outline-secondary btn-sm"
-                                                title="Reassign"
-                                                @onclick="async () => await OpenPickerAsync(s)"
-                                                @onclick:stopPropagation="true">
-                                            <span class="oi oi-pencil" />
+                                                title="Insert slot above"
+                                                @onclick="() => OpenAddSlot(r, s.Position - 1)">
+                                            <span class="oi oi-arrow-top" />
                                         </button>
-                                        <button class="btn btn-warning btn-sm"
-                                                title="Unassign"
-                                                @onclick="() => UnassignAsync(s.Id)">
-                                            <span class="oi oi-action-undo" />
+                                        <button class="btn btn-outline-secondary btn-sm"
+                                                title="Insert slot below"
+                                                @onclick="() => OpenAddSlot(r, s.Position)">
+                                            <span class="oi oi-arrow-bottom" />
                                         </button>
-                                    }
-                                    else
-                                    {
-                                        <button class="btn btn-danger btn-sm"
-                                                title="Remove slot"
-                                                @onclick="() => RemoveSlotAsync(s.Id)">
-                                            <span class="oi oi-trash" />
-                                        </button>
-                                    }
-                                    <button class="btn btn-outline-secondary btn-sm"
-                                            title="Insert slot above"
-                                            @onclick="() => OpenAddSlot(r, s.Position - 1)">
-                                        <span class="oi oi-arrow-top" />
-                                    </button>
-                                    <button class="btn btn-outline-secondary btn-sm"
-                                            title="Insert slot below"
-                                            @onclick="() => OpenAddSlot(r, s.Position)">
-                                        <span class="oi oi-arrow-bottom" />
-                                    </button>
-                                </div>
+                                    </div>
+                                }
 
                             </div>
 
                         </div>
 
-                        @if (pickerSlot?.Id == s.Id)
+                        @* Question picker — never shown when locked *@
+                        @if (!isLocked && pickerSlot?.Id == s.Id)
                         {
                             <div class="list-group-item p-2 border-top bg-light">
 
@@ -252,21 +275,19 @@ else
                                     <button class="btn-close btn-sm" @onclick="() => pickerSlot = null" />
                                 </div>
 
-                                <SearchInput 
-                                    @ref="searchInput"
-                                    @bind-Value="searchText"
-                                    @bind-Value:after="ApplySearch" />
+                                <SearchInput @ref="searchInput"
+                                             @bind-Value="searchText"
+                                             @bind-Value:after="ApplySearch" />
 
                                 <div class="small text-muted mb-2">
                                     @pickerFiltered.Count of @pickerAll.Count in this category
                                 </div>
-                                
+
                                 <div class="list-group">
                                     @foreach (var picker in pickerFiltered.Take(Constants.PageSizePicker))
                                     {
-                                        <button 
-                                            class="list-group-item list-group-item-action py-1" 
-                                            @onclick="() => AssignAsync(picker.Id)">
+                                        <button class="list-group-item list-group-item-action py-1"
+                                                @onclick="() => AssignAsync(picker.Id)">
                                             <QuestionVisualizer Question="picker" />
                                         </button>
                                     }
@@ -274,12 +295,13 @@ else
                             </div>
                         }
 
-                        @if (addSlotRound?.Id == r.Id && addSlotAfterPosition == s.Position)
+                        @* Insert-slot-after widget — hidden when locked *@
+                        @if (!isLocked && addSlotRound?.Id == r.Id && addSlotAfterPosition == s.Position)
                         {
                             <CategorySelector Categories="categories"
-                                @bind-SelectedCategoryId="addSlotCategoryId"
-                                OnConfirm="ConfirmAddSlotAsync"
-                                OnCancel="() => addSlotRound = null" />
+                                              @bind-SelectedCategoryId="addSlotCategoryId"
+                                              OnConfirm="ConfirmAddSlotAsync"
+                                              OnCancel="() => addSlotRound = null" />
                         }
                     }
                 </div>
@@ -287,39 +309,42 @@ else
         </div>
     }
 
-    @* Add round controls *@
-    <div class="d-flex gap-2 mb-4 flex-wrap">
-        <button class="btn btn-outline-secondary btn-sm"
-                @onclick="AddEmptyRoundAsync">
-            + Empty round
-        </button>
-        <button class="btn btn-outline-primary btn-sm"
-                @onclick="() => showTemplatePicker = true">
-            + Round from template
-        </button>
-    </div>
-
-    @if (showTemplatePicker)
+    @* Add-round controls — hidden when locked *@
+    @if (!isLocked)
     {
-        <div class="card border-primary mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <strong>Add round from template</strong>
-                <button class="btn-close" @onclick="() => showTemplatePicker = false" />
-            </div>
-            <div class="card-body d-flex flex-column gap-2">
-                <select class="form-select" @bind="selectedTemplateId">
-                    <option value="@Guid.Empty">— select template —</option>
-                    @foreach (var t in templates)
-                    {
-                        <option value="@t.Id">@t.Name (@t.Slots.Count slots)</option>
-                    }
-                </select>
-                <button class="btn btn-primary btn-sm"
-                        @onclick="AddRoundFromTemplateAsync"
-                        disabled="@(selectedTemplateId == Guid.Empty)">
-                    Add round
-                </button>
-            </div>
+        <div class="d-flex gap-2 mb-4 flex-wrap">
+            <button class="btn btn-outline-secondary btn-sm"
+                    @onclick="AddEmptyRoundAsync">
+                + Empty round
+            </button>
+            <button class="btn btn-outline-primary btn-sm"
+                    @onclick="() => showTemplatePicker = true">
+                + Round from template
+            </button>
         </div>
+
+        @if (showTemplatePicker)
+        {
+            <div class="card border-primary mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <strong>Add round from template</strong>
+                    <button class="btn-close" @onclick="() => showTemplatePicker = false" />
+                </div>
+                <div class="card-body d-flex flex-column gap-2">
+                    <select class="form-select" @bind="selectedTemplateId">
+                        <option value="@Guid.Empty">— select template —</option>
+                        @foreach (var t in templates)
+                        {
+                            <option value="@t.Id">@t.Name (@t.Slots.Count slots)</option>
+                        }
+                    </select>
+                    <button class="btn btn-primary btn-sm"
+                            @onclick="AddRoundFromTemplateAsync"
+                            disabled="@(selectedTemplateId == Guid.Empty)">
+                        Add round
+                    </button>
+                </div>
+            </div>
+        }
     }
 }

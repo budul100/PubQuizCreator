@@ -44,7 +44,7 @@ namespace PubQuizCreator.Web.Pages.Categories
 
             if (await CategoryService.IsInUseAsync(id))
             {
-                await JS.AlertAsync($"\"{cat.Name}\" is in use and cannot be deleted.");
+                ToastService.ShowError($"\"{cat.Name}\" is in use and cannot be deleted.");
                 return;
             }
 

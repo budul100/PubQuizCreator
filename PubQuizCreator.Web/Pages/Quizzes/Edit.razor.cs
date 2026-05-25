@@ -40,6 +40,13 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
         #endregion Public Properties
 
+        #region Private Properties
+
+        // Convenience shorthand used in guards throughout this file
+        private bool IsLocked => quiz?.IsCompleted == true;
+
+        #endregion Private Properties
+
         #region Protected Methods
 
         protected override async Task OnInitializedAsync()
@@ -57,12 +64,16 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
         private async Task AddEmptyRoundAsync()
         {
+            if (IsLocked) return;
+
             await QuizService.AddEmptyRoundAsync(Id);
             await ReloadAsync();
         }
 
         private async Task AddRoundFromTemplateAsync()
         {
+            if (IsLocked) return;
+
             await QuizService.AddRoundFromTemplateAsync(Id, selectedTemplateId);
             showTemplatePicker = false;
             selectedTemplateId = Guid.Empty;
@@ -79,6 +90,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
         private async Task AssignAsync(Guid questionId)
         {
+            if (IsLocked) return;
             if (pickerSlot == null) return;
 
             await QuizService.AssignQuestionAsync(pickerSlot.Id, questionId);
@@ -90,6 +102,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
         private async Task ConfirmAddSlotAsync()
         {
+            if (IsLocked) return;
             if (addSlotRound == null) return;
 
             int? afterPosition = addSlotAfterPosition == 0
@@ -107,6 +120,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
         private async Task DropRound(Guid dropToId)
         {
+            if (IsLocked) return;
             if (dragFromRound == Guid.Empty || dragFromRound == dropToId || quiz == null) return;
 
             var ordered = quiz.Rounds.OrderBy(r => r.Position).Select(r => r.Id).ToList();
@@ -122,6 +136,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
         private async Task DropSlot(Guid roundId, Guid dropToSlotId)
         {
+            if (IsLocked) return;
             if (dragFromSlot == Guid.Empty || dragFromSlot == dropToSlotId) return;
             if (dragFromSlotRound != roundId) return;
 
@@ -139,6 +154,8 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
         private void OpenAddSlot(Round round, int afterPosition)
         {
+            if (IsLocked) return;
+
             addSlotRound = round;
             addSlotAfterPosition = afterPosition;
             addSlotCategoryId = null;
@@ -146,6 +163,8 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
         private async Task OpenPickerAsync(RoundSlot slot)
         {
+            if (IsLocked) return;
+
             pickerSlot = slot;
             pickerAll = [];
             pickerFiltered = [];
@@ -187,8 +206,6 @@ namespace PubQuizCreator.Web.Pages.Quizzes
                     .Select(r => r.Id)
                     .ToHashSet();
 
-                // Keep previously selected rounds that still exist;
-                // add newly appeared rounds with slots
                 selectedRoundIds = selectedRoundIds.Count == 0
                     ? roundsWithSlots
                     : selectedRoundIds
@@ -202,12 +219,13 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
         private async Task RemoveRoundAsync(Guid roundId)
         {
+            if (IsLocked) return;
+
             var round = quiz!.Rounds.First(r => r.Id == roundId);
 
             if (round.Slots.Count > 0)
             {
-                await JS.InvokeVoidAsync("alert",
-                    $"Round {round.Position} still has {round.Slots.Count} slot(s). Remove all slots first.");
+                ToastService.ShowError($"Round {round.Position} still has {round.Slots.Count} slot(s). Remove all slots first.");
                 return;
             }
 
@@ -221,6 +239,8 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
         private async Task RemoveSlotAsync(Guid slotId)
         {
+            if (IsLocked) return;
+
             var confirmed = await JS.ConfirmDeleteAsync("this slot");
             if (!confirmed) return;
 
@@ -230,6 +250,8 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
         private async Task SaveCategoryAsync(Guid slotId)
         {
+            if (IsLocked) return;
+
             await QuizService.AssignCategoryAsync(slotId, editCategorySlotCategoryId);
             editCategorySlot = null;
 
@@ -238,12 +260,16 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
         private async Task SaveHeaderAsync()
         {
+            if (IsLocked) return;
             if (quiz == null) return;
+
             await QuizService.UpdatePropsAsync(quiz.Id, quiz.Title, quiz.Date);
         }
 
         private async Task SaveRoundTitleAsync(Round round, string? newTitle)
         {
+            if (IsLocked) return;
+
             round.Title = newTitle;
             await QuizService.UpdateRoundTitleAsync(round.Id, newTitle);
         }
@@ -289,6 +315,8 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
         private async Task UnassignAsync(Guid slotId)
         {
+            if (IsLocked) return;
+
             await QuizService.AssignQuestionAsync(slotId, null);
             await ReloadAsync();
         }

@@ -6,9 +6,6 @@ namespace PubQuizCreator.Web.Helpers
     {
         #region Public Methods
 
-        public static Task AlertAsync(this IJSRuntime js, string message) => js
-            .InvokeVoidAsync("alert", message).AsTask();
-
         public static Task<bool> ConfirmAsync(this IJSRuntime js, string message) => js
             .InvokeAsync<bool>("confirm", message).AsTask();
 
