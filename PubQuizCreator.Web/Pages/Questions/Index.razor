@@ -1,5 +1,6 @@
 ﻿@page "/questions"
 @inject CategoryService CategoryService
+@inject MediaService MediaService
 @inject QuestionService QuestionService
 @inject QuizService QuizService
 @inject StateService StateService
@@ -41,8 +42,9 @@
                 <label class="form-check-label small">Include used questions</label>
             </div>
 
-            <SearchInput @bind-Value="searchInput"
-                         @bind-Value:after="ApplyFilterAsync" />
+            <SearchInput 
+                @bind-Value="searchText"
+                @bind-Value:after="ApplyFilterAsync" />
 
         </div>
 
@@ -53,7 +55,7 @@
         else
         {
             <div class="mb-2 text-muted small">
-                Showing @pageds.Count of @totalCount questions
+                Showing @entries.Count of @totalCount questions
             </div>
 
             @if (totalCount == 0)
@@ -64,10 +66,10 @@
             {
                 @* --- MOBILE: Card list (< md) --- *@
                 <div class="d-md-none">
-                    @foreach (var question in pageds)
+                    @foreach (var entry in entries)
                     {
-                        var editUrl = $"/questions/{question.Id}/edit";
-                        var rowStyle = question.IsUnusable ? "opacity: 0.55;" : "";
+                        var editUrl = $"/questions/{entry.Question.Id}/edit";
+                        var rowStyle = entry.Question.IsUnusable ? "opacity: 0.55;" : "";
 
                         <div class="list-group-item d-flex flex-column gap-1 py-2"
                              style="cursor: pointer; @rowStyle"
@@ -76,34 +78,38 @@
                             <div class="d-flex justify-content-between align-items-start">
 
                                 <CategoryBadge 
-                                    Name="@(question.Category?.Name ?? "")"
-                                    IsUnusable="@question.IsUnusable"
-                                    ColorHex="@(question.Category?.ColorHex ?? "#aaaaaa")" />
+                                    Name="@(entry.Question.Category?.Name ?? "")"
+                                    IsUnusable="@entry.Question.IsUnusable"
+                                    ColorHex="@(entry.Question.Category?.ColorHex ?? "#aaaaaa")" />
 
                                 <div class="d-flex gap-1" @onclick:stopPropagation="true">
-                                    @if (question.IsUsed)
+                                    @if (entry.IsUsed)
                                     {
-                                        <ReuseButton IsUsed="@question.IsUsed"
-                                                     IsUnusable="@question.IsUnusable"
-                                                     AllowReuse="@question.AllowReuse"
-                                                     OnToggle="v => ToggleReuseAsync(question.Id, v)" />
+                                        <ReuseButton 
+                                            IsUsed="@entry.IsUsed"
+                                            IsUnusable="@entry.Question.IsUnusable"
+                                            AllowReuse="@entry.Question.AllowReuse"
+                                            OnToggle="v => ToggleReuseAsync(entry.Question.Id, v)" />
 
                                     }
                                     else
                                     {
-                                        <DeleteButton IsUsed="@question.IsUsed"
-                                                      OnDelete="() => DeleteAsync(question.Id)" />
+                                        <DeleteButton 
+                                            IsUsed="@entry.IsUsed"
+                                            OnDelete="() => DeleteAsync(entry.Question.Id)" />
                                     }
                                 </div>
 
                             </div>
 
-                            <div class="fw-semibold small">@question.TextShort</div>
-                            <div class="text-muted small">→ @question.Answer</div>
+                            <div class="fw-semibold small">@entry.Question.TextShort</div>
+                            <div class="text-muted small">→ @entry.Question.Answer</div>
 
-                            <UsageLabel 
-                                UsedInQuiz="@question.UsedInQuiz"
-                                IsUsed="@question.IsUsed" />
+                            <MediaIcon 
+                                MediaType="@entry.Question.MediaType" />
+
+                            <UsageLabel UsedInQuiz="@entry.UsedInQuiz"
+                                IsUsed="@entry.IsUsed" />
                         </div>
                     }
                 </div>
@@ -123,46 +129,48 @@
                         </thead>
 
                         <tbody>
-                            @foreach (var question in pageds)
+                            @foreach (var entry in entries)
                             {
-                                var editUrl = $"/questions/{question.Id}/edit";
-                                var rowStyle = question.IsUnusable ? "opacity: 0.55;" : "";
+                                var editUrl = $"/questions/{entry.Question.Id}/edit";
+                                var rowStyle = entry.Question.IsUnusable ? "opacity: 0.55;" : "";
 
                                 <tr style="cursor: pointer; @rowStyle" @onclick="() => Nav.NavigateTo(editUrl)">
 
                                     <td>
                                         <CategoryBadge 
-                                            Name="@(question.Category?.Name ?? "")"
-                                            IsUnusable="@question.IsUnusable"
-                                            ColorHex="@(question.Category?.ColorHex ?? "#aaaaaa")" />
+                                            Name="@(entry.Question.Category?.Name ?? "")"
+                                            IsUnusable="@entry.Question.IsUnusable"
+                                            ColorHex="@(entry.Question.Category?.ColorHex ?? "#aaaaaa")" />
                                     </td>
 
                                     <td>
-                                        @question.TextShort
-                                        <MediaIcon Type="@question.MediaType" Prefix="" />
+                                        <div style="display: inline;">@entry.Question.TextShort</div><MediaIcon 
+                                            MediaType="@entry.Question.MediaType"/>
                                     </td>
 
-                                    <td class="text-muted">@question.Answer</td>
+                                    <td class="text-muted">@entry.Question.Answer</td>
                                     
                                     <td @onclick:stopPropagation="true">
                                         <UsageLabel 
-                                            UsedInQuiz="@question.UsedInQuiz"
-                                            IsUsed="@question.IsUsed" />
+                                            UsedInQuiz="@entry.UsedInQuiz"
+                                            IsUsed="@entry.IsUsed" />
                                     </td>
 
                                     <td @onclick:stopPropagation="true">
-                                        @if (question.IsUsed)
+                                        @if (entry.IsUsed)
                                         {
-                                            <ReuseButton IsUsed="@question.IsUsed"
-                                                         IsUnusable="@question.IsUnusable"
-                                                         AllowReuse="@question.AllowReuse"
-                                                         OnToggle="v => ToggleReuseAsync(question.Id, v)" />
+                                            <ReuseButton 
+                                                IsUsed="@entry.IsUsed"
+                                                IsUnusable="@entry.Question.IsUnusable"
+                                                AllowReuse="@entry.Question.AllowReuse"
+                                                OnToggle="v => ToggleReuseAsync(entry.Question.Id, v)" />
 
                                         }
                                         else
                                         {
-                                            <DeleteButton IsUsed="@question.IsUsed"
-                                                          OnDelete="() => DeleteAsync(question.Id)" />
+                                            <DeleteButton 
+                                                IsUsed="@entry.IsUsed"
+                                                OnDelete="() => DeleteAsync(entry.Question.Id)" />
                                         }
                                     </td>
 

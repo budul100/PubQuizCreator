@@ -25,7 +25,7 @@
             </div>
         }
 
-        @if (model.IsUnusable)
+        @if (question.IsUnusable)
         {
             <div class="alert alert-warning mb-3">
                 This question is marked as <strong>unusable</strong> and is excluded from all lists.
@@ -34,7 +34,7 @@
 
         <h4 class="mb-3">@(IsNew ? "New Question" : "Edit Question")</h4>
 
-        <EditForm Model="model" OnValidSubmit="SaveAsync">
+        <EditForm Model="question" OnValidSubmit="SaveAsync">
             <DataAnnotationsValidator />
 
             <div class="mb-3">
@@ -43,12 +43,12 @@
                     <small class="text-muted">(for presentation)</small>
                 </label>
                 <input class="form-control"
-                       value="@model.TextShort"
-                       @oninput="e => { model.TextShort = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
+                       value="@question.TextShort"
+                       @oninput="e => { question.TextShort = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
             </div>
 
             @{
-                var shortLen = model.TextShort?.Length ?? 0;
+                var shortLen = question.TextShort?.Length ?? 0;
 
                 var warnLength = Configuration.GetValue<int>("Quiz:TextShortWarnLength", Constants.TextShortWarnLength);
                 var warnClass = shortLen > warnLength ? "text-danger fw-semibold" : "text-muted";
@@ -69,20 +69,20 @@
                     <small class="text-muted">(internal / moderator notes)</small>
                 </label>
                 <textarea class="form-control" rows="5"
-                          value="@model.TextLong"
-                          @oninput="e => { model.TextLong = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
+                          value="@question.TextLong"
+                          @oninput="e => { question.TextLong = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
             </div>
 
             <div class="mb-3">
                 <label class="form-label">Answer</label>
                 <input class="form-control"
-                       value="@model.Answer"
-                       @oninput="e => { model.Answer = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
+                       value="@question.Answer"
+                       @oninput="e => { question.Answer = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
             </div>
 
             <div class="mb-3">
                 <label class="form-label">Category</label>
-                <select class="form-select" value="@(model.CategoryId?.ToString() ?? string.Empty)"
+                <select class="form-select" value="@(question.CategoryId?.ToString() ?? string.Empty)"
                         @onchange="OnCategoryChanged">
                     <option value="">— select —</option>
                     @foreach (var cat in categories)
@@ -95,54 +95,20 @@
             <div class="mb-3">
                 <label class="form-label fw-semibold">Media</label>
 
-                @* Preview of currently stored file *@
-                @if (!string.IsNullOrEmpty(model.MediaFile))
-                {
-                    <div class="mb-2">
-                        @if (model.MediaType == MediaType.Image)
-                        {
-                            <img src="@MediaService.GetUrl(model.MediaFile)"
-                                 class="img-fluid rounded border"
-                                 style="max-height: 220px;" />
-                        }
-                        else if (model.MediaType == MediaType.Audio)
-                        {
-                            <audio controls src="@MediaService.GetUrl(model.MediaFile)" class="w-100" />
-                        }
-                        else if (model.MediaType == MediaType.Video)
-                        {
-                            <video controls src="@MediaService.GetUrl(model.MediaFile)"
-                                   class="img-fluid rounded border"
-                                   style="max-height: 220px;" />
-                        }
-                        <div class="d-flex align-items-center gap-2 mt-2">
-                            <small class="text-muted text-truncate" style="max-width: 300px;">@model.MediaFile</small>
-                            <button type="button" class="btn btn-outline-danger btn-sm"
-                                    @onclick="RemoveMediaAsync">
-                                Remove media
-                            </button>
-                        </div>
-                    </div>
-                }
+                <MediaUpload 
+                    MediaFile="@question.MediaFile"
+                    MediaType="@question.MediaType"
+                    PendingFile="@pendingFile"
+                    OnFileChanged="OnFileChanged"
+                    OnRemove="RemoveMediaAsync" />
 
-                @* File picker *@
-                <InputFile OnChange="OnFileSelected"
-                           accept="image/*,audio/*,video/*"
-                           class="form-control" />
-                @if (pendingFile != null)
-                {
-                    <small class="text-muted">
-                        Selected: @pendingFile.Name &nbsp;(@(pendingFile.Size / 1024) KB)
-                        — type auto-detected as <strong>@model.MediaType</strong>
-                    </small>
-                }
             </div>
 
             <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mt-4">
 
                 <div class="d-flex gap-2">
                     <a class="btn btn-outline-secondary @(!CanCheck ? "disabled" : "")"
-                       href="@($"https://www.google.com/search?q={Uri.EscapeDataString((model.TextShort + " " + model.Answer).Trim())}")"
+                       href="@($"https://www.google.com/search?q={Uri.EscapeDataString((question.TextShort + " " + question.Answer).Trim())}")"
                        target="_blank"
                        tabindex="@(!CanCheck ? -1 : 0)"
                        aria-disabled="@(!CanCheck)"
@@ -159,7 +125,7 @@
                 </div>
 
                 <div class="d-flex gap-2">
-                    @if (!model.IsUnusable)
+                    @if (!question.IsUnusable)
                     {
                         <button class="btn btn-primary" type="submit" disabled="@(!CanSave || saving)">
                             @(saving ? "Saving…" : "Save question")
@@ -172,7 +138,7 @@
 
                         <button class="btn btn-outline-warning"
                                 type="button"
-                                disabled="@(string.IsNullOrWhiteSpace(model.TextShort) || saving)"
+                                disabled="@(string.IsNullOrWhiteSpace(question.TextShort) || saving)"
                                 @onclick="MarkAsUnusableAsync"
                                 title="Save as unusable — excluded from all lists, but kept for similarity search">
                             ⚠ Mark as unusable

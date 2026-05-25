@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
+using PubQuizCreator.Core;
 using PubQuizCreator.Core.Helpers;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Core.Types;
@@ -19,8 +20,8 @@ namespace PubQuizCreator.Web.Pages.Questions
         private bool hasSearched;
         private string? ideaText;
         private bool isInitialized;
-        private QuestionModel model = new();
         private IBrowserFile? pendingFile;
+        private Question question = new();
         private string? saveError;
         private bool saving;
         private bool searchingEmbedding;
@@ -42,12 +43,12 @@ namespace PubQuizCreator.Web.Pages.Questions
 
         #region Private Properties
 
-        private bool CanCheck => !string.IsNullOrWhiteSpace(model.TextShort)
-            || !string.IsNullOrWhiteSpace(model.Answer);
+        private bool CanCheck => !string.IsNullOrWhiteSpace(question.TextShort)
+            || !string.IsNullOrWhiteSpace(question.Answer);
 
-        private bool CanSave => !string.IsNullOrWhiteSpace(model.TextShort)
-            && model.CategoryId.HasValue
-            && !string.IsNullOrWhiteSpace(model.Answer);
+        private bool CanSave => !string.IsNullOrWhiteSpace(question.TextShort)
+            && question.CategoryId.HasValue
+            && !string.IsNullOrWhiteSpace(question.Answer);
 
         private bool IsNew => Id == null;
 
@@ -75,32 +76,27 @@ namespace PubQuizCreator.Web.Pages.Questions
 
             categories = await CategoryService.GetAllAsync();
 
-            if (!IsNew && await QuestionService.GetAsync(Id!.Value) is { } q)
-                model = QuestionModel.From(q);
-
-            if (PreselectedCategoryId.HasValue && PreselectedCategoryId != Guid.Empty)
-                model.CategoryId = PreselectedCategoryId.Value;
-
-            if (IdeaId.HasValue && IdeaId != Guid.Empty)
+            if (!IsNew)
             {
-                var idea = await IdeaService.GetAsync(IdeaId.Value);
-                if (idea != null)
+                var q = await QuestionService.GetAsync(Id!.Value);
+
+                if (q != null)
                 {
-                    var normalized = RegexNormalized().Replace(idea.Text.Trim(), " ");
-                    var match = RegexMatch().Match(normalized);
-                    if (match.Success)
-                    {
-                        model.TextShort = match.Groups[1].Value.Trim();
-                        model.Answer = match.Groups[2].Value.Trim();
-                    }
-                    else
-                    {
-                        model.TextShort = normalized;
-                    }
-                    model.CategoryId = idea.CategoryId;
-                    ideaText = idea.Text;
+                    question.CategoryId = q.CategoryId;
+                    question.TextShort = q.TextShort;
+                    question.Answer = q.Answer;
+                    question.MediaFile = q.MediaFile;
+                    question.MediaType = q.MediaType;
+                    question.IsUnusable = q.IsUnusable;
+                    question.AllowReuse = q.AllowReuse;
+                    question.TextLong = q.TextLong;
                 }
             }
+
+            if (PreselectedCategoryId.NullIfEmpty() is { } catId)
+                question.CategoryId = catId;
+
+            await ApplyIdeaAsync();
 
             isInitialized = true;
         }
@@ -110,7 +106,7 @@ namespace PubQuizCreator.Web.Pages.Questions
             if (!isInitialized) return;
 
             if (PreselectedCategoryId.HasValue && PreselectedCategoryId != Guid.Empty)
-                model.CategoryId = PreselectedCategoryId.Value;
+                question.CategoryId = PreselectedCategoryId.Value;
         }
 
         #endregion Protected Methods
@@ -121,9 +117,35 @@ namespace PubQuizCreator.Web.Pages.Questions
 
         [GeneratedRegex(@"\s+")] private static partial Regex RegexNormalized();
 
+        private async Task ApplyIdeaAsync()
+        {
+            if (IdeaId.NullIfEmpty() is not { } ideaId) return;
+
+            var idea = await IdeaService.GetAsync(ideaId);
+            if (idea == null) return;
+
+            var normalized = RegexNormalized().Replace(idea.Text.Trim(), " ");
+            var match = RegexMatch().Match(normalized);
+
+            if (match.Success)
+            {
+                question.TextShort = match.Groups[1].Value.Trim();
+                question.Answer = match.Groups[2].Value.Trim();
+            }
+            else
+            {
+                question.TextShort = normalized;
+            }
+
+            question.CategoryId = idea.CategoryId;
+            question.MediaFile = idea.MediaFile;
+            question.MediaType = idea.MediaType;
+            ideaText = idea.Text;
+        }
+
         private async Task DeleteAndGoBackAsync()
         {
-            var confirmed = await JS.ConfirmDeleteAsync(model.TextShort);
+            var confirmed = await JS.ConfirmDeleteAsync(question.TextShort);
             if (!confirmed) return;
 
             if (Id.HasValue)
@@ -144,16 +166,15 @@ namespace PubQuizCreator.Web.Pages.Questions
 
             try
             {
-                model.IsUnusable = true;
-                model.WasUsed = true;
-                model.AllowReuse = false;
+                question.Id = Id ?? Guid.NewGuid();
+                question.AllowReuse = false;
+                question.IsUnusable = true;
 
-                var question = model.ToQuestion(Id);
                 if (IsNew) await QuestionService.CreateAsync(question);
                 else await QuestionService.UpdateAsync(question);
 
                 if (IdeaId.HasValue && IdeaId != Guid.Empty)
-                    await IdeaService.MarkProcessedAsync(IdeaId.Value);
+                    await IdeaService.SetProcessedAsync(IdeaId.Value);
 
                 var url = IdeaId.HasValue && IdeaId != Guid.Empty
                     ? "/ideas"
@@ -163,8 +184,7 @@ namespace PubQuizCreator.Web.Pages.Questions
             }
             catch (Exception ex)
             {
-                model.IsUnusable = false;
-                model.WasUsed = false;
+                question.IsUnusable = false;
                 saveError = $"Error: {ex.Message}";
             }
             finally
@@ -175,41 +195,35 @@ namespace PubQuizCreator.Web.Pages.Questions
 
         private async Task MarkAsUsableAsync()
         {
-            model.IsUnusable = false;
-            model.WasUsed = false;
-            model.AllowReuse = false;
+            question.IsUnusable = false;
+            question.AllowReuse = false;
 
             await Task.CompletedTask;
             StateHasChanged();
         }
 
-        private void OnCategoryChanged(ChangeEventArgs e) => model.CategoryId = Guid.TryParse(e.Value?.ToString(), out var id)
+        private void OnCategoryChanged(ChangeEventArgs e) => question.CategoryId = Guid.TryParse(e.Value?.ToString(), out var id)
             ? id.NullIfEmpty()
             : null;
 
-        private void OnFileSelected(InputFileChangeEventArgs e)
+        private void OnFileChanged((IBrowserFile File, MediaType Type) args)
         {
-            pendingFile = e.File;
-
-            // Auto-detect media type from MIME type
-            model.MediaType = e.File.ContentType switch
-            {
-                var ct when ct.StartsWith("image/") => MediaType.Image,
-                var ct when ct.StartsWith("audio/") => MediaType.Audio,
-                var ct when ct.StartsWith("video/") => MediaType.Video,
-                _ => MediaType.None
-            };
+            pendingFile = args.File;
+            question.MediaType = args.Type;
         }
 
         private async Task OpenAiPromptAsync()
         {
             var template = Configuration["Quiz:PromptTemplate"]
                 ?? "Category: {category}\nQuestion: {question}\nAnswer: {answer}";
-            var categoryName = categories.FirstOrDefault(c => c.Id == model.CategoryId)?.Name ?? "—";
+
+            var categoryName = categories
+                .FirstOrDefault(c => c.Id == question.CategoryId)?.Name ?? "—";
+
             var prompt = template
                 .Replace("{category}", categoryName)
-                .Replace("{question}", model.TextShort)
-                .Replace("{answer}", model.Answer);
+                .Replace("{question}", question.TextShort)
+                .Replace("{answer}", question.Answer);
 
             await JS.InvokeVoidAsync("navigator.clipboard.writeText", prompt);
 
@@ -220,17 +234,19 @@ namespace PubQuizCreator.Web.Pages.Questions
 
         private void RemoveMediaAsync()
         {
-            if (!string.IsNullOrEmpty(model.MediaFile))
-                MediaService.Delete(model.MediaFile);
+            if (!string.IsNullOrEmpty(question.MediaFile))
+            {
+                MediaService.Delete(question.MediaFile);
+            }
 
-            model.MediaFile = null;
-            model.MediaType = MediaType.None;
+            question.MediaFile = null;
+            question.MediaType = MediaType.None;
             pendingFile = null;
         }
 
         private async Task RunSimilaritySearchAsync()
         {
-            var text = $"{model.TextShort} {model.Answer}".Trim();
+            var text = $"{question.TextShort} {question.Answer}".Trim();
 
             searchingEmbedding = true;
             await InvokeAsync(StateHasChanged);
@@ -268,29 +284,39 @@ namespace PubQuizCreator.Web.Pages.Questions
                 if (pendingFile != null)
                 {
                     // Delete old file if being replaced
-                    if (!string.IsNullOrEmpty(model.MediaFile))
-                        MediaService.Delete(model.MediaFile);
+                    if (!string.IsNullOrEmpty(question.MediaFile))
+                    {
+                        MediaService.Delete(question.MediaFile);
+                    }
 
-                    await using var stream = pendingFile.OpenReadStream(maxAllowedSize: 20 * 1024 * 1024);
-                    model.MediaFile = await MediaService.SaveAsync(
+                    await using var stream = pendingFile.OpenReadStream(
+                        maxAllowedSize: Constants.MaxUploadSizeBytes);
+
+                    question.MediaFile = await MediaService.SaveAsync(
                         stream: stream,
                         fileName: pendingFile.Name);
                 }
 
-                var question = model.ToQuestion(Id);
+                question.Id = Id ?? Guid.NewGuid();
+
                 if (IsNew) await QuestionService.CreateAsync(question);
                 else await QuestionService.UpdateAsync(question);
 
                 StateService.NotifyDataChanged();
 
-                var nextCategoryId = model.CategoryId;
-                model = new QuestionModel { CategoryId = nextCategoryId };
+                var nextCategoryId = question.CategoryId;
+
+                question = new Question
+                {
+                    CategoryId = nextCategoryId
+                };
+
                 similars = [];
                 hasSearched = false;
 
                 if (IdeaId.HasValue && IdeaId != Guid.Empty)
                 {
-                    await IdeaService.MarkProcessedAsync(IdeaId.Value);
+                    await IdeaService.SetProcessedAsync(IdeaId.Value);
                     Nav.NavigateTo("/ideas");
                 }
                 else if (IsNew)
@@ -317,71 +343,18 @@ namespace PubQuizCreator.Web.Pages.Questions
         private void TriggerSimilaritySearch()
         {
             debounceTimer?.Dispose();
-            debounceTimer = new Timer(async _ =>
-            {
-                await RunSimilaritySearchAsync();
-                await InvokeAsync(StateHasChanged);
-            }, null, 800, Timeout.Infinite);
+
+            debounceTimer = new Timer(
+                callback: async _ =>
+                {
+                    await RunSimilaritySearchAsync();
+                    await InvokeAsync(StateHasChanged);
+                },
+                state: null,
+                dueTime: 800,
+                period: Timeout.Infinite);
         }
 
         #endregion Private Methods
-
-        #region Private Classes
-
-        private sealed class QuestionModel
-        {
-            #region Public Properties
-
-            public bool AllowReuse { get; set; } = false;
-
-            public string Answer { get; set; } = "";
-
-            public Guid? CategoryId { get; set; }
-
-            public bool IsUnusable { get; set; } = false;
-
-            public string? MediaFile { get; set; }
-
-            public MediaType MediaType { get; set; } = MediaType.None;
-
-            public string TextLong { get; set; } = "";
-
-            public string TextShort { get; set; } = "";
-
-            public bool WasUsed { get; set; } = false;
-
-            #endregion Public Properties
-
-            #region Public Methods
-
-            public static QuestionModel From(Question q) => new()
-            {
-                TextShort = q.TextShort,
-                TextLong = q.TextLong,
-                Answer = q.Answer,
-                CategoryId = q.CategoryId,
-                MediaFile = q.MediaFile,
-                MediaType = q.MediaType,
-                IsUnusable = q.IsUnusable,
-                AllowReuse = q.AllowReuse,
-            };
-
-            public Question ToQuestion(Guid? existingId) => new()
-            {
-                Id = existingId ?? Guid.NewGuid(),
-                TextShort = TextShort,
-                TextLong = TextLong,
-                Answer = Answer,
-                CategoryId = CategoryId,
-                MediaFile = MediaFile,
-                MediaType = MediaType,
-                IsUnusable = IsUnusable,
-                AllowReuse = AllowReuse,
-            };
-
-            #endregion Public Methods
-        }
-
-        #endregion Private Classes
     }
 }

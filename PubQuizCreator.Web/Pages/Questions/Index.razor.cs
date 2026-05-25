@@ -14,13 +14,13 @@ namespace PubQuizCreator.Web.Pages.Questions
         private List<Category> categories = [];
         private Dictionary<Guid, int> countByCategory = [];
         private int currentPage = 1;
+        private List<QuestionEntry> entries = [];
         private Guid? filterCategoryId;
         private CategoryFilter filterMode = CategoryFilter.All;
         private bool initialized = false;
         private bool isLoading = true;
         private Guid? lastCategoryId;
-        private List<QuestionRow> pageds = [];
-        private string searchInput = "";
+        private string searchText = "";
         private bool showUsed = false;
 
         private int totalCount = 0;
@@ -54,7 +54,7 @@ namespace PubQuizCreator.Web.Pages.Questions
             if (InitialShowUsed)
                 showUsed = true;
 
-            await LoadCurrentPageAsync();
+            await ReloadAsync();
 
             isLoading = false;
             lastCategoryId = InitialCategoryId;
@@ -81,7 +81,7 @@ namespace PubQuizCreator.Web.Pages.Questions
 
             showUsed = InitialShowUsed;
 
-            await LoadCurrentPageAsync();
+            await ReloadAsync();
         }
 
         #endregion Protected Methods
@@ -91,25 +91,23 @@ namespace PubQuizCreator.Web.Pages.Questions
         private async Task ApplyFilterAsync()
         {
             currentPage = 1;
-            await LoadCurrentPageAsync();
+            await ReloadAsync();
         }
-
-
 
         private async Task DeleteAsync(Guid id)
         {
-            var current = pageds.First(q => q.Id == id);
+            var current = entries.First(q => q.Question.Id == id);
 
-            var confirmed = await JS.ConfirmDeleteAsync(current.TextShort);
+            var confirmed = await JS.ConfirmDeleteAsync(current.Question.TextShort);
             if (!confirmed) return;
 
+            MediaService.Delete(current.Question.MediaFile);
             await QuestionService.DeleteAsync(id);
 
-            pageds.RemoveAll(q => q.Id == id);
-
+            entries.RemoveAll(q => q.Question.Id == id);
             countByCategory = await QuestionService.GetCountByCategoryAsync();
 
-            await LoadCurrentPageAsync();
+            await ReloadAsync();
         }
 
         private string GetCategorySelectValue() => filterMode switch
@@ -122,23 +120,6 @@ namespace PubQuizCreator.Web.Pages.Questions
 
             _ => "all"
         };
-
-        private async Task LoadCurrentPageAsync()
-        {
-            isLoading = true;
-            StateHasChanged();
-            await Task.Yield();
-
-            (pageds, totalCount) = await QuestionService.GetPagedAsync(
-                page: currentPage,
-                pageSize: Constants.PageSizeList,
-                filterMode: filterMode,
-                categoryId: filterCategoryId,
-                showUsed: showUsed,
-                search: searchInput);
-
-            isLoading = false;
-        }
 
         private async Task OnCategoryChanged(ChangeEventArgs e)
         {
@@ -157,24 +138,43 @@ namespace PubQuizCreator.Web.Pages.Questions
                     : (CategoryFilter.All, null)
             };
 
-            await LoadCurrentPageAsync();
+            await ReloadAsync();
         }
 
         private async Task OnPageChanged(int page)
         {
             currentPage = page;
-            await LoadCurrentPageAsync();
+            await ReloadAsync();
+        }
+
+        private async Task ReloadAsync()
+        {
+            isLoading = true;
+            StateHasChanged();
+            await Task.Yield();
+
+            (entries, totalCount) = await QuestionService.GetPagedAsync(
+                page: currentPage,
+                pageSize: Constants.PageSizeList,
+                filterMode: filterMode,
+                categoryId: filterCategoryId,
+                showUsed: showUsed,
+                search: searchText);
+
+            isLoading = false;
         }
 
         private async Task ToggleReuseAsync(Guid id, bool value)
         {
-            await QuestionService.SetAllowReuseAsync(id, value);
+            await QuestionService.UpdateReuseAsync(id, value);
 
-            var index = pageds.FindIndex(q => q.Id == id);
+            var index = entries.FindIndex(q => q.Question.Id == id);
 
             if (index >= 0)
             {
-                pageds[index] = pageds[index] with { AllowReuse = value };
+                var question = entries[index].Question;
+                question.AllowReuse = value;
+                entries[index].Question = question;
             }
 
             StateHasChanged();

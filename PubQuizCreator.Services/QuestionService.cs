@@ -126,7 +126,7 @@ namespace PubQuizCreator.Services
                 .ToDictionaryAsync(x => x.CategoryId, x => x.Count, ct);
         }
 
-        public async Task<(List<QuestionRow> Items, int TotalCount)> GetPagedAsync(int page, int pageSize,
+        public async Task<(List<QuestionEntry> Items, int TotalCount)> GetPagedAsync(int page, int pageSize,
             CategoryFilter filterMode, Guid? categoryId, bool showUsed, string? search, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
@@ -201,29 +201,17 @@ namespace PubQuizCreator.Services
             var rows = questions.Select(q =>
             {
                 var usage = usageMap.GetValueOrDefault(q.Id);
-                return new QuestionRow(
-                    Id: q.Id,
-                    TextShort: q.TextShort,
-                    Answer: q.Answer,
-                    Category: q.Category,
-                    IsUsed: usage?.IsCompleted ?? false,
-                    AllowReuse: q.AllowReuse,
-                    IsUnusable: q.IsUnusable,
-                    MediaType: q.MediaType,
-                    UsedInQuiz: usage?.QuizInfo,
-                    LastUsedDate: usage?.LastUsedDate);
+
+                return new QuestionEntry
+                {
+                    IsUsed = usage?.IsCompleted ?? false,
+                    Question = q,
+                    LastUsedDate = usage?.LastUsedDate,
+                    UsedInQuiz = usage?.QuizInfo
+                };
             }).ToList();
 
             return (rows, total);
-        }
-
-        public async Task SetAllowReuseAsync(Guid id, bool value, CancellationToken ct = default)
-        {
-            await using var db = await dbFactory.CreateDbContextAsync(ct);
-
-            await db.Questions
-                .Where(q => q.Id == id)
-                .ExecuteUpdateAsync(s => s.SetProperty(q => q.AllowReuse, value), ct);
         }
 
         public async Task UpdateAsync(Question question, CancellationToken ct = default)
@@ -264,6 +252,15 @@ namespace PubQuizCreator.Services
             await db.RoundSlots
                 .Where(s => s.QuestionId == question.Id)
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.CategoryId, existing.CategoryId), ct);
+        }
+
+        public async Task UpdateReuseAsync(Guid id, bool value, CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            await db.Questions
+                .Where(q => q.Id == id)
+                .ExecuteUpdateAsync(s => s.SetProperty(q => q.AllowReuse, value), ct);
         }
 
         #endregion Public Methods

@@ -1,7 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using PubQuizCreator.Core.Models;
-using PubQuizCreator.Data;
 using PubQuizCreator.Core.Helpers;
+using PubQuizCreator.Core.Models;
+using PubQuizCreator.Core.Types;
+using PubQuizCreator.Data;
 
 namespace PubQuizCreator.Services
 {
@@ -10,7 +11,7 @@ namespace PubQuizCreator.Services
         #region Public Methods
 
         public async Task<Idea> CreateAsync(string text, Guid? categoryId, bool isTimeSensitive = false,
-            CancellationToken ct = default)
+            string? mediaFile = null, MediaType mediaType = MediaType.None, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
@@ -18,7 +19,9 @@ namespace PubQuizCreator.Services
             {
                 Text = text,
                 CategoryId = categoryId.NullIfEmpty(),
-                IsTimeSensitive = isTimeSensitive
+                IsTimeSensitive = isTimeSensitive,
+                MediaFile = mediaFile,
+                MediaType = mediaType
             };
 
             db.Ideas.Add(idea);
@@ -59,23 +62,14 @@ namespace PubQuizCreator.Services
                 .ToListAsync(ct);
         }
 
-        public async Task MarkProcessedAsync(Guid id, CancellationToken ct = default)
+        public async Task SetProcessedAsync(Guid id, CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
             var idea = await db.Ideas.FindAsync([id], ct)
                 ?? throw new InvalidOperationException("Idea not found.");
             idea.IsProcessed = true;
-            await db.SaveChangesAsync(ct);
-        }
 
-        public async Task SetTimeSensitiveAsync(Guid id, bool value, CancellationToken ct = default)
-        {
-            await using var db = await dbFactory.CreateDbContextAsync(ct);
-
-            var idea = await db.Ideas.FindAsync([id], ct)
-                ?? throw new InvalidOperationException("Idea not found.");
-            idea.IsTimeSensitive = value;
             await db.SaveChangesAsync(ct);
         }
 
@@ -85,8 +79,19 @@ namespace PubQuizCreator.Services
 
             var idea = await db.Ideas.FindAsync([id], ct)
                 ?? throw new InvalidOperationException("Idea not found.");
-
             idea.CategoryId = categoryId.NullIfEmpty();
+
+            await db.SaveChangesAsync(ct);
+        }
+
+        public async Task UpdateTimeSensitiveAsync(Guid id, bool value, CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            var idea = await db.Ideas.FindAsync([id], ct)
+                ?? throw new InvalidOperationException("Idea not found.");
+            idea.IsTimeSensitive = value;
+
             await db.SaveChangesAsync(ct);
         }
 

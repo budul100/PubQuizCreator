@@ -1,0 +1,16 @@
+﻿@if (MediaType is { } mt && mt != Core.Types.MediaType.None)
+{
+    var iconClass = mt switch
+    {
+        Core.Types.MediaType.Image => "oi oi-image",
+        Core.Types.MediaType.Audio => "oi oi-musical-note",
+        Core.Types.MediaType.Video => "oi oi-video",
+        _ => ""
+    };
+    if (iconClass != "")
+    {
+        <span class="@CssClass text-muted" title="@mt.ToString()">
+            @Prefix<span class="@iconClass" />
+        </span>
+    }
+}

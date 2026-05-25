@@ -2,9 +2,9 @@ using Microsoft.AspNetCore.Components;
 using PubQuizCreator.Core;
 using PubQuizCreator.Core.Helpers;
 using PubQuizCreator.Core.Models;
+using PubQuizCreator.Core.Types;
 using PubQuizCreator.Services;
 using PubQuizCreator.Web.Helpers;
-using PubQuizCreator.Web.Shared;
 
 namespace PubQuizCreator.Web.Pages.Ideas
 {
@@ -12,13 +12,12 @@ namespace PubQuizCreator.Web.Pages.Ideas
     {
         #region Private Fields
 
-        private SearchInput searchInputRef = default!;
         private List<Category> categories = [];
         private int currentPage = 1;
         private List<Idea> entries = [];
         private Guid? filterCategoryId;
         private List<Idea> filtered = [];
-        private IdeaCategoryFilter filterMode = IdeaCategoryFilter.All;
+        private IdeaFilter filterMode = IdeaFilter.All;
         private bool isLoading = true;
         private (Guid IdeaId, Guid? OldCategoryId)? lastAssignment;
         private List<Idea> paged = [];
@@ -28,16 +27,14 @@ namespace PubQuizCreator.Web.Pages.Ideas
 
         #endregion Private Fields
 
-        #region Private Enums
-
-        private enum IdeaCategoryFilter
-        { All, Uncategorized, Specific }
-
-        #endregion Private Enums
-
         #region Public Methods
 
-        public void Dispose() => undoTimer?.Dispose();
+        public void Dispose()
+        {
+            undoTimer?.Dispose();
+
+            GC.SuppressFinalize(this);
+        }
 
         #endregion Public Methods
 
@@ -53,15 +50,15 @@ namespace PubQuizCreator.Web.Pages.Ideas
             var savedId = StateService.IdeasSelectedCategory;
             if (savedId != Guid.Empty)
             {
-                filterMode = IdeaCategoryFilter.Specific;
+                filterMode = IdeaFilter.Specific;
                 filterCategoryId = savedId;
             }
 
             categories = (await CategoryService.GetAllAsync()).Where(c => !c.IsHidden).ToList();
             await ReloadAsync();
 
-            if (filterMode == IdeaCategoryFilter.All && entries.Any(i => i.CategoryId == null))
-                filterMode = IdeaCategoryFilter.Uncategorized;
+            if (filterMode == IdeaFilter.All && entries.Any(i => i.CategoryId == null))
+                filterMode = IdeaFilter.Uncategorized;
 
             ApplyFilter();
         }
@@ -77,8 +74,8 @@ namespace PubQuizCreator.Web.Pages.Ideas
             var currents = entries
                 .Where(i => filterMode switch
                 {
-                    IdeaCategoryFilter.Uncategorized => i.CategoryId == null,
-                    IdeaCategoryFilter.Specific => i.CategoryId == filterCategoryId,
+                    IdeaFilter.Uncategorized => i.CategoryId == null,
+                    IdeaFilter.Specific => i.CategoryId == filterCategoryId,
                     _ => true
                 })
                 .Where(i => string.IsNullOrWhiteSpace(searchText)
@@ -96,8 +93,7 @@ namespace PubQuizCreator.Web.Pages.Ideas
         {
             paged = filtered
                 .Skip((currentPage - 1) * Constants.PageSizeList)
-                .Take(Constants.PageSizeList)
-                .ToList();
+                .Take(Constants.PageSizeList).ToList();
         }
 
         private async Task AssignCategoryAsync(Guid ideaId, string? categoryIdStr)
@@ -124,17 +120,21 @@ namespace PubQuizCreator.Web.Pages.Ideas
 
         private async Task DeleteAsync(Guid id)
         {
-            var confirmed = await JS.ConfirmAsync("Delete this idea? This cannot be undone.");
+            var current = entries.First(i => i.Id == id);
+
+            var confirmed = await JS.ConfirmDeleteAsync(current.Text);
             if (!confirmed) return;
 
+            MediaService.Delete(current.MediaFile);
             await IdeaService.DeleteAsync(id);
+
             await ReloadAsync();
         }
 
         private string GetCategorySelectValue() => filterMode switch
         {
-            IdeaCategoryFilter.Uncategorized => "uncategorized",
-            IdeaCategoryFilter.Specific => filterCategoryId?.ToString() ?? "all",
+            IdeaFilter.Uncategorized => "uncategorized",
+            IdeaFilter.Specific => filterCategoryId?.ToString() ?? "all",
             _ => "all"
         };
 
@@ -143,20 +143,20 @@ namespace PubQuizCreator.Web.Pages.Ideas
             var val = e.Value?.ToString();
             (filterMode, filterCategoryId) = val switch
             {
-                "all" => (IdeaCategoryFilter.All, (Guid?)null),
+                "all" => (IdeaFilter.All, (Guid?)null),
 
-                "uncategorized" => (IdeaCategoryFilter.Uncategorized, null),
+                "uncategorized" => (IdeaFilter.Uncategorized, null),
 
                 _ => Guid.TryParse(val, out var id)
-                    ? (IdeaCategoryFilter.Specific, id)
-                    : (IdeaCategoryFilter.All, null)
+                    ? (IdeaFilter.Specific, id)
+                    : (IdeaFilter.All, null)
             };
             ApplyFilter();
         }
 
         private void OnCoverageFilterAsync(Guid categoryId)
         {
-            filterMode = IdeaCategoryFilter.Specific;
+            filterMode = IdeaFilter.Specific;
             filterCategoryId = categoryId;
             ApplyFilter();
         }
@@ -171,8 +171,11 @@ namespace PubQuizCreator.Web.Pages.Ideas
         private async Task ReloadAsync()
         {
             isLoading = true;
+
             entries = await IdeaService.GetOpenAsync();
+
             isLoading = false;
+
             ApplyFilter();
             StateHasChanged();
         }
@@ -181,16 +184,18 @@ namespace PubQuizCreator.Web.Pages.Ideas
         {
             StateService.IdeasSearchText = searchText;
             StateService.IdeasSortAscending = sortAscending;
-            StateService.IdeasSelectedCategory = filterMode == IdeaCategoryFilter.Specific
+            StateService.IdeasSelectedCategory = filterMode == IdeaFilter.Specific
                 ? filterCategoryId ?? Guid.Empty
                 : Guid.Empty;
         }
 
         private async Task ToggleTimeSensitiveAsync(Guid id, bool value)
         {
-            await IdeaService.SetTimeSensitiveAsync(id, value);
+            await IdeaService.UpdateTimeSensitiveAsync(id, value);
+
             var idea = entries.First(i => i.Id == id);
             idea.IsTimeSensitive = value;
+
             ApplyFilter();
         }
 

@@ -22,10 +22,10 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         private Guid? editCategorySlotCategoryId;
         private List<Question> pickerAll = [];
         private List<Question> pickerFiltered = [];
-        private string pickerSearch = string.Empty;
-        private SearchInput? pickerSearchInput;
         private RoundSlot? pickerSlot;
         private Quiz? quiz;
+        private SearchInput? searchInput;
+        private string searchText = string.Empty;
         private Guid selectedTemplateId;
         private bool showTemplatePicker;
         private List<Template> templates = [];
@@ -69,10 +69,9 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         private void ApplySearch()
         {
             pickerFiltered = pickerAll
-                .Where(q => string.IsNullOrWhiteSpace(pickerSearch)
-                    || q.TextShort.Contains(pickerSearch, StringComparison.OrdinalIgnoreCase)
-                    || q.Answer.Contains(pickerSearch, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+                .Where(q => string.IsNullOrWhiteSpace(searchText)
+                    || q.TextShort.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                    || q.Answer.Contains(searchText, StringComparison.OrdinalIgnoreCase)).ToList();
         }
 
         private async Task AssignAsync(Guid questionId)
@@ -145,18 +144,18 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         private async Task OpenPickerAsync(RoundSlot slot)
         {
             pickerSlot = slot;
-            pickerSearch = string.Empty;
             pickerAll = [];
             pickerFiltered = [];
+            searchText = string.Empty;
 
             StateHasChanged();
 
             await Task.Yield();
 
-            if (pickerSearchInput != null)
+            if (searchInput != null)
             {
-                await pickerSearchInput.ClearAsync();
-                await pickerSearchInput.FocusAsync();
+                await searchInput.ClearAsync();
+                await searchInput.FocusAsync();
             }
 
             pickerAll = await QuestionService.GetAvailableAsync(slot.CategoryId);

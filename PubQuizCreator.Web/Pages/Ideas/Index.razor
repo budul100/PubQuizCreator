@@ -1,6 +1,7 @@
 ﻿@page "/ideas"
 @inject CategoryService CategoryService
 @inject IdeaService IdeaService
+@inject MediaService MediaService
 @inject QuizService QuizService
 @inject StateService StateService
 @inject IJSRuntime JS
@@ -33,9 +34,9 @@
 
             <div class="d-flex gap-2" style="flex: 1; min-width: 0;">
 
-                <SearchInput @ref="searchInputRef"
-                             Placeholder="Search…"
-                             ValueChanged="async v => { searchText = v; ApplyFilter(); }" />
+                <SearchInput 
+                    @bind-Value="searchText"
+                    @bind-Value:after="ApplyFilter" />
 
                 <button class="btn btn-outline-secondary btn-sm text-nowrap flex-shrink-0"
                         @onclick="async () => { sortAscending = !sortAscending; ApplyFilter(); }">
@@ -106,10 +107,12 @@
                             </div>
 
                             <div style="flex: 1; min-width: 0;">
-                                <div>@idea.Text</div>
+                                <div style="display: inline;">@idea.Text</div><MediaLink 
+                                    MediaType="@idea.MediaType" 
+                                    MediaFile="@idea.MediaFile" />
                             </div>
 
-                            <div class="d-flex gap-1 flex-shrink-0 align-self-start">
+                            <div class="d-flex gap-1 flex-shrink-0 align-self-start align-items-center">
                                 <a class="btn btn-outline-secondary btn-sm"
                                    href="https://www.google.com/search?q=@Uri.EscapeDataString(idea.Text)"
                                    target="_blank"

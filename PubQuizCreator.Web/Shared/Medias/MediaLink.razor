@@ -1,0 +1,24 @@
+﻿@if (MediaType != MediaType.None)
+{
+    @if (!string.IsNullOrEmpty(MediaFile))
+    {
+        <span>@Prefix<a href="/media/@MediaFile"
+           target="_blank"
+           title="@MediaFile"
+           class="text-secondary"
+           style="display: inline; line-height: inherit; vertical-align: middle;">
+            <MediaIcon 
+                MediaType="@MediaType" 
+                Prefix="" />
+            </a>
+        </span>
+    }
+    else
+    {
+        <span class="text-secondary" title="Has media (no file)">
+            <MediaIcon 
+                MediaType="@MediaType" 
+                Prefix="@Prefix" />
+        </span>
+    }
+}

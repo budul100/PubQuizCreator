@@ -16,21 +16,40 @@
 
     <div class="mb-3">
         <label class="form-label">Idea</label>
-        <textarea class="form-control" rows="5" placeholder="What's on your mind…"
-                  @bind="text" @bind:event="oninput" />
+
+        <textarea 
+            class="form-control" 
+            rows="5" 
+            placeholder="What's on your mind…"
+            @bind="text" @bind:event="oninput" />
     </div>
 
     <div class="mb-3">
         <label class="form-label">Category</label>
-        <select class="form-select"
-                value="@categoryId"
-                @onchange="e => categoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : Guid.Empty">
+        
+        <select 
+            class="form-select"
+            value="@categoryId"
+            @onchange="e => categoryId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : Guid.Empty">
+            
             <option value="@Guid.Empty">— no category —</option>
             @foreach (var cat in categories)
             {
                 <option value="@cat.Id">@cat.Name</option>
             }
         </select>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label fw-semibold">Media</label>
+
+        <MediaUpload 
+            MediaFile="@mediaFile"
+            MediaType="@mediaType"
+            PendingFile="@pendingFile"
+            OnFileChanged="OnFileChanged"
+            OnRemove="RemoveMediaAsync" />
+
     </div>
 
     <div class="mb-4">

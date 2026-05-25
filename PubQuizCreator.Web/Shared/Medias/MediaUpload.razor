@@ -1,0 +1,37 @@
+﻿@inject MediaService MediaService
+
+@* Preview *@
+@if (!string.IsNullOrEmpty(MediaFile))
+{
+    <div class="mb-2">
+        @if (MediaType == MediaType.Image)
+        {
+            <img src="@MediaService.GetUrl(MediaFile)" class="img-fluid rounded border" style="max-height: 220px;" />
+        }
+        else if (MediaType == MediaType.Audio)
+        {
+            <audio controls src="@MediaService.GetUrl(MediaFile)" class="w-100" />
+        }
+        else if (MediaType == MediaType.Video)
+        {
+            <video controls src="@MediaService.GetUrl(MediaFile)" class="img-fluid rounded border" style="max-height: 220px;" />
+        }
+        <div class="d-flex align-items-center gap-2 mt-2">
+            <small class="text-muted text-truncate" style="max-width: 300px;">@MediaFile</small>
+            <button type="button" class="btn btn-outline-danger btn-sm" @onclick="OnRemove">
+                Remove media
+            </button>
+        </div>
+    </div>
+}
+
+@* Picker *@
+<InputFile OnChange="OnFileSelected" accept="image/*,audio/*,video/*" class="form-control" />
+
+@if (PendingFile != null)
+{
+    <small class="text-muted">
+        Selected: @PendingFile.Name &nbsp;(@(PendingFile.Size / 1024) KB)
+        — detected as <strong>@MediaType</strong>
+    </small>
+}

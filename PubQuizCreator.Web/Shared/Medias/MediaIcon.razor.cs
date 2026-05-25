@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using PubQuizCreator.Core.Types;
 
-namespace PubQuizCreator.Web.Shared
+namespace PubQuizCreator.Web.Shared.Medias
 {
     public partial class MediaIcon
     {
@@ -9,9 +9,9 @@ namespace PubQuizCreator.Web.Shared
 
         [Parameter] public string CssClass { get; set; } = "ms-1";
 
-        [Parameter] public string Prefix { get; set; } = "| ";
+        [Parameter] public string Prefix { get; set; } = " | ";
 
-        [Parameter] public MediaType? Type { get; set; }
+        [Parameter] public MediaType? MediaType { get; set; }
 
         #endregion Public Properties
     }
