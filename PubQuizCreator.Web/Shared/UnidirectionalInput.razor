@@ -1,14 +1,15 @@
 ﻿<div class="unidirectional-input-wrapper">
     @if (Multiline)
     {
-        <textarea
+        <textarea 
             class="@CssClass"
             placeholder="@Placeholder"
             rows="@Rows"
             @ref="inputRef"
             @oninput="HandleInput"
             @onblur="HandleBlur"
-            @onkeydown="HandleKeyDown">
+            @onkeydown="HandleKeyDown"
+            @attributes="AdditionalAttributes">
             @localValue
         </textarea>
     }
@@ -21,7 +22,8 @@
             @ref="inputRef"
             @oninput="HandleInput"
             @onblur="HandleBlur"
-            @onkeydown="HandleKeyDown" />
+            @onkeydown="HandleKeyDown"
+            @attributes="AdditionalAttributes" />
     }
 
     @if (ShowClearButton && !string.IsNullOrEmpty(localValue))

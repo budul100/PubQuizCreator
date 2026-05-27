@@ -18,6 +18,8 @@ namespace PubQuizCreator.Web.Shared
 
         #region Public Properties
 
+        [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
         [Parameter] public string CssClass { get; set; } = "form-control form-control-sm";
 
         [Parameter] public bool Multiline { get; set; } = false;

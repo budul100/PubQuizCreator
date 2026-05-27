@@ -1,13 +1,13 @@
 ﻿@if (IsEditing)
 {
     <div class="d-flex align-items-center gap-2" @onclick:stopPropagation="true">
-        <input class="form-control form-control-sm"
-               style="@InputStyle"
-               placeholder="@Placeholder"
-               value="@currentValue"
-               @oninput="e => currentValue = e.Value?.ToString() ?? string.Empty"
-               @onblur="HandleBlur"
-               @onkeydown="HandleKeyDown" />
+        <UnidirectionalInput 
+            CssClass="form-control form-control-sm"
+            Placeholder="@Placeholder"
+            @bind-Value="@currentValue"
+            @onblur="HandleBlur"
+            @onkeydown="HandleKeyDown"
+            style="@InputStyle" />
 
         @if (ShowButtons)
         {
