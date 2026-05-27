@@ -1,8 +1,15 @@
-﻿namespace PubQuizCreator.Services
+﻿using System.Net.Http.Json;
+using Microsoft.Extensions.Configuration;
+using PubQuizCreator.Services.StateService.Models;
+
+namespace PubQuizCreator.Services.StateService
 {
-    public class StateService(IHttpClientFactory httpClientFactory)
+    public class StateService(IHttpClientFactory httpClientFactory, IConfiguration configuration, 
+        ToastService toastService)
     {
         #region Private Fields
+
+        private readonly string embeddingModel = configuration["Ollama:EmbeddingModel"] ?? "";
 
         private readonly HttpClient httpClient = httpClientFactory.CreateClient("OllamaHealth");
 
@@ -40,6 +47,20 @@
             {
                 var response = await httpClient.GetAsync("/api/tags", ct);
                 OllamaOnline = response.IsSuccessStatusCode;
+
+                if (OllamaOnline && !string.IsNullOrEmpty(embeddingModel))
+                {
+                    var json = await response.Content.ReadFromJsonAsync<TagsResponse>(cancellationToken: ct);
+                    var modelFound = json?.Models?.Any(m =>
+                        m.Name.StartsWith(embeddingModel, StringComparison.OrdinalIgnoreCase)) ?? false;
+
+                    if (!modelFound)
+                    {
+                        OllamaOnline = false;
+                        toastService.ShowError(
+                            $"Ollama is running, but embedding model \"{embeddingModel}\" is not available.");
+                    }
+                }
             }
             catch
             {

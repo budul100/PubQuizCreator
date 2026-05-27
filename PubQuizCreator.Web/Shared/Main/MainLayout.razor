@@ -1,9 +1,12 @@
-﻿@inherits LayoutComponentBase
+﻿@using PubQuizCreator.Services.StateService
+@inherits LayoutComponentBase
 @inject DashboardService DashboardService
 @inject StateService StateService
 @implements IDisposable
 
 <div class="page">
+    <ToastVisualizer />
+
     <div class="sidebar">
         <NavMenu />
     </div>
@@ -25,8 +28,6 @@
                 </span>
             </div>
         </div>
-
-        <ToastVisualizer />
 
         <article class="content px-4">
             @Body
