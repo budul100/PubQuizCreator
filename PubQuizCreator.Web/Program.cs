@@ -189,12 +189,21 @@ internal class Program
 
         builder.Services
             .AddRazorPages();
-        builder.Services
-            .AddServerSideBlazor();
+
+        builder.Services.AddServerSideBlazor(options =>
+        {
+            options.DetailedErrors = builder.Environment.IsDevelopment();
+            options.DisconnectedCircuitMaxRetained = 100;
+            options.DisconnectedCircuitRetentionPeriod = TimeSpan.FromMinutes(3);
+            options.MaxBufferedUnacknowledgedRenderBatches = 10;
+        });
 
         builder.Services.AddSignalR(options =>
         {
             options.MaximumReceiveMessageSize = Constants.MaxUploadSizeBytes;
+            options.KeepAliveInterval = TimeSpan.FromSeconds(10);
+            options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+            options.HandshakeTimeout = TimeSpan.FromSeconds(15);
         });
 
         var uriString = builder.Configuration["Ollama:BaseUrl"]
@@ -227,13 +236,13 @@ internal class Program
 
         var app = builder.Build();
 
-        if (!app.Environment.IsDevelopment())
+        if (!builder.Environment.IsDevelopment())
         {
             app.UseExceptionHandler("/Error");
             app.UseHsts();
         }
 
-        if (!app.Environment.IsDevelopment()
+        if (!builder.Environment.IsDevelopment()
             && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISABLE_HTTPS_REDIRECT")))
         {
             app.UseHttpsRedirection();

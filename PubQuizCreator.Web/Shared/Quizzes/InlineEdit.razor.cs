@@ -9,7 +9,6 @@ namespace PubQuizCreator.Web.Shared.Quizzes
 
         private string currentValue = string.Empty;
         private string displayValue = string.Empty;
-        private bool forceRender = false;
 
         #endregion Private Fields
 
@@ -51,17 +50,6 @@ namespace PubQuizCreator.Web.Shared.Quizzes
             }
         }
 
-        protected override bool ShouldRender()
-        {
-            if (forceRender)
-            {
-                forceRender = false;
-                return true;
-            }
-
-            return true;
-        }
-
         #endregion Protected Methods
 
         #region Private Methods
@@ -69,7 +57,6 @@ namespace PubQuizCreator.Web.Shared.Quizzes
         private async Task CancelAsync()
         {
             IsEditing = false;
-            forceRender = true;
 
             await OnCancel.InvokeAsync();
         }
@@ -90,8 +77,6 @@ namespace PubQuizCreator.Web.Shared.Quizzes
                 displayValue = trimmed ?? string.Empty;
                 await OnConfirm.InvokeAsync(trimmed);
             }
-
-            forceRender = true;
         }
 
         private async Task HandleBlur()
@@ -120,7 +105,6 @@ namespace PubQuizCreator.Web.Shared.Quizzes
 
             currentValue = displayValue;
             IsEditing = true;
-            forceRender = true;
         }
 
         #endregion Private Methods

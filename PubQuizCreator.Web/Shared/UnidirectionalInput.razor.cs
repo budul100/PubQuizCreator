@@ -7,10 +7,12 @@ namespace PubQuizCreator.Web.Shared
     {
         #region Private Fields
 
-        private const int DeboundsDelayInMilliseconds = 150;
+        private const int DebounceDelayInMilliseconds = 250;
 
         private CancellationTokenSource? debounceCts;
         private ElementReference inputRef;
+        private bool isUserTyping = false;
+        private string lastKnownValue = string.Empty;
         private string localValue = string.Empty;
 
         #endregion Private Fields
@@ -44,9 +46,9 @@ namespace PubQuizCreator.Web.Shared
         public Task ClearAsync()
         {
             localValue = string.Empty;
+            lastKnownValue = string.Empty;
 
             StateHasChanged();
-
             return Task.CompletedTask;
         }
 
@@ -58,11 +60,17 @@ namespace PubQuizCreator.Web.Shared
 
         protected override void OnParametersSet()
         {
-            if (Value != localValue)
+            if (Value != lastKnownValue)
             {
-                localValue = Value ?? string.Empty;
+                lastKnownValue = Value ?? string.Empty;
+                if (!isUserTyping)
+                {
+                    localValue = lastKnownValue;
+                }
             }
         }
+
+        protected override bool ShouldRender() => !isUserTyping;
 
         #endregion Protected Methods
 
@@ -72,37 +80,45 @@ namespace PubQuizCreator.Web.Shared
         {
             await ClearAsync();
             await ValueChanged.InvokeAsync(localValue);
-
             await FocusAsync();
         }
 
         private async Task HandleInput(ChangeEventArgs e)
         {
+            isUserTyping = true;
+
             localValue = e?.Value?.ToString() ?? string.Empty;
 
             debounceCts?.Cancel();
             debounceCts = new CancellationTokenSource();
-
             var token = debounceCts.Token;
 
             try
             {
                 await Task.Delay(
-                    millisecondsDelay: DeboundsDelayInMilliseconds,
+                    millisecondsDelay: DebounceDelayInMilliseconds,
                     cancellationToken: token);
 
                 if (!token.IsCancellationRequested)
                 {
+                    lastKnownValue = localValue;
                     await ValueChanged.InvokeAsync(localValue);
+
+                    isUserTyping = false;
                 }
             }
-            catch (TaskCanceledException) { }
+            catch (TaskCanceledException)
+            { }
         }
 
         private async Task HandleLocalBlur(FocusEventArgs e)
         {
+            isUserTyping = false;
+            debounceCts?.Cancel();
+
             var trimmed = localValue.Trim();
             localValue = trimmed;
+            lastKnownValue = trimmed;
 
             await ValueChanged.InvokeAsync(localValue);
 
@@ -116,9 +132,11 @@ namespace PubQuizCreator.Web.Shared
         {
             if (e.Key == "Enter")
             {
+                isUserTyping = false;
+                debounceCts?.Cancel();
                 var trimmed = localValue.Trim();
                 localValue = trimmed;
-
+                lastKnownValue = trimmed;
                 await ValueChanged.InvokeAsync(localValue);
             }
 
