@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
-using DocumentFormat.OpenXml.Drawing;
 
 namespace PubQuizCreator.Web.Shared
 {
@@ -8,11 +7,10 @@ namespace PubQuizCreator.Web.Shared
     {
         #region Private Fields
 
-        private bool forceRender = false;
+        private const int DeboundsDelayInMilliseconds = 150;
+
+        private CancellationTokenSource? debounceCts;
         private ElementReference inputRef;
-        private bool isInitialized = false;
-        private bool isTyping;
-        private string? lastValue;
         private string localValue = string.Empty;
 
         #endregion Private Fields
@@ -26,7 +24,9 @@ namespace PubQuizCreator.Web.Shared
         [Parameter] public bool Multiline { get; set; } = false;
 
         [Parameter] public EventCallback<FocusEventArgs> OnInputBlur { get; set; }
+
         [Parameter] public EventCallback<KeyboardEventArgs> OnKeyDown { get; set; }
+
         [Parameter] public string Placeholder { get; set; } = "";
 
         [Parameter] public int Rows { get; set; } = 4;
@@ -44,9 +44,7 @@ namespace PubQuizCreator.Web.Shared
         public Task ClearAsync()
         {
             localValue = string.Empty;
-            lastValue = string.Empty;
 
-            forceRender = true;
             StateHasChanged();
 
             return Task.CompletedTask;
@@ -60,28 +58,10 @@ namespace PubQuizCreator.Web.Shared
 
         protected override void OnParametersSet()
         {
-            if (Value != lastValue)
+            if (Value != localValue)
             {
-                lastValue = Value;
-
-                if (!isTyping)
-                {
-                    localValue = Value ?? string.Empty;
-
-                    forceRender = true;
-                    StateHasChanged();
-                }
+                localValue = Value ?? string.Empty;
             }
-        }
-
-        protected override bool ShouldRender()
-        {
-            if (forceRender)
-            {
-                forceRender = false;
-                return true;
-            }
-            return !isTyping;
         }
 
         #endregion Protected Methods
@@ -98,21 +78,31 @@ namespace PubQuizCreator.Web.Shared
 
         private async Task HandleInput(ChangeEventArgs e)
         {
-            isTyping = true;
-
             localValue = e?.Value?.ToString() ?? string.Empty;
-            await ValueChanged.InvokeAsync(localValue);
 
-            isTyping = false;
+            debounceCts?.Cancel();
+            debounceCts = new CancellationTokenSource();
+
+            var token = debounceCts.Token;
+
+            try
+            {
+                await Task.Delay(
+                    millisecondsDelay: DeboundsDelayInMilliseconds,
+                    cancellationToken: token);
+
+                if (!token.IsCancellationRequested)
+                {
+                    await ValueChanged.InvokeAsync(localValue);
+                }
+            }
+            catch (TaskCanceledException) { }
         }
 
         private async Task HandleLocalBlur(FocusEventArgs e)
         {
             var trimmed = localValue.Trim();
             localValue = trimmed;
-            lastValue = trimmed;
-
-            forceRender = true;
 
             await ValueChanged.InvokeAsync(localValue);
 
@@ -128,9 +118,7 @@ namespace PubQuizCreator.Web.Shared
             {
                 var trimmed = localValue.Trim();
                 localValue = trimmed;
-                lastValue = trimmed;
 
-                forceRender = true;
                 await ValueChanged.InvokeAsync(localValue);
             }
 

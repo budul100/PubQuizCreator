@@ -46,7 +46,9 @@ namespace PubQuizCreator.Web.Shared.Quizzes
         protected override void OnParametersSet()
         {
             if (!IsEditing)
+            {
                 displayValue = Value;
+            }
         }
 
         protected override bool ShouldRender()
@@ -68,6 +70,7 @@ namespace PubQuizCreator.Web.Shared.Quizzes
         {
             IsEditing = false;
             forceRender = true;
+
             await OnCancel.InvokeAsync();
         }
 
