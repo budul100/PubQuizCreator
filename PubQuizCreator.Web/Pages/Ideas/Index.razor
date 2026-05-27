@@ -35,9 +35,11 @@
 
             <div class="d-flex gap-2" style="flex: 1; min-width: 0;">
 
-                <SearchInput 
-                    @bind-Value="searchText"
-                    @bind-Value:after="ApplyFilter" />
+                <UnidirectionalInput 
+                    Placeholder="Search..."
+                    ShowClearButton=true
+                    Value="@searchText"
+                    ValueChanged="SetSearch" />
 
                 <button class="btn btn-outline-secondary btn-sm text-nowrap flex-shrink-0"
                         @onclick="async () => { sortAscending = !sortAscending; ApplyFilter(); }">

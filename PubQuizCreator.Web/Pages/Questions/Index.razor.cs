@@ -164,6 +164,12 @@ namespace PubQuizCreator.Web.Pages.Questions
             isLoading = false;
         }
 
+        private async Task SetSearchAsync(string text)
+        {
+            searchText = text;
+            await ApplyFilterAsync();
+        }
+
         private async Task ToggleReuseAsync(Guid id, bool value)
         {
             await QuestionService.UpdateReuseAsync(id, value);

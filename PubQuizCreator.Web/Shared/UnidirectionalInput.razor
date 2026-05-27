@@ -1,0 +1,33 @@
+﻿<div class="unidirectional-input-wrapper">
+    @if (Multiline)
+    {
+        <textarea
+            class="@CssClass"
+            placeholder="@Placeholder"
+            rows="@Rows"
+            @ref="inputRef"
+            @oninput="OnInput">
+            @localValue
+        </textarea>
+    }
+    else
+    {
+        <input 
+            class="@CssClass"
+            placeholder="@Placeholder"
+            value="@localValue"
+            @ref="inputRef"
+            @oninput="OnInput" />
+    }
+
+    @if (ShowClearButton && !string.IsNullOrEmpty(localValue))
+    {
+        <button class="unidirectional-input-clear-btn"
+            @onclick="ClearAndNotifyAsync" 
+            tabindex="-1" 
+            type="button">
+            &times;
+        </button>
+    }
+</div>
+

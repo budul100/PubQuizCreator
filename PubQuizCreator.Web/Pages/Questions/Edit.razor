@@ -43,9 +43,11 @@
                     Short text
                     <small class="text-muted">(for presentation)</small>
                 </label>
-                <input class="form-control"
-                       value="@question.TextShort"
-                       @oninput="e => { question.TextShort = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
+
+                <UnidirectionalInput 
+                    CssClass="form-control"
+                    Value="@question.TextShort"
+                    ValueChanged="SetTextShort" />
             </div>
 
             @{
@@ -69,16 +71,23 @@
                     Long text
                     <small class="text-muted">(internal / moderator notes)</small>
                 </label>
-                <textarea class="form-control" rows="5"
-                          value="@question.TextLong"
-                          @oninput="e => { question.TextLong = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
+
+                <UnidirectionalInput 
+                    Multiline="true"
+                    Rows="5"
+                    CssClass="form-control"
+                    Value="@question.TextLong"
+                    ValueChanged="SetTextLong" />
+
             </div>
 
             <div class="mb-3">
                 <label class="form-label">Answer</label>
-                <input class="form-control"
-                       value="@question.Answer"
-                       @oninput="e => { question.Answer = e.Value?.ToString() ?? string.Empty; TriggerSimilaritySearch(); }" />
+
+                <UnidirectionalInput 
+                    CssClass="form-control"
+                    Value="@question.Answer"
+                    ValueChanged="SetAnswer" />
             </div>
 
             <div class="mb-3">

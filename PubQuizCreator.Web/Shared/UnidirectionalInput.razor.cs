@@ -2,12 +2,13 @@
 
 namespace PubQuizCreator.Web.Shared
 {
-    public partial class SearchInput
+    public partial class UnidirectionalInput
     {
         #region Private Fields
 
         private bool forceRender = false;
         private ElementReference inputRef;
+        private bool isInitialized = false;
         private string localValue = string.Empty;
 
         #endregion Private Fields
@@ -16,7 +17,13 @@ namespace PubQuizCreator.Web.Shared
 
         [Parameter] public string CssClass { get; set; } = "form-control form-control-sm";
 
-        [Parameter] public string Placeholder { get; set; } = "Search…";
+        [Parameter] public bool Multiline { get; set; } = false;
+
+        [Parameter] public string Placeholder { get; set; } = "";
+
+        [Parameter] public int Rows { get; set; } = 4;
+
+        [Parameter] public bool ShowClearButton { get; set; } = false;
 
         [Parameter] public string Value { get; set; } = string.Empty;
 
@@ -42,9 +49,18 @@ namespace PubQuizCreator.Web.Shared
 
         #region Protected Methods
 
-        protected override void OnInitialized()
+        protected override void OnParametersSet()
         {
-            localValue = Value;
+            if (!isInitialized
+                && !string.IsNullOrWhiteSpace(Value)
+                && string.IsNullOrWhiteSpace(localValue))
+            {
+                localValue = Value;
+                isInitialized = true;
+
+                forceRender = true;
+                StateHasChanged();
+            }
         }
 
         protected override bool ShouldRender()
@@ -66,7 +82,7 @@ namespace PubQuizCreator.Web.Shared
         {
             await ClearAsync();
             await ValueChanged.InvokeAsync(localValue);
-            
+
             await FocusAsync();
         }
 

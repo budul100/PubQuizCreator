@@ -254,8 +254,8 @@ namespace PubQuizCreator.Web.Pages.Questions
             try
             {
                 similars = await QuestionService.FindSimilarsAsync(
-                    text,
-                    Id ?? Guid.Empty,
+                    text: text,
+                    excludeId: Id ?? Guid.Empty,
                     topN: 5);
 
                 hasSearched = true;
@@ -339,6 +339,26 @@ namespace PubQuizCreator.Web.Pages.Questions
                 saving = false;
             }
         }
+
+        private void SetAnswer(string text)
+        {
+            question.Answer = text;
+            TriggerSimilaritySearch();
+        }
+
+        private void SetTextShort(string text)
+        {
+            question.TextShort = text;
+            TriggerSimilaritySearch();
+        }
+
+
+        private void SetTextLong(string text)
+        {
+            question.TextLong = text;
+            TriggerSimilaritySearch(); 
+        }
+
 
         private void TriggerSimilaritySearch()
         {

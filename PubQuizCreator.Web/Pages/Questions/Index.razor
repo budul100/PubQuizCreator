@@ -43,9 +43,11 @@
                 <label class="form-check-label small">Include used questions</label>
             </div>
 
-            <SearchInput 
-                @bind-Value="searchText"
-                @bind-Value:after="ApplyFilterAsync" />
+            <UnidirectionalInput 
+                Placeholder="Search..."
+                ShowClearButton=true
+                Value="@searchText"
+                ValueChanged="SetSearchAsync" />
 
         </div>
 

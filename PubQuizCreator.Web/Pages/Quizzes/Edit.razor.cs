@@ -25,7 +25,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         private List<Question> pickerFiltered = [];
         private RoundSlot? pickerSlot;
         private Quiz? quiz;
-        private SearchInput? searchInput;
+        private UnidirectionalInput? searchInput;
         private string searchText = string.Empty;
         private HashSet<Guid> selectedRoundIds = [];
         private Guid selectedTemplateId;
@@ -80,7 +80,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
             await ReloadAsync();
         }
 
-        private void ApplySearch()
+        private void ApplyFilter()
         {
             pickerFiltered = pickerAll
                 .Where(q => string.IsNullOrWhiteSpace(searchText)
@@ -182,7 +182,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
             pickerAll = await QuestionService.GetAvailableAsync(slot.CategoryId);
 
-            ApplySearch();
+            ApplyFilter();
         }
 
         private async Task ReloadAsync()
@@ -210,10 +210,9 @@ namespace PubQuizCreator.Web.Pages.Quizzes
                     ? roundsWithSlots
                     : selectedRoundIds
                         .Intersect(quiz.Rounds.Select(r => r.Id))
-                        .Union(roundsWithSlots.Except(
-                            quiz.Rounds.Select(r => r.Id)
-                                .Except(roundsWithSlots)))
-                        .ToHashSet();
+                        .Union(roundsWithSlots
+                            .Except(quiz.Rounds.Select(r => r.Id)
+                                .Except(roundsWithSlots))).ToHashSet();
             }
         }
 
@@ -272,6 +271,12 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
             round.Title = newTitle;
             await QuizService.UpdateRoundTitleAsync(round.Id, newTitle);
+        }
+
+        private void SetSearch(string text)
+        {
+            searchText = text;
+            ApplyFilter();
         }
 
         private void ToggleAllCollapsed()

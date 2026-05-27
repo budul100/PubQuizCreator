@@ -189,6 +189,12 @@ namespace PubQuizCreator.Web.Pages.Ideas
                 : Guid.Empty;
         }
 
+        private void SetSearch(string text)
+        {
+            searchText = text;
+            ApplyFilter();
+        }
+
         private async Task ToggleTimeSensitiveAsync(Guid id, bool value)
         {
             await IdeaService.UpdateTimeSensitiveAsync(id, value);

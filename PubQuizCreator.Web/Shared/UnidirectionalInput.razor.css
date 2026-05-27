@@ -1,10 +1,10 @@
-﻿.search-input-wrapper {
+﻿.unidirectional-input-wrapper {
     position: relative;
     display: flex;
     width: 100%;
 }
 
-.search-clear-btn {
+.unidirectional-input-clear-btn {
     position: absolute;
     right: 6px;
     top: 50%;
@@ -19,11 +19,11 @@
     z-index: 10;
 }
 
-.search-clear-btn:hover {
+.unidirectional-input-clear-btn:hover {
     color: #000;
 }
 
-.search-input-wrapper .form-control {
+.unidirectional-input-wrapper .form-control {
     flex: 1;
     padding-right: 1.8rem;
 }
