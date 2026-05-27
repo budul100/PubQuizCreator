@@ -5,13 +5,12 @@
             class="@CssClass"
             placeholder="@Placeholder"
             rows="@Rows"
+            value="@localValue"
             @ref="inputRef"
             @oninput="HandleInput"
-            @onblur="HandleBlur"
-            @onkeydown="HandleKeyDown"
-            @attributes="AdditionalAttributes">
-            @localValue
-        </textarea>
+            @onblur="HandleLocalBlur"
+            @onkeydown="HandleLocalKeyDown"
+            @attributes="AdditionalAttributes" />
     }
     else
     {
@@ -21,8 +20,8 @@
             value="@localValue"
             @ref="inputRef"
             @oninput="HandleInput"
-            @onblur="HandleBlur"
-            @onkeydown="HandleKeyDown"
+            @onblur="HandleLocalBlur"
+            @onkeydown="HandleLocalKeyDown"
             @attributes="AdditionalAttributes" />
     }
 

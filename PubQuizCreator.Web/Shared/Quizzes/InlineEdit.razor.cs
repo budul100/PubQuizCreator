@@ -20,7 +20,7 @@ namespace PubQuizCreator.Web.Shared.Quizzes
         [Parameter] public string? InputStyle { get; set; }
 
         [Parameter] public bool IsReadOnly { get; set; } = false;
-        
+
         [Parameter] public string? LabelStyle { get; set; }
 
         [Parameter] public EventCallback OnCancel { get; set; }
@@ -57,7 +57,6 @@ namespace PubQuizCreator.Web.Shared.Quizzes
                 return true;
             }
 
-            // InlineEdit muss bei IsEditing-Wechsel immer rendern
             return true;
         }
 
@@ -75,32 +74,47 @@ namespace PubQuizCreator.Web.Shared.Quizzes
         private async Task ConfirmAsync()
         {
             IsEditing = false;
-            var trimmed = string.IsNullOrWhiteSpace(currentValue) ? null : currentValue.Trim();
-            var previous = string.IsNullOrWhiteSpace(displayValue) ? null : displayValue.Trim();
+
+            var trimmed = !string.IsNullOrWhiteSpace(currentValue)
+                ? currentValue.Trim()
+                : null;
+            var previous = !string.IsNullOrWhiteSpace(displayValue)
+                ? displayValue.Trim()
+                : null;
+
             if (trimmed != previous)
             {
                 displayValue = trimmed ?? string.Empty;
                 await OnConfirm.InvokeAsync(trimmed);
             }
+
             forceRender = true;
         }
 
         private async Task HandleBlur()
         {
             if (!ShowButtons)
+            {
                 await ConfirmAsync();
+            }
         }
 
         private async Task HandleKeyDown(KeyboardEventArgs e)
         {
-            if (e.Key == "Enter" && !ShowButtons) await ConfirmAsync();
-            else if (e.Key == "Escape") await CancelAsync();
+            if (e.Key == "Enter" && !ShowButtons)
+            {
+                await ConfirmAsync();
+            }
+            else if (e.Key == "Escape")
+            {
+                await CancelAsync();
+            }
         }
 
         private void StartEditing()
         {
             if (IsReadOnly) return;
-            
+
             currentValue = displayValue;
             IsEditing = true;
             forceRender = true;

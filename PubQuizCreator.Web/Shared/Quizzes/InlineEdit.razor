@@ -2,12 +2,13 @@
 {
     <div class="d-flex align-items-center gap-2" @onclick:stopPropagation="true">
         <UnidirectionalInput 
+            style="@InputStyle"
             CssClass="form-control form-control-sm"
             Placeholder="@Placeholder"
-            @bind-Value="@currentValue"
-            @onblur="HandleBlur"
-            @onkeydown="HandleKeyDown"
-            style="@InputStyle" />
+            Value="@currentValue"
+            ValueChanged="txt => currentValue = txt"
+            OnInputBlur="HandleBlur"
+            OnKeyDown="HandleKeyDown" />
 
         @if (ShowButtons)
         {

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using DocumentFormat.OpenXml.Drawing;
 
 namespace PubQuizCreator.Web.Shared
 {
@@ -24,6 +25,8 @@ namespace PubQuizCreator.Web.Shared
 
         [Parameter] public bool Multiline { get; set; } = false;
 
+        [Parameter] public EventCallback<FocusEventArgs> OnInputBlur { get; set; }
+        [Parameter] public EventCallback<KeyboardEventArgs> OnKeyDown { get; set; }
         [Parameter] public string Placeholder { get; set; } = "";
 
         [Parameter] public int Rows { get; set; } = 4;
@@ -61,10 +64,9 @@ namespace PubQuizCreator.Web.Shared
             {
                 lastValue = Value;
 
-                if (!isTyping || !isInitialized)
+                if (!isTyping)
                 {
-                    localValue = Value;
-                    isInitialized = true;
+                    localValue = Value ?? string.Empty;
 
                     forceRender = true;
                     StateHasChanged();
@@ -79,8 +81,7 @@ namespace PubQuizCreator.Web.Shared
                 forceRender = false;
                 return true;
             }
-
-            return false;
+            return !isTyping;
         }
 
         #endregion Protected Methods
@@ -95,11 +96,6 @@ namespace PubQuizCreator.Web.Shared
             await FocusAsync();
         }
 
-        private async Task HandleBlur()
-        {
-            await TrimAndPropagateAsync();
-        }
-
         private async Task HandleInput(ChangeEventArgs e)
         {
             isTyping = true;
@@ -110,25 +106,37 @@ namespace PubQuizCreator.Web.Shared
             isTyping = false;
         }
 
-        private async Task HandleKeyDown(KeyboardEventArgs e)
+        private async Task HandleLocalBlur(FocusEventArgs e)
         {
-            if (e.Key == "Enter")
+            var trimmed = localValue.Trim();
+            localValue = trimmed;
+            lastValue = trimmed;
+
+            forceRender = true;
+
+            await ValueChanged.InvokeAsync(localValue);
+
+            if (OnInputBlur.HasDelegate)
             {
-                await TrimAndPropagateAsync();
+                await OnInputBlur.InvokeAsync(e);
             }
         }
 
-        private async Task TrimAndPropagateAsync()
+        private async Task HandleLocalKeyDown(KeyboardEventArgs e)
         {
-            var trimmed = localValue?.Trim();
-
-            if (localValue != trimmed)
+            if (e.Key == "Enter")
             {
-                localValue = trimmed ?? string.Empty;
+                var trimmed = localValue.Trim();
+                localValue = trimmed;
                 lastValue = trimmed;
 
                 forceRender = true;
                 await ValueChanged.InvokeAsync(localValue);
+            }
+
+            if (OnKeyDown.HasDelegate)
+            {
+                await OnKeyDown.InvokeAsync(e);
             }
         }
 
