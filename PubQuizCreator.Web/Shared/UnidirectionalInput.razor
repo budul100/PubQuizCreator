@@ -6,7 +6,9 @@
             placeholder="@Placeholder"
             rows="@Rows"
             @ref="inputRef"
-            @oninput="OnInput">
+            @oninput="HandleInput"
+            @onblur="HandleBlur"
+            @onkeydown="HandleKeyDown">
             @localValue
         </textarea>
     }
@@ -17,15 +19,18 @@
             placeholder="@Placeholder"
             value="@localValue"
             @ref="inputRef"
-            @oninput="OnInput" />
+            @oninput="HandleInput"
+            @onblur="HandleBlur"
+            @onkeydown="HandleKeyDown" />
     }
 
     @if (ShowClearButton && !string.IsNullOrEmpty(localValue))
     {
-        <button class="unidirectional-input-clear-btn"
-            @onclick="ClearAndNotifyAsync" 
+        <button 
+            class="unidirectional-input-clear-btn"
             tabindex="-1" 
-            type="button">
+            type="button"
+            @onclick="ClearAndNotifyAsync">
             &times;
         </button>
     }

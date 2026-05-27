@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 
 namespace PubQuizCreator.Web.Shared
 {
@@ -9,6 +10,8 @@ namespace PubQuizCreator.Web.Shared
         private bool forceRender = false;
         private ElementReference inputRef;
         private bool isInitialized = false;
+        private bool isTyping;
+        private string? lastValue;
         private string localValue = string.Empty;
 
         #endregion Private Fields
@@ -36,6 +39,7 @@ namespace PubQuizCreator.Web.Shared
         public Task ClearAsync()
         {
             localValue = string.Empty;
+            lastValue = string.Empty;
 
             forceRender = true;
             StateHasChanged();
@@ -51,15 +55,18 @@ namespace PubQuizCreator.Web.Shared
 
         protected override void OnParametersSet()
         {
-            if (!isInitialized
-                && !string.IsNullOrWhiteSpace(Value)
-                && string.IsNullOrWhiteSpace(localValue))
+            if (Value != lastValue)
             {
-                localValue = Value;
-                isInitialized = true;
+                lastValue = Value;
 
-                forceRender = true;
-                StateHasChanged();
+                if (!isTyping || !isInitialized)
+                {
+                    localValue = Value;
+                    isInitialized = true;
+
+                    forceRender = true;
+                    StateHasChanged();
+                }
             }
         }
 
@@ -86,18 +93,41 @@ namespace PubQuizCreator.Web.Shared
             await FocusAsync();
         }
 
-        private async Task OnInput(ChangeEventArgs e)
+        private async Task HandleBlur()
         {
-            var previous = localValue;
-            localValue = e.Value?.ToString() ?? string.Empty;
+            await TrimAndPropagateAsync();
+        }
 
-            if (string.IsNullOrEmpty(previous) != string.IsNullOrEmpty(localValue))
-            {
-                forceRender = true;
-                StateHasChanged();
-            }
+        private async Task HandleInput(ChangeEventArgs e)
+        {
+            isTyping = true;
 
+            localValue = e?.Value?.ToString() ?? string.Empty;
             await ValueChanged.InvokeAsync(localValue);
+
+            isTyping = false;
+        }
+
+        private async Task HandleKeyDown(KeyboardEventArgs e)
+        {
+            if (e.Key == "Enter")
+            {
+                await TrimAndPropagateAsync();
+            }
+        }
+
+        private async Task TrimAndPropagateAsync()
+        {
+            var trimmed = localValue?.Trim();
+
+            if (localValue != trimmed)
+            {
+                localValue = trimmed ?? string.Empty;
+                lastValue = trimmed;
+
+                forceRender = true;
+                await ValueChanged.InvokeAsync(localValue);
+            }
         }
 
         #endregion Private Methods
