@@ -1,8 +1,8 @@
 ﻿using System.Net.Http.Json;
 using Microsoft.Extensions.Configuration;
-using PubQuizCreator.Services.StateService.Models;
+using PubQuizCreator.Services.App.Models;
 
-namespace PubQuizCreator.Services.StateService
+namespace PubQuizCreator.Services.App
 {
     public class StateService(IHttpClientFactory httpClientFactory, IConfiguration configuration, 
         ToastService toastService)
