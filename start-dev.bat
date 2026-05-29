@@ -7,8 +7,8 @@ REM Run from the solution root directory.
 setlocal
 
 set COMPOSE_FILE=docker-compose.dev.yml
-set OLLAMA_URL=http://localhost:11434
-set OLLAMA_MODEL=nomic-embed-text
+set OLLAMA_URL=http://localhost:11435
+set OLLAMA_MODEL=mxbai-embed-large
 set MAX_WAIT=30
 
 REM Sanity check
@@ -80,18 +80,7 @@ if errorlevel 1 (
 echo.
 echo [OK] All services running:
 echo       PostgreSQL  --^>  localhost:5434  ^(DB: pubquiz, User: pubquiz^)
-echo       Ollama      --^>  localhost:11434
-echo.
-echo [INFO] Check if the db connection string must be adjusted 
-echo        in PubQuizCreator.Web\appsettings.Development.json 
-echo		 5433 ... DB connection via SSH
-echo 	     5434 ... DB connection via localhost
-echo        Check also the local user secrets (secrets.json) for the password     
-echo.
-echo [INFO] Start the app with:
-echo         cd PubQuizCreator.Web ^&^& dotnet run
-echo         -- or press F5 in Visual Studio / Rider
-echo.
+echo       Ollama      --^>  localhost:11435
 
 if not "%1"=="--no-pause" pause
 
