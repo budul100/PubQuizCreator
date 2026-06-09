@@ -2,7 +2,7 @@
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Data;
 
-namespace PubQuizCreator.Services
+namespace PubQuizCreator.Services.Data
 {
     public class QuizService(IDbContextFactory<AppDbContext> dbFactory)
     {
@@ -159,6 +159,7 @@ namespace PubQuizCreator.Services
         public async Task<List<Quiz>> GetActiveAsync(CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
+
             return await db.Quizzes
                 .Include(q => q.Rounds).ThenInclude(r => r.Slots)
                 .Where(q => !q.IsCompleted)
@@ -170,12 +171,70 @@ namespace PubQuizCreator.Services
         public async Task<List<Quiz>> GetCompletedAsync(CancellationToken ct = default)
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
+
             return await db.Quizzes
                 .Include(q => q.Rounds).ThenInclude(r => r.Slots)
                 .Where(q => q.IsCompleted)
                 .OrderByDescending(q => q.Date)
-                .AsSplitQuery()
+                .AsSplitQuery().ToListAsync(ct);
+        }
+
+        public async Task<List<Coverage>> GetCoverageAsync(CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            var today = DateOnly.FromDateTime(DateTime.Today);
+
+            var slots = await db.RoundSlots
+                .Where(s => s.Round.Quiz.Date >= today && !s.Round.Quiz.IsCompleted)
+                .Select(s => new { s.CategoryId, s.QuestionId })
                 .ToListAsync(ct);
+
+            if (slots.Count == 0)
+                return [];
+
+            var assignedIds = slots
+                .Where(s => s.QuestionId != null)
+                .Select(s => s.QuestionId!.Value)
+                .ToHashSet();
+
+            var slotsMap = slots
+                .Where(s => s.CategoryId.HasValue && s.QuestionId == null)
+                .GroupBy(s => s.CategoryId!.Value)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            var categoryIds = slots
+                .Where(s => s.CategoryId.HasValue)
+                .Select(s => s.CategoryId!.Value)
+                .ToHashSet();
+
+            var availableCounts = await db.Questions
+                .Where(q => q.CategoryId.HasValue
+                    && categoryIds.Contains(q.CategoryId.Value)
+                    && !q.IsUnusable
+                    && !assignedIds.Contains(q.Id)
+                    && !q.Category!.IsHidden)
+                .GroupBy(q => q.CategoryId)
+                .Select(g => new { CategoryId = g.Key, Count = g.Count() })
+                .ToListAsync(ct);
+
+            var availableMap = availableCounts
+                .ToDictionary(x => x.CategoryId!.Value, x => x.Count);
+
+            var categories = await db.Categories
+                .Where(c => categoryIds.Contains(c.Id) && !c.IsHidden)
+                .ToListAsync(ct);
+
+            return categories
+                .Select(c => new Coverage
+                {
+                    Category = c,
+                    AvailableQuestions = availableMap.GetValueOrDefault(c.Id, 0),
+                    TotalOpenSlots = slotsMap.GetValueOrDefault(c.Id, 0)
+                })
+                .OrderBy(x => x.IsCovered)
+                .ThenByDescending(x => x.Deficit)
+                .ThenBy(x => x.Category.Name).ToList();
         }
 
         public async Task<Quiz?> GetDetailAsync(Guid quizId, CancellationToken ct = default)
@@ -191,6 +250,27 @@ namespace PubQuizCreator.Services
                         .ThenInclude(s => s.Question)
                 .AsSplitQuery()
                 .FirstOrDefaultAsync(q => q.Id == quizId, ct);
+        }
+
+        public async Task<Quiz?> GetNextAsync(CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            var today = DateOnly.FromDateTime(DateTime.Today);
+
+            return await db.Quizzes
+                .Include(q => q.Rounds)
+                    .ThenInclude(r => r.Slots)
+                        .ThenInclude(s => s.Category)
+                .Include(q => q.Rounds)
+                    .ThenInclude(r => r.Slots)
+                        .ThenInclude(s => s.Question)
+                .Where(q => !q.IsCompleted
+                    && q.Date >= today)
+                .OrderByDescending(q => q.Rounds.Any(r => r.Slots.Any(s => s.QuestionId == null)))
+                .OrderBy(q => q.Date)
+                .AsSplitQuery()
+                .FirstOrDefaultAsync(ct);
         }
 
         public async Task<bool> RemoveRoundAsync(Guid roundId, CancellationToken ct = default)

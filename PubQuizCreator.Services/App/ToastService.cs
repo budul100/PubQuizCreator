@@ -1,4 +1,4 @@
-﻿namespace PubQuizCreator.Services
+﻿namespace PubQuizCreator.Services.App
 {
     public class ToastService
     {

@@ -4,7 +4,7 @@ using PubQuizCreator.Core.Models;
 using PubQuizCreator.Core.Types;
 using PubQuizCreator.Data;
 
-namespace PubQuizCreator.Services
+namespace PubQuizCreator.Services.Data
 {
     public class IdeaService(IDbContextFactory<AppDbContext> dbFactory)
     {
@@ -60,6 +60,38 @@ namespace PubQuizCreator.Services
                 .OrderByDescending(i => i.IsTimeSensitive)
                 .ThenByDescending(i => i.CreatedAt)
                 .ToListAsync(ct);
+        }
+
+        public async Task<List<Tally>> GetTalliesAsync(CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            var categories = await db.Categories
+                .Where(c => !c.IsHidden)
+                .OrderBy(c => c.Name)
+                .ToListAsync(ct);
+
+            var relevants = await db.Ideas
+                .Where(i => !i.IsProcessed)
+                .Select(i => new { i.CategoryId })
+                .ToListAsync(ct);
+
+            var map = relevants
+                .Where(i => i.CategoryId.HasValue)
+                .GroupBy(i => i.CategoryId!.Value)
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            var unassigned = relevants.Count(i => !i.CategoryId.HasValue);
+
+            return categories
+                .Select(c => new Tally(
+                    category: c,
+                    count: map.GetValueOrDefault(c.Id, 0)))
+                .OrderByDescending(t => t.Count)
+                .ThenBy(t => t.Category?.Name)
+                .Append(new Tally(
+                    category: null,
+                    count: unassigned)).ToList();
         }
 
         public async Task SetProcessedAsync(Guid id, CancellationToken ct = default)

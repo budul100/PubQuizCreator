@@ -1,4 +1,4 @@
-﻿namespace PubQuizCreator.Services
+﻿namespace PubQuizCreator.Services.Content
 {
     public class MediaService(SettingsService settingsService)
     {

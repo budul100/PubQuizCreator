@@ -4,11 +4,13 @@ using DocumentFormat.OpenXml.Presentation;
 using PubQuizCreator.Core;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Core.Types;
+using PubQuizCreator.Services.App;
+using PubQuizCreator.Services.Content;
 using Drawing = DocumentFormat.OpenXml.Drawing;
 
 namespace PubQuizCreator.Services
 {
-    public class ExportService(MediaService mediaService, SettingsService settingsService, ToastService toastService)
+    public class FileService(MediaService mediaService, SettingsService settingsService, ToastService toastService)
     {
         #region Public Methods
 

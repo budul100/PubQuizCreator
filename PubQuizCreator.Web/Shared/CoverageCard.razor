@@ -1,4 +1,4 @@
-﻿@inject DashboardService DashboardService
+﻿@inject QuizService QuizService
 
 <div class="card">
     <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
@@ -19,13 +19,15 @@
             {
                 var color = item.Category.ColorHex;
                 var textColor = color.TextColor();
+
                 var badgeStyle = item.IsCovered
-                ? $"background-color: {color}; color: {textColor}; opacity: 0.35;"
-                : $"background-color: {color}; color: {textColor};";
+                    ? $"background-color: {color}; color: {textColor}; opacity: 0.35;"
+                    : $"background-color: {color}; color: {textColor};";
                 var badgeClass = "badge d-flex align-items-center justify-content-between gap-2 w-100";
+
                 var countContent = item.IsCovered
-                ? $"{item.AvailableQuestions}/{item.TotalOpenSlots} ✓"
-                : $"{item.AvailableQuestions}/{item.TotalOpenSlots} (−{item.Deficit})";
+                    ? $"{item.AvailableQuestions}/{item.TotalOpenSlots} ✓"
+                    : $"{item.AvailableQuestions}/{item.TotalOpenSlots} (−{item.Deficit})";
                 var countClass = !item.IsCovered ? "fw-bold text-nowrap" : "fw-normal text-nowrap";
 
                 <div class="mb-2">

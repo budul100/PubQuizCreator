@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using PubQuizCreator.Core.Models;
-using PubQuizCreator.Services;
+using PubQuizCreator.Services.Data;
 
 namespace PubQuizCreator.Web.Shared
 {
@@ -25,7 +25,7 @@ namespace PubQuizCreator.Web.Shared
 
         protected override async Task OnInitializedAsync()
         {
-            coverage = await DashboardService.GetUpcomingCoverageAsync();
+            coverage = await QuizService.GetCoverageAsync();
 
             isLoading = false;
         }

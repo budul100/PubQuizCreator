@@ -3,7 +3,7 @@ using Microsoft.JSInterop;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Services;
 using PubQuizCreator.Web.Helpers;
-using PubQuizCreator.Web.Shared;
+using PubQuizCreator.Web.Shared.Main;
 
 namespace PubQuizCreator.Web.Pages.Quizzes
 {

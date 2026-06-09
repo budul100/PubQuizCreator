@@ -6,7 +6,7 @@ using PubQuizCreator.Core.Models;
 using PubQuizCreator.Core.Types;
 using PubQuizCreator.Data;
 
-namespace PubQuizCreator.Services
+namespace PubQuizCreator.Services.Data
 {
     public class QuestionService(IDbContextFactory<AppDbContext> dbFactory, IEmbeddingService embeddingService)
     {
@@ -212,6 +212,79 @@ namespace PubQuizCreator.Services
             }).ToList();
 
             return (rows, total);
+        }
+
+        public async Task<List<Tally>> GetTalliesOpenAsync(CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            var today = DateOnly.FromDateTime(DateTime.Today);
+
+            var categories = await db.Categories
+                .Where(c => !c.IsHidden)
+                .OrderBy(c => c.Name)
+                .ToListAsync(ct);
+
+            var assignedIds = (await db.RoundSlots
+                .Where(s => s.QuestionId != null)
+                .Select(s => s.QuestionId!.Value)
+                .Distinct()
+                .ToListAsync(ct)).ToHashSet();
+
+            var relevants = await db.Questions
+                .Where(q => !q.IsUnusable
+                    && !q.Category!.IsHidden
+                    && q.CategoryId.HasValue
+                    && !assignedIds.Contains(q.Id))
+                .GroupBy(q => q.CategoryId)
+                .Select(g => new { CategoryId = g.Key, Count = g.Count() })
+                .ToListAsync(ct);
+
+            var map = relevants.ToDictionary(
+                x => x.CategoryId!.Value,
+                x => x.Count);
+
+            return categories
+                .Select(c => new Tally(
+                    category: c,
+                    count: map.GetValueOrDefault(c.Id, 0)))
+                .OrderByDescending(t => t.Count)
+                .ThenBy(t => t.Category?.Name).ToList();
+        }
+
+        public async Task<List<Tally>> GetTalliesTotalAsync(CancellationToken ct = default)
+        {
+            await using var db = await dbFactory.CreateDbContextAsync(ct);
+
+            var today = DateOnly.FromDateTime(DateTime.Today);
+
+            var categories = await db.Categories
+                .Where(c => !c.IsHidden)
+                .OrderBy(c => c.Name)
+                .ToListAsync(ct);
+
+            var relevants = await db.Questions
+                .Where(q => !q.IsUnusable
+                    && q.CategoryId.HasValue
+                    && !q.Category!.IsHidden)
+                .GroupBy(q => q.CategoryId)
+                .Select(g => new
+                {
+                    CategoryId = g.Key,
+                    Count = g.Count()
+                })
+                .ToListAsync(ct);
+
+            var map = relevants.ToDictionary(
+                x => x.CategoryId!.Value,
+                x => x.Count);
+
+            return categories
+                .Select(c => new Tally(
+                    category: c,
+                    count: map.GetValueOrDefault(c.Id, 0)))
+                .OrderByDescending(t => t.Count)
+                .ThenBy(t => t.Category?.Name).ToList();
         }
 
         public async Task UpdateAsync(Question question, CancellationToken ct = default)

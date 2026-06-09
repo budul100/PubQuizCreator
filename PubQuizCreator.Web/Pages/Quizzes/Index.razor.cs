@@ -1,5 +1,4 @@
 using PubQuizCreator.Core.Models;
-using PubQuizCreator.Services;
 using PubQuizCreator.Web.Helpers;
 
 namespace PubQuizCreator.Web.Pages.Quizzes
@@ -8,10 +7,11 @@ namespace PubQuizCreator.Web.Pages.Quizzes
     {
         #region Private Fields
 
+        private const string newTitle = "New Quiz";
+
         private List<Quiz> active = [];
         private List<Quiz> completed = [];
         private DateOnly newDate = DateOnly.FromDateTime(DateTime.Today);
-        private string newTitle = "New Quiz";
         private bool showCompleted = false;
         private bool showCreate;
 

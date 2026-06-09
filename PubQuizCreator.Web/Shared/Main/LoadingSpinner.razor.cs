@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace PubQuizCreator.Web.Shared
+namespace PubQuizCreator.Web.Shared.Main
 {
     public partial class LoadingSpinner
     {

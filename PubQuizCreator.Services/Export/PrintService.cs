@@ -6,7 +6,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 
-namespace PubQuizCreator.Services
+namespace PubQuizCreator.Services.Export
 {
     public class PrintService(IConfiguration configuration)
     {

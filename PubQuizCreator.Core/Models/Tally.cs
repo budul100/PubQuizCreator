@@ -1,14 +1,12 @@
 ﻿namespace PubQuizCreator.Core.Models
 {
-    public class Count(Category? category, int open, int? total = default)
+    public class Tally(Category? category, int count)
     {
         #region Public Properties
 
         public Category? Category { get; set; } = category;
 
-        public int? Open { get; set; } = open;
-
-        public int? Total { get; set; } = total;
+        public int? Count { get; set; } = count;
 
         #endregion Public Properties
     }

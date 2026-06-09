@@ -1,0 +1,21 @@
+﻿<div class="d-flex flex-wrap gap-1 @CssClass">
+
+    @{
+        var relevants = Tallies
+            .Where(t => t.Category != default && t.Count > 0).ToArray();
+    }
+
+    @foreach (var relevant in relevants)
+    {
+        var color = relevant.Category?.ColorHex ?? "#95a5a6";
+        var style = relevant.Count == 0 ? "opacity: 0.45;" : "";
+
+        <ColorBadge 
+            Name="@(relevant.Category?.Name ?? "")"
+            ColorHex="@color"
+            CssClass="d-inline-flex align-items-center gap-1"
+            Style="@style">
+            <span class="fw-bold">@relevant.Count</span>
+        </ColorBadge>
+    }
+</div>

@@ -1,5 +1,5 @@
 using PubQuizCreator.Core;
-using PubQuizCreator.Services;
+using PubQuizCreator.Services.Data;
 
 namespace PubQuizCreator.Web.Shared.Main
 {
@@ -63,7 +63,7 @@ namespace PubQuizCreator.Web.Shared.Main
 
         private async Task RefreshDeficitAsync()
         {
-            var coverage = await DashboardService.GetUpcomingCoverageAsync();
+            var coverage = await QuizService.GetCoverageAsync();
             missingQuestions = coverage.Where(c => !c.IsCovered).Sum(c => c.Deficit);
         }
 

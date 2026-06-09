@@ -5,7 +5,7 @@ using PubQuizCreator.Core;
 using PubQuizCreator.Core.Helpers;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Core.Types;
-using PubQuizCreator.Services;
+using PubQuizCreator.Services.Content;
 
 namespace PubQuizCreator.Web.Pages.Ideas
 {

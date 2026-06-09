@@ -1,0 +1,22 @@
+﻿@{
+    var relevants = Tallies
+        .Where(t => t.Category != default && t.Count > 0).ToArray();
+}
+
+@foreach (var relevant in relevants)
+{
+    var color = relevant.Category?.ColorHex ?? "#95a5a6";
+    var style = relevant.Count == 0 ? "opacity: 0.45;" : "";
+
+    <tr>
+        <td>
+            <ColorBadge 
+                Name="@(relevant.Category?.Name ?? "")"
+                ColorHex="@color"
+                CssClass="d-inline-flex align-items-center gap-1"
+                Style="@style">
+            </ColorBadge>
+        </td>
+        <td class="text-end fw-semibold">@relevant.Count</td>
+    </tr>
+}

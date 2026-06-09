@@ -1,13 +1,14 @@
 ﻿@page "/"
-@using PubQuizCreator.Services.App
-@inject DashboardService DashboardService
+@inject IdeaService IdeaService
+@inject QuestionService QuestionService
+@inject QuizService QuizService
 @inject StateService StateService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
 <PageTitle>Pub Quiz Creator</PageTitle>
 
-@if (stats == null)
+@if (!isLoaded)
 {
     <LoadingSpinner />
 }
@@ -20,17 +21,17 @@ else
             <div class="card h-100">
 
                 <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
-                    <span>Ideas</span>
-                    @if (stats.IdeasWithoutCategory > 0)
+                    <span>Available Ideas</span>
+                    @if (ideasUnassigned > 0)
                     {
                         <span class="badge bg-warning text-dark" title="Ideas without category">
-                            @stats.IdeasWithoutCategory uncategorized
+                            @ideasUnassigned uncategorized
                         </span>
                     }
                 </div>
 
                 <div class="card-body p-0">
-                    @if (!stats.IdeasByCategory.Any())
+                    @if (ideas?.Any() != true)
                     {
                         <p class="text-muted p-3 mb-0">No categorized ideas.</p>
                     }
@@ -38,16 +39,9 @@ else
                     {
                         <table class="table table-sm mb-0">
                             <tbody>
-                                @foreach (var row in stats.IdeasByCategory)
-                                {
-                                    var color = row.Category?.ColorHex;
-                                    <tr>
-                                        <td>
-                                            <ColorBadge ColorHex="@color" Name="@row.Category?.Name" />
-                                        </td>
-                                        <td class="text-end fw-semibold">@row.Open</td>
-                                    </tr>
-                                }
+
+                                <TalliesRow Tallies="ideas" />
+
                             </tbody>
                         </table>
                     }
@@ -65,26 +59,23 @@ else
         <div class="col-12 col-lg-4">
 
             <div class="card h-100">
-                <div class="card-header fw-semibold">Questions</div>
+
+                <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                    <span>Available Questions</span>
+                </div>
+
                 <div class="card-body p-0">
-                    @if (!stats.QuestionsByCategory.Any())
+                    @if (questions?.Any() != true)
                     {
-                        <p class="text-muted p-3 mb-0">No available questions — time to write some.</p>
+                        <p class="text-muted p-3 mb-0">No available questions.</p>
                     }
                     else
                     {
                         <table class="table table-sm mb-0">
                             <tbody>
-                                @foreach (var row in stats.QuestionsByCategory)
-                                {
-                                    var color = row.Category?.ColorHex;
-                                    <tr>
-                                        <td>
-                                            <ColorBadge ColorHex="@color" Name="@row.Category?.Name" />
-                                        </td>
-                                        <td class="text-end fw-semibold">@row.Open</td>
-                                    </tr>
-                                }
+
+                                <TalliesRow Tallies="questions" />
+
                             </tbody>
                         </table>
                     }
@@ -101,22 +92,26 @@ else
         <div class="col-12 col-lg-4">
 
             <div class="card h-100">
-                <div class="card-header fw-semibold">Next Quiz</div>
+
+                <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+                    <span>Next Quiz</span>
+                </div>
+                
                 <div class="card-body">
-                    @if (stats.NextQuiz == null)
+                    @if (nextQuiz == null)
                     {
                         <p class="text-muted mb-0">No upcoming quizzes.</p>
                     }
                     else
                     {
-                        <div class="fw-semibold">@stats.NextQuiz.Title</div>
-                        <div class="text-muted small mb-3">@stats.NextQuiz.Date.ToString("dd.MM.yyyy")</div>
+                        <div class="fw-semibold">@nextQuiz.Title</div>
+                        <div class="text-muted small mb-3">@nextQuiz.Date.ToString("dd.MM.yyyy")</div>
 
-                        @if (stats.NextQuizTotalSlots == 0)
+                        @if (nextTotal == 0)
                         {
                             <span class="badge bg-secondary">No slots yet</span>
                         }
-                        else if (stats.NextQuizOpenSlots == 0)
+                        else if (nextOpen == 0)
                         {
                             <span class="badge bg-success fs-6">Complete</span>
                         }
@@ -124,14 +119,14 @@ else
                         {
                             <div class="d-flex align-items-center gap-2 mb-2">
                                 <span class="badge bg-warning text-dark fs-6">
-                                    @stats.NextQuizOpenSlots open
+                                    @nextOpen open
                                 </span>
-                                <span class="text-muted small">of @stats.NextQuizTotalSlots slots</span>
+                                <span class="text-muted small">of @nextTotal slots</span>
                             </div>
                             <div class="progress mb-3" style="height: 8px;">
                                 @{
-                                    var filled = stats.NextQuizTotalSlots - stats.NextQuizOpenSlots;
-                                    var pct = (int)(100.0 * filled / stats.NextQuizTotalSlots);
+                                    var filled = nextTotal - nextOpen;
+                                    var pct = (int)(100.0 * filled / nextTotal);
                                 }
                                 <div class="progress-bar bg-success"
                                      style="@($"width: {pct}%")"
@@ -142,33 +137,26 @@ else
                             </div>
                         }
 
-                        var categoryStats = stats.NextQuiz.Rounds
-                            .SelectMany(r => r.Slots)
-                            .GroupBy(s => s.Category)
-                            .Select(g => new Count(g.Key, g.Count(s => s.QuestionId == null), g.Count()))
-                            .OrderBy(x => x.Category?.Name)
-                            .ToList();
+    
 
-                        @if (categoryStats.Any() && stats.NextQuizOpenSlots > 0)
+                        @if (nextTallies?.Any() == true)
                         {
-                            <CategoryBadges CategoryStats="@categoryStats" />
+                            <TalliesList Tallies="nextTallies"/>
                         }
                     }
                 </div>
 
                 <div class="card-footer">
-                    @if (stats.NextQuiz != null)
+                    @if (nextQuiz == null)
                     {
-                        <div class="card-footer">
-                            <a class="btn btn-outline-primary btn-sm"
-                               href="/quizzes/@stats.NextQuiz.Id">
-                                Open quiz
-                            </a>
-                        </div>
+                        <a class="btn btn-outline-primary btn-sm" href="/quizzes">Open quizzes</a>
                     }
                     else
                     {
-                        <a class="btn btn-outline-primary btn-sm" href="/quizzes">Open quizzes</a>
+                        <a class="btn btn-outline-primary btn-sm"
+                           href="/quizzes/@nextQuiz.Id">
+                            Open quiz
+                        </a>
                     }
                 </div>
 

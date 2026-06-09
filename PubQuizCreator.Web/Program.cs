@@ -9,6 +9,9 @@ using PubQuizCreator.Core.Interfaces;
 using PubQuizCreator.Data;
 using PubQuizCreator.Services;
 using PubQuizCreator.Services.App;
+using PubQuizCreator.Services.Content;
+using PubQuizCreator.Services.Data;
+using PubQuizCreator.Services.Export;
 using PubQuizCreator.Web.Helpers;
 using QuestPDF.Infrastructure;
 
@@ -40,7 +43,7 @@ internal class Program
     }
 
     private static async Task<IResult> CreatePptxAsync(Guid id, string? rounds, string? template,
-        QuizService quizService, ExportService exportService, SettingsService settingsService,
+        QuizService quizService, FileService exportService, SettingsService settingsService,
         CancellationToken cancellationToken)
     {
         var quiz = await quizService.GetDetailAsync(quizId: id, ct: cancellationToken);
@@ -170,11 +173,9 @@ internal class Program
         builder.Services
             .AddScoped<StateService>();
         builder.Services
-            .AddScoped<DashboardService>();
-        builder.Services
             .AddScoped<PrintService>();
         builder.Services
-            .AddScoped<ExportService>();
+            .AddScoped<FileService>();
 
         var connectionString = builder.Configuration.GetConnectionString("Default")
             ?? throw new InvalidOperationException("Connection string 'Default' is not configured.");
@@ -280,7 +281,7 @@ internal class Program
 
         app.MapGet(
             pattern: "/export/quiz/{id:guid}/pptx",
-            handler: (Guid id, string? rounds, string? template, QuizService qs, ExportService es, SettingsService sc, CancellationToken ct)
+            handler: (Guid id, string? rounds, string? template, QuizService qs, FileService es, SettingsService sc, CancellationToken ct)
                 => CreatePptxAsync(id, rounds, template, qs, es, sc, ct));
 
         app.MapFallbackToPage("/_Host");

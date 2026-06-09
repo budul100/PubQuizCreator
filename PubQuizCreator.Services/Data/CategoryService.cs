@@ -2,7 +2,7 @@
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Data;
 
-namespace PubQuizCreator.Services
+namespace PubQuizCreator.Services.Data
 {
     public class CategoryService(IDbContextFactory<AppDbContext> dbFactory)
     {

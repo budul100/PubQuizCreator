@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Configuration;
 using PubQuizCreator.Core.Models;
 
-namespace PubQuizCreator.Services
+namespace PubQuizCreator.Services.Content
 {
     public class SettingsService(IConfiguration configuration)
     {
