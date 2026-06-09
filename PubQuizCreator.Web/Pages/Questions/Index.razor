@@ -42,17 +42,17 @@
                 </select>
 
                 <div class="form-check form-check-inline">
-                    <input class="form-check-input" type="checkbox" id="showUsed"
-                           @bind="showUsed"
-                           @bind:after="ApplyFilterAsync" />
-                    <label class="form-check-label small" for="showUsed">Include used</label>
-                </div>
-
-                <div class="form-check form-check-inline">
                     <input class="form-check-input" type="checkbox" id="showHidden"
                            @bind="showHidden"
                            @bind:after="ApplyFilterAsync" />
                     <label class="form-check-label small" for="showHidden">Include hidden</label>
+                </div>
+
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="showUsed"
+                           @bind="showUsed"
+                           @bind:after="ApplyFilterAsync" />
+                    <label class="form-check-label small" for="showUsed">Include used</label>
                 </div>
 
             </div>
