@@ -116,7 +116,7 @@ namespace PubQuizCreator.Web.Pages.Questions
         {
             var current = entries.First(q => q.Question.Id == id);
 
-            var confirmed = await JS.ConfirmDeleteAsync(current.Question.TextShort);
+            var confirmed = await JS.ConfirmDeleteAsync(current.Question.Text);
             if (!confirmed) return;
 
             MediaService.Delete(current.Question.MediaFile);

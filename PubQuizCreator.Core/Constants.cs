@@ -58,6 +58,9 @@
         // Name of the question shape
         public const string TemplateShapeQuestion = "Question";
 
+        // Name of the question shape
+        public const string TemplateShapeQuestionDescription = "QuestionDescription";
+
         // Name of the title shape
         public const string TemplateShapeTitle = "Title";
 

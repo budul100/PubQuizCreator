@@ -114,8 +114,8 @@ internal partial class Program
 
                 var question = new Question
                 {
-                    TextShort = textShort,
-                    TextLong = textLong,
+                    Text = textShort,
+                    Description = textLong,
                     Answer = answer,
                     CategoryId = category.Id,
                     MediaType = mediaType,
@@ -218,8 +218,8 @@ internal partial class Program
 
             var question = new Question
             {
-                TextShort = textShort,
-                TextLong = "",
+                Text = textShort,
+                Description = "",
                 Answer = answer,
                 IsUnusable = true,
                 CategoryId = null,

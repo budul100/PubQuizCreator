@@ -198,12 +198,13 @@ Each template slide must contain text box shapes with names matching the keys us
 
 > **Home > Editing > Select > Selection Pane** — click a shape in the pane to rename it.
 
-| Shape Name | Content                                                              |
-|------------|----------------------------------------------------------------------|
-| `Question` | The question text                                                    |
-| `Answer`   | The answer text                                                      |
-| `Position` | Slide title / question number (formatted via `Export:TitleFormat`)  |
-| `Media`    | Placeholder for media content (image, audio, video)                 |
+| Shape Name            | Content                                                            |
+|-----------------------|--------------------------------------------------------------------|
+| `Question`            | The text of the question                                           |
+| `QuestionDescription` | The text of the question and the description                       |
+| `Answer`              | The text of the answer                                             |
+| `Position`            | Slide title / question number (formatted via `Export:TitleFormat`) |
+| `Media`               | Placeholder for media content (image, audio, video)                |
 
 ### Notes Placeholder
 

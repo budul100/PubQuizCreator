@@ -14,7 +14,7 @@ namespace PubQuizCreator.Services.Data
 
         public static string BuildEmbeddingInput(Question q) => string.Join(
             separator: " ",
-            values: new[] { q.TextShort.Trim(), q.Answer.Trim() }
+            values: new[] { q.Text.Trim(), q.Answer.Trim() }
                 .Where(s => !string.IsNullOrEmpty(s)));
 
         public async Task<Question> CreateAsync(Question question, CancellationToken ct = default)
@@ -79,7 +79,7 @@ namespace PubQuizCreator.Services.Data
                 .Take(topN)
                 .Select(q => new Similar(
                     q.Id,
-                    q.TextShort,
+                    q.Text,
                     q.Answer,
                     q.Embedding!.L2Distance(queryVector)))
                 .ToListAsync(ct);
@@ -153,8 +153,8 @@ namespace PubQuizCreator.Services.Data
 
             if (!string.IsNullOrWhiteSpace(search))
             {
-                query = query.Where(q => EF.Functions.ILike(q.TextShort, $"%{search}%")
-                    || EF.Functions.ILike(q.TextLong, $"%{search}%")
+                query = query.Where(q => EF.Functions.ILike(q.Text, $"%{search}%")
+                    || EF.Functions.ILike(q.Description, $"%{search}%")
                     || EF.Functions.ILike(q.Answer, $"%{search}%"));
             }
 
@@ -173,7 +173,7 @@ namespace PubQuizCreator.Services.Data
                     db.RoundSlots
                         .Where(s => s.QuestionId == q.Id && s.Round.Quiz.IsCompleted)
                         .Max(s => s.Round.Position))
-                .ThenBy(q => q.TextShort);
+                .ThenBy(q => q.Text);
 
             // --- Page ---
             var questions = await sorted
@@ -298,8 +298,8 @@ namespace PubQuizCreator.Services.Data
             var existing = await db.Questions.FindAsync([question.Id], ct)
                 ?? throw new InvalidOperationException("Question not found.");
 
-            existing.TextShort = question.TextShort;
-            existing.TextLong = question.TextLong;
+            existing.Text = question.Text;
+            existing.Description = question.Description;
             existing.Answer = question.Answer;
             existing.CategoryId = question.CategoryId;
             existing.MediaFile = question.MediaFile;

@@ -79,7 +79,7 @@ namespace PubQuizCreator.Services.Export
                     ? Colors.White
                     : Colors.Grey.Lighten4;
 
-                var questions = new[] { slot.Question?.TextShort, slot.Question?.TextLong }
+                var questions = new[] { slot.Question?.Text, slot.Question?.Description }
                     .Where(s => !string.IsNullOrWhiteSpace(s));
 
                 var question = string.Join(

@@ -17,6 +17,8 @@ namespace PubQuizCreator.Core.Models
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        public string Description { get; set; } = "";
+
         public Vector? Embedding { get; set; }
 
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -27,9 +29,7 @@ namespace PubQuizCreator.Core.Models
 
         public MediaType MediaType { get; set; } = MediaType.None;
 
-        public string TextLong { get; set; } = "";
-
-        public string TextShort { get; set; } = "";
+        public string Text { get; set; } = "";
 
         #endregion Public Properties
     }

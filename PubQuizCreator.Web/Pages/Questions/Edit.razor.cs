@@ -43,10 +43,10 @@ namespace PubQuizCreator.Web.Pages.Questions
 
         #region Private Properties
 
-        private bool CanCheck => !string.IsNullOrWhiteSpace(question.TextShort)
+        private bool CanCheck => !string.IsNullOrWhiteSpace(question.Text)
             || !string.IsNullOrWhiteSpace(question.Answer);
 
-        private bool CanSave => !string.IsNullOrWhiteSpace(question.TextShort)
+        private bool CanSave => !string.IsNullOrWhiteSpace(question.Text)
             && question.CategoryId.HasValue
             && !string.IsNullOrWhiteSpace(question.Answer);
 
@@ -83,13 +83,13 @@ namespace PubQuizCreator.Web.Pages.Questions
                 if (q != null)
                 {
                     question.CategoryId = q.CategoryId;
-                    question.TextShort = q.TextShort;
+                    question.Text = q.Text;
                     question.Answer = q.Answer;
                     question.MediaFile = q.MediaFile;
                     question.MediaType = q.MediaType;
                     question.IsUnusable = q.IsUnusable;
                     question.AllowReuse = q.AllowReuse;
-                    question.TextLong = q.TextLong;
+                    question.Description = q.Description;
                 }
             }
 
@@ -129,12 +129,12 @@ namespace PubQuizCreator.Web.Pages.Questions
 
             if (match.Success)
             {
-                question.TextShort = match.Groups[1].Value.Trim();
+                question.Text = match.Groups[1].Value.Trim();
                 question.Answer = match.Groups[2].Value.Trim();
             }
             else
             {
-                question.TextShort = normalized;
+                question.Text = normalized;
             }
 
             question.CategoryId = idea.CategoryId;
@@ -145,7 +145,7 @@ namespace PubQuizCreator.Web.Pages.Questions
 
         private async Task DeleteAndGoBackAsync()
         {
-            var confirmed = await JS.ConfirmDeleteAsync(question.TextShort);
+            var confirmed = await JS.ConfirmDeleteAsync(question.Text);
             if (!confirmed) return;
 
             if (Id.HasValue)
@@ -222,7 +222,7 @@ namespace PubQuizCreator.Web.Pages.Questions
 
             var prompt = template
                 .Replace("{category}", categoryName)
-                .Replace("{question}", question.TextShort)
+                .Replace("{question}", question.Text)
                 .Replace("{answer}", question.Answer);
 
             await JS.InvokeVoidAsync("navigator.clipboard.writeText", prompt);
@@ -246,7 +246,7 @@ namespace PubQuizCreator.Web.Pages.Questions
 
         private async Task RunSimilaritySearchAsync()
         {
-            var text = $"{question.TextShort} {question.Answer}".Trim();
+            var text = $"{question.Text} {question.Answer}".Trim();
 
             searchingEmbedding = true;
             await InvokeAsync(StateHasChanged);
@@ -348,14 +348,14 @@ namespace PubQuizCreator.Web.Pages.Questions
 
         private void SetTextShort(string text)
         {
-            question.TextShort = text;
+            question.Text = text;
             TriggerSimilaritySearch();
         }
 
 
         private void SetTextLong(string text)
         {
-            question.TextLong = text;
+            question.Description = text;
             TriggerSimilaritySearch(); 
         }
 

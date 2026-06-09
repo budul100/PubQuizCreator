@@ -48,12 +48,12 @@
 
                 <UnidirectionalInput 
                     CssClass="form-control"
-                    Value="@question.TextShort"
+                    Value="@question.Text"
                     ValueChanged="SetTextShort" />
             </div>
 
             @{
-                var shortLen = question.TextShort?.Length ?? 0;
+                var shortLen = question.Text?.Length ?? 0;
 
                 var warnLength = Configuration.GetValue<int>("Quiz:TextShortWarnLength", Constants.TextShortWarnLength);
                 var warnClass = shortLen > warnLength ? "text-danger fw-semibold" : "text-muted";
@@ -78,7 +78,7 @@
                     Multiline="true"
                     Rows="5"
                     CssClass="form-control"
-                    Value="@question.TextLong"
+                    Value="@question.Description"
                     ValueChanged="SetTextLong" />
 
             </div>
@@ -120,7 +120,7 @@
 
                 <div class="d-flex gap-2">
                     <a class="btn btn-outline-secondary @(!CanCheck ? "disabled" : "")"
-                       href="@($"https://www.google.com/search?q={Uri.EscapeDataString((question.TextShort + " " + question.Answer).Trim())}")"
+                       href="@($"https://www.google.com/search?q={Uri.EscapeDataString((question.Text + " " + question.Answer).Trim())}")"
                        target="_blank"
                        tabindex="@(!CanCheck ? -1 : 0)"
                        aria-disabled="@(!CanCheck)"
@@ -150,7 +150,7 @@
 
                         <button class="btn btn-outline-warning"
                                 type="button"
-                                disabled="@(string.IsNullOrWhiteSpace(question.TextShort) || saving)"
+                                disabled="@(string.IsNullOrWhiteSpace(question.Text) || saving)"
                                 @onclick="MarkAsUnusableAsync"
                                 title="Save as unusable — excluded from all lists, but kept for similarity search">
                             ⚠ Mark as unusable

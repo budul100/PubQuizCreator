@@ -84,7 +84,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
         {
             pickerFiltered = pickerAll
                 .Where(q => string.IsNullOrWhiteSpace(searchText)
-                    || q.TextShort.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                    || q.Text.Contains(searchText, StringComparison.OrdinalIgnoreCase)
                     || q.Answer.Contains(searchText, StringComparison.OrdinalIgnoreCase)).ToList();
         }
 

@@ -1,4 +1,5 @@
 ﻿using System.IO.Compression;
+using System.Text;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
 using PubQuizCreator.Core;
@@ -67,16 +68,25 @@ namespace PubQuizCreator.Services
 
                     var title = titleFormat.Replace("{position}", slot.Position.ToString());
 
+                    var textDesciption = new StringBuilder();
+
+                    if (!string.IsNullOrWhiteSpace(slot.Question.Text))
+                    {
+                        textDesciption.AppendLine(slot.Question.Text);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(slot.Question.Description))
+                    {
+                        textDesciption.AppendLine(slot.Question.Description);
+                    }
+
                     // Populate all shapes — missing shapes are silently skipped
                     SetShapeText(clonedSlide, Constants.TemplateShapeTitle, title);
-                    SetShapeText(clonedSlide, Constants.TemplateShapeQuestion, slot.Question.TextShort);
+                    SetShapeText(clonedSlide, Constants.TemplateShapeQuestion, slot.Question.Text);
+                    SetShapeText(clonedSlide, Constants.TemplateShapeQuestionDescription, textDesciption.ToString());
                     SetShapeText(clonedSlide, Constants.TemplateShapeAnswer, slot.Question.Answer);
 
-                    var notesText = !string.IsNullOrWhiteSpace(slot.Question.TextLong)
-                        ? slot.Question.TextLong
-                        : slot.Question.TextShort;
-
-                    SetSpeakerNotes(presentationPart, clonedSlide, notesText);
+                    SetSpeakerNotes(presentationPart, clonedSlide, textDesciption.ToString());
 
                     if (hasMedia)
                     {

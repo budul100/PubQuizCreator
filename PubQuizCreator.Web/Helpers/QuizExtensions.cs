@@ -32,8 +32,8 @@ namespace PubQuizCreator.Web.Helpers
                             {
                                 position = s.Position,
                                 category = s.Category?.Name,
-                                textShort = s.Question?.TextShort,
-                                textLong = s.Question?.TextLong,
+                                text = s.Question?.Text,
+                                description = s.Question?.Description,
                                 answer = s.Question?.Answer,
                             })
                     })
