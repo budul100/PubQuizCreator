@@ -1,10 +1,11 @@
 ﻿using System.Net.Http.Json;
 using Microsoft.Extensions.Configuration;
+using PubQuizCreator.Core.Types;
 using PubQuizCreator.Services.App.Models;
 
 namespace PubQuizCreator.Services.App
 {
-    public class StateService(IHttpClientFactory httpClientFactory, IConfiguration configuration, 
+    public class StateService(IHttpClientFactory httpClientFactory, IConfiguration configuration,
         ToastService toastService)
     {
         #region Private Fields
@@ -32,6 +33,16 @@ namespace PubQuizCreator.Services.App
         public bool OllamaOnline { get; private set; }
 
         public string PageTitle { get; private set; } = "";
+
+        public Guid? QuestionsCategoryId { get; set; }
+
+        public CategoryFilter QuestionsFilterMode { get; set; } = CategoryFilter.All;
+
+        public int QuestionsPage { get; set; } = 1;
+
+        public string QuestionsSearchText { get; set; } = "";
+
+        public bool QuestionsShowUsed { get; set; }
 
         public HashSet<Guid> RoundsCollapsed { get; } = [];
 

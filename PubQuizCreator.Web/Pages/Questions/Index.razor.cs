@@ -22,7 +22,6 @@ namespace PubQuizCreator.Web.Pages.Questions
         private Guid? lastCategoryId;
         private string searchText = "";
         private bool showUsed = false;
-
         private int totalCount = 0;
 
         #endregion Private Fields
@@ -43,16 +42,23 @@ namespace PubQuizCreator.Web.Pages.Questions
             isLoading = true;
 
             categories = await CategoryService.GetAllAsync();
-            countByCategory = await QuestionService.GetCountByCategoryAsync(); // see below
+            countByCategory = await QuestionService.GetCountByCategoryAsync();
 
-            if (InitialCategoryId.HasValue && InitialCategoryId != Guid.Empty)
+            if (InitialCategoryId.HasValue
+                && InitialCategoryId != Guid.Empty)
             {
                 filterMode = CategoryFilter.Specific;
                 filterCategoryId = InitialCategoryId.Value;
             }
+            else
+            {
+                filterMode = StateService.QuestionsFilterMode;
+                filterCategoryId = StateService.QuestionsCategoryId;
+            }
 
-            if (InitialShowUsed)
-                showUsed = true;
+            showUsed = InitialShowUsed || StateService.QuestionsShowUsed;
+            searchText = StateService.QuestionsSearchText;
+            currentPage = StateService.QuestionsPage;
 
             await ReloadAsync();
 
@@ -91,6 +97,8 @@ namespace PubQuizCreator.Web.Pages.Questions
         private async Task ApplyFilterAsync()
         {
             currentPage = 1;
+
+            SetFilterState();
             await ReloadAsync();
         }
 
@@ -138,12 +146,15 @@ namespace PubQuizCreator.Web.Pages.Questions
                     : (CategoryFilter.All, null)
             };
 
+            SetFilterState();
             await ReloadAsync();
         }
 
         private async Task OnPageChanged(int page)
         {
             currentPage = page;
+
+            SetFilterState();
             await ReloadAsync();
         }
 
@@ -162,6 +173,15 @@ namespace PubQuizCreator.Web.Pages.Questions
                 search: searchText);
 
             isLoading = false;
+        }
+
+        private void SetFilterState()
+        {
+            StateService.QuestionsFilterMode = filterMode;
+            StateService.QuestionsCategoryId = filterCategoryId;
+            StateService.QuestionsSearchText = searchText;
+            StateService.QuestionsShowUsed = showUsed;
+            StateService.QuestionsPage = currentPage;
         }
 
         private async Task SetSearchAsync(string text)
