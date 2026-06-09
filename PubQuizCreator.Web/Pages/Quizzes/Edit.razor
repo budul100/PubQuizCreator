@@ -50,6 +50,8 @@ else
             @(allCollapsed ? "▼ Expand all" : "▶ Collapse all")
         </button>
 
+        <div class="w-100 d-sm-none"></div>
+
         <div class="d-flex gap-2 ms-auto flex-shrink-0 align-items-center">
 
             @{
@@ -162,9 +164,23 @@ else
                     @foreach (var slot in r.Slots.OrderBy(s => s.Position))
                     {
                         var s = slot;
+
                         var editUrl = s.Question != null
-                        ? $"/questions/{s.Question.Id}/edit?returnUrl=/quizzes/{Id}"
-                        : null;
+                            ? $"/questions/{s.Question.Id}/edit?returnUrl=/quizzes/{Id}"
+                            : null;
+
+                        var catColor = s.Category?.ColorHex ?? "#95a5a6";
+                        var catName = s.Category?.Name ?? "— no category —";
+
+                        var slotCursor = isLocked
+                            ? "default"
+                            : "grab";
+                        var catCursor = (!isLocked && s.Question == null)
+                            ? "pointer"
+                            : "default";
+                        var textCursor = isLocked 
+                            ? "default" 
+                            : "pointer";
 
                         <div class="list-group-item py-2"
                              draggable="@(!isLocked)"
@@ -172,52 +188,53 @@ else
                              @ondragover="_ => { }"
                              @ondragover:preventDefault="true"
                              @ondrop="async () => { if (!isLocked) await DropSlot(r.Id, s.Id); }"
-                             style="cursor: @(isLocked ? "default" : "grab");">
+                             style="cursor: @slotCursor;">
 
-                            <div class="d-flex gap-2 align-items-center">
+                            <div class="d-flex flex-column flex-sm-row gap-2 align-items-sm-start">
 
-                                @if(!isLocked)
-                                {
-                                    <span class="text-muted flex-shrink-0 mt-1">☰</span>
-                                }
-                                
-                                <span class="badge bg-light text-secondary border flex-shrink-0 mt-1"
-                                      style="min-width: 1.8rem; text-align: center; font-weight: 600;">
-                                    @s.Position
-                                </span>
+                                @* Left: handle + position + category *@
+                                <div class="d-flex gap-2 align-items-center flex-shrink-0">
 
-                                @{
-                                    var catColor = s.Category?.ColorHex ?? "#95a5a6";
-                                    @* When locked: category is never editable, so cursor is always default *@
-                                    var catCursor = (!isLocked && s.Question == null) ? "pointer" : "default";
-                                }
-
-                                <div style="width: 120px; flex-shrink: 0; min-width: 0;"
-                                     @onclick:stopPropagation="true">
-                                    @if (!isLocked && editCategorySlot?.Id == s.Id)
+                                    @if (!isLocked)
                                     {
-                                        <CategorySelector Categories="categories"
-                                                          @bind-SelectedCategoryId="editCategorySlotCategoryId"
-                                                          ConfirmLabel="Save"
-                                                          OnConfirm="() => SaveCategoryAsync(s.Id)"
-                                                          OnCancel="() => editCategorySlot = null" />
+                                        <span class="text-muted flex-shrink-0">☰</span>
                                     }
-                                    else
-                                    {
-                    @* Click-to-edit category only when not locked and slot has no question *@
-                    <div style="cursor: @catCursor;"
-                         @onclick="@(!isLocked && s.Question == null
-                            ? EventCallback.Factory.Create(this, () => { editCategorySlot = s; editCategorySlotCategoryId = s.CategoryId; })
-                            : default)">
-                        <ColorBadge Name="@(s.Category?.Name ?? "— no category —")"
-                                    ColorHex="@catColor"
-                                    CssClass="text-truncate d-block"
-                                    Style="max-width: 100%;" />
-                    </div>
+
+                                    <span class="badge bg-light text-secondary border flex-shrink-0"
+                                          style="min-width: 1.8rem; text-align: center; font-weight: 600;">
+                                        @s.Position
+                                    </span>
+
+                                    <div style="width: 120px; flex-shrink: 0; min-width: 0;"
+                                         @onclick:stopPropagation="true">
+                                        @if (!isLocked && editCategorySlot?.Id == s.Id)
+                                        {
+                                            <CategorySelector 
+                                                Categories="categories"
+                                                @bind-SelectedCategoryId="editCategorySlotCategoryId"
+                                                ConfirmLabel="Save"
+                                                OnConfirm="() => SaveCategoryAsync(s.Id)"
+                                                OnCancel="() => editCategorySlot = null" />
                                         }
+                                        else
+                                        {
+                                            <div style="cursor: @catCursor;"
+                                                 @onclick="@(!isLocked && s.Question == null
+                                                    ? EventCallback.Factory.Create(this, () => { editCategorySlot = s; editCategorySlotCategoryId = s.CategoryId; })
+                                                    : default)">
+                                                <ColorBadge 
+                                                    Name="@catName"
+                                                    ColorHex="@catColor"
+                                                    CssClass="text-truncate d-block"
+                                                    Style="max-width: 100%;" />
+                                            </div>
+                                        }
+                                    </div>
+
                                 </div>
 
-                                <div style="flex: 1; min-width: 0; cursor: @(isLocked ? "default" : "pointer");"
+                                @* Center: question text *@
+                                <div style="flex: 1; min-width: 0; cursor: @textCursor;"
                                      @onclick="async () => { if (!isLocked) { if (editUrl != null) Nav.NavigateTo(editUrl); else await OpenPickerAsync(s); } }"
                                      @onclick:stopPropagation="true">
                                     @if (s.Question != null)
@@ -230,10 +247,10 @@ else
                                     }
                                 </div>
 
-                                @* Action buttons — hidden entirely when locked *@
+                                @* Right: action buttons *@
                                 @if (!isLocked)
                                 {
-                                    <div class="d-flex gap-1 flex-shrink-0" @onclick:stopPropagation="true">
+                                    <div class="d-flex gap-1 flex-shrink-0 align-self-start" @onclick:stopPropagation="true">
                                         @if (s.Question != null)
                                         {
                                             <button class="btn btn-outline-secondary btn-sm"
