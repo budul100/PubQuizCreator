@@ -21,6 +21,7 @@ namespace PubQuizCreator.Web.Pages.Questions
         private bool isLoading = true;
         private Guid? lastCategoryId;
         private string searchText = "";
+        private bool showHidden = false;
         private bool showUsed = false;
         private int totalCount = 0;
 
@@ -33,6 +34,14 @@ namespace PubQuizCreator.Web.Pages.Questions
         [SupplyParameterFromQuery(Name = "showUsed")] public bool InitialShowUsed { get; set; }
 
         #endregion Public Properties
+
+        #region Private Properties
+
+        private IEnumerable<Category> VisibleCategories => !showHidden
+            ? categories.Where(c => !c.IsHidden).ToArray()
+            : categories;
+
+        #endregion Private Properties
 
         #region Protected Methods
 
@@ -56,9 +65,10 @@ namespace PubQuizCreator.Web.Pages.Questions
                 filterCategoryId = StateService.QuestionsCategoryId;
             }
 
-            showUsed = InitialShowUsed || StateService.QuestionsShowUsed;
-            searchText = StateService.QuestionsSearchText;
             currentPage = StateService.QuestionsPage;
+            searchText = StateService.QuestionsSearchText;
+            showHidden = StateService.QuestionsShowHidden;
+            showUsed = InitialShowUsed || StateService.QuestionsShowUsed;
 
             await ReloadAsync();
 
@@ -120,8 +130,6 @@ namespace PubQuizCreator.Web.Pages.Questions
 
         private string GetCategorySelectValue() => filterMode switch
         {
-            CategoryFilter.AllIncludingHidden => "allWithHidden",
-
             CategoryFilter.Unusable => "unusable",
 
             CategoryFilter.Specific => filterCategoryId?.ToString() ?? "all",
@@ -136,8 +144,6 @@ namespace PubQuizCreator.Web.Pages.Questions
             (filterMode, filterCategoryId) = val switch
             {
                 "all" => (CategoryFilter.All, (Guid?)null),
-
-                "allWithHidden" => (CategoryFilter.AllIncludingHidden, null),
 
                 "unusable" => (CategoryFilter.Unusable, null),
 
@@ -161,13 +167,18 @@ namespace PubQuizCreator.Web.Pages.Questions
         private async Task ReloadAsync()
         {
             isLoading = true;
+
             StateHasChanged();
             await Task.Yield();
+
+            var effectiveMode = (filterMode == CategoryFilter.All && showHidden)
+                ? CategoryFilter.AllIncludingHidden
+                : filterMode;
 
             (entries, totalCount) = await QuestionService.GetPagedAsync(
                 page: currentPage,
                 pageSize: Constants.PageSizeList,
-                filterMode: filterMode,
+                filterMode: effectiveMode,
                 categoryId: filterCategoryId,
                 showUsed: showUsed,
                 search: searchText);
@@ -177,11 +188,12 @@ namespace PubQuizCreator.Web.Pages.Questions
 
         private void SetFilterState()
         {
-            StateService.QuestionsFilterMode = filterMode;
             StateService.QuestionsCategoryId = filterCategoryId;
-            StateService.QuestionsSearchText = searchText;
-            StateService.QuestionsShowUsed = showUsed;
+            StateService.QuestionsFilterMode = filterMode;
             StateService.QuestionsPage = currentPage;
+            StateService.QuestionsSearchText = searchText;
+            StateService.QuestionsShowHidden = showHidden;
+            StateService.QuestionsShowUsed = showUsed;
         }
 
         private async Task SetSearchAsync(string text)

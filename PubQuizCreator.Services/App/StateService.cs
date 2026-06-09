@@ -42,6 +42,8 @@ namespace PubQuizCreator.Services.App
 
         public string QuestionsSearchText { get; set; } = "";
 
+        public bool QuestionsShowHidden { get; set; }
+
         public bool QuestionsShowUsed { get; set; }
 
         public HashSet<Guid> RoundsCollapsed { get; } = [];

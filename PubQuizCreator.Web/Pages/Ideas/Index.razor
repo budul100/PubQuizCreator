@@ -20,22 +20,29 @@
             <a class="btn btn-primary btn-sm" href="/ideas/new">+ New idea</a>
         </PageHeader>
 
-        <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+        <div class="d-flex flex-column gap-2 mb-3">
 
-            <select class="form-select form-select-sm w-auto"
+            <div class="d-flex gap-2 align-items-center">
+
+                <select 
+                    class="form-select form-select-sm w-auto"
                     value="@GetCategorySelectValue()"
                     @onchange="OnCategoryChanged">
-                <option value="all">All categories</option>
-                <option value="uncategorized">— uncategorized —</option>
-                @foreach (var cat in categories)
-                {
-                    <option value="@cat.Id">@cat.Name</option>
-                }
-            </select>
+                    
+                    <option value="all">All categories</option>
 
-            <div class="w-100 m-0 p-0"></div>
+                    @foreach (var cat in categories)
+                    {
+                        <option value="@cat.Id">@cat.Name</option>
+                    }
 
-            <div class="d-flex gap-2" style="flex: 1; min-width: 0;">
+                    <option value="uncategorized">— uncategorized —</option>
+
+                </select>
+
+            </div>
+
+            <div class="d-flex gap-2 align-items-center">
 
                 <UnidirectionalInput 
                     Placeholder="Search..."

@@ -141,6 +141,7 @@ namespace PubQuizCreator.Services.Data
                 CategoryFilter.Unusable => query.Where(q => q.IsUnusable),
                 CategoryFilter.AllIncludingHidden => query.Where(q => !q.IsUnusable),
                 CategoryFilter.Specific => query.Where(q => !q.IsUnusable && q.CategoryId == categoryId),
+
                 _ => query.Where(q => !q.IsUnusable && (q.Category == null || !q.Category.IsHidden))
             };
 

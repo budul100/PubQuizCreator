@@ -20,36 +20,52 @@
             <a class="btn btn-primary btn-sm" href="/questions/new">+ New question</a>
         </PageHeader>
 
-        <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+        <div class="d-flex flex-column gap-2 mb-3">
 
-            <select 
-                class="form-select form-select-sm w-auto"
-                value="@GetCategorySelectValue()"
-                @onchange="OnCategoryChanged">
-                
-                <option value="all">All categories</option>
-                <option value="allWithHidden">All incl. hidden</option>
-                
-                @foreach (var cat in categories)
-                {
-                    <option value="@cat.Id">@cat.Name (@countByCategory.GetValueOrDefault(cat.Id, 0))</option>
-                }
-                
-                <option value="unusable">— Unusable —</option>
-            </select>
+            <div class="d-flex gap-2 align-items-center">
 
-            <div class="form-check mb-0 text-nowrap">
-                <input class="form-check-input" type="checkbox"
-                       @bind="showUsed"
-                       @bind:after="ApplyFilterAsync" />
-                <label class="form-check-label small">Include used questions</label>
+                <select 
+                    class="form-select form-select-sm w-auto"
+                    value="@GetCategorySelectValue()"
+                    @onchange="OnCategoryChanged">
+
+                    <option value="all">All categories</option>
+
+                    @foreach (var visibleCategory in VisibleCategories)
+                    {
+                        <option value="@visibleCategory.Id">
+                            @visibleCategory.Name (@countByCategory.GetValueOrDefault(visibleCategory.Id, 0))
+                        </option>
+                    }
+
+                    <option value="unusable">— Unusable —</option>
+                </select>
+
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="showUsed"
+                           @bind="showUsed"
+                           @bind:after="ApplyFilterAsync" />
+                    <label class="form-check-label small" for="showUsed">Include used</label>
+                </div>
+
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="checkbox" id="showHidden"
+                           @bind="showHidden"
+                           @bind:after="ApplyFilterAsync" />
+                    <label class="form-check-label small" for="showHidden">Include hidden</label>
+                </div>
+
             </div>
 
-            <UnidirectionalInput 
-                Placeholder="Search..."
-                ShowClearButton=true
-                Value="@searchText"
-                ValueChanged="SetSearchAsync" />
+            <div class="d-flex gap-2 align-items-center flex-grow-1">
+
+                <UnidirectionalInput 
+                    Placeholder="Search..."
+                    ShowClearButton=true
+                    Value="@searchText"
+                    ValueChanged="SetSearchAsync" />
+
+            </div>
 
         </div>
 
