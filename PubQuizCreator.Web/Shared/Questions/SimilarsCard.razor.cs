@@ -3,7 +3,7 @@ using PubQuizCreator.Core;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Services.Data;
 
-namespace PubQuizCreator.Web.Shared
+namespace PubQuizCreator.Web.Shared.Questions
 {
     public partial class SimilarsCard
         : IDisposable
@@ -21,7 +21,9 @@ namespace PubQuizCreator.Web.Shared
         #region Public Properties
 
         [Parameter] public Guid ExcludeId { get; set; } = Guid.Empty;
+
         [Inject] public QuestionService QuestionService { get; set; } = null!;
+
         [Parameter] public string SearchText { get; set; } = string.Empty;
 
         #endregion Public Properties

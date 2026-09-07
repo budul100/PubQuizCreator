@@ -16,8 +16,8 @@
         else
         {
             var visibleSimilar = similars
-            .Where(sq => sq.Distance < Constants.SimilarityThresholdMedium)
-            .ToList();
+                .Where(sq => sq.Distance < Constants.SimilarityThresholdMedium)
+                .ToList();
 
             @if (!visibleSimilar.Any())
             {
