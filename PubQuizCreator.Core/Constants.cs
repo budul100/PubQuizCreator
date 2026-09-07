@@ -46,6 +46,9 @@
         // Number of elements shown in list views.
         public const int PageSizePicker = 20;
 
+        // Minimum length for meaningful vector search (at least x haracters in the question or answer)
+        public const int SimilaritySearchLengthMin = 10;
+
         // Similarity thresholds for "very similar" — likely duplicate
         public const double SimilarityThresholdHigh = 0.55;
 

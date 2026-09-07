@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Pgvector;
 using Pgvector.EntityFrameworkCore;
+using PubQuizCreator.Core;
 using PubQuizCreator.Core.Interfaces;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Core.Types;
@@ -62,27 +63,54 @@ namespace PubQuizCreator.Services.Data
             await db.SaveChangesAsync(ct);
         }
 
-        public async Task<List<Similar>> FindSimilarsAsync(string text, Guid excludeId, int topN = 5,
+        public async Task<List<Similar>> FindSimilarsAsync(string text1, string? text2, Guid excludeId, int topN = 5,
             CancellationToken ct = default)
         {
-            if (string.IsNullOrWhiteSpace(text) || text.Length < 10)
+            var texts = new[] { text1, text2 }
+                .Where(t => !string.IsNullOrWhiteSpace(t)
+                    && t.Length >= Constants.SimilaritySearchLengthMin)
+                .Distinct().ToList();
+
+            if (texts.Count == 0)
                 return [];
 
-            var vector = await embeddingService.GetEmbeddingAsync(text, ct);
-            var queryVector = new Vector(vector);
+            var queryVectors = new List<Vector>();
+            foreach (var t in texts)
+            {
+                var vector = await embeddingService.GetEmbeddingAsync(
+                    text: t!,
+                    ct: ct);
+                queryVectors.Add(new Vector(vector));
+            }
 
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            return await db.Questions
-                .Where(q => q.Id != excludeId && q.Embedding != null)
-                .OrderBy(q => q.Embedding!.L2Distance(queryVector))
+            // Determine the best (smallest) distance for each existing question to one of our search vectors
+            // For a small number of search vectors (1–2), this can be solved directly in LINQ or through two small queries
+            var candidates = new Dictionary<Guid, (string Text, string Answer, double MinDistance)>();
+
+            foreach (var qv in queryVectors)
+            {
+                var matches = await db.Questions
+                    .Where(q => q.Id != excludeId && q.Embedding != null)
+                    .OrderBy(q => q.Embedding!.L2Distance(qv))
+                    .Take(topN)
+                    .Select(q => new { q.Id, q.Text, q.Answer, Distance = q.Embedding!.L2Distance(qv) })
+                    .ToListAsync(ct);
+
+                foreach (var m in matches)
+                {
+                    if (!candidates.TryGetValue(m.Id, out var current) || m.Distance < current.MinDistance)
+                    {
+                        candidates[m.Id] = (m.Text, m.Answer, m.Distance);
+                    }
+                }
+            }
+
+            return candidates
+                .OrderBy(kv => kv.Value.MinDistance)
                 .Take(topN)
-                .Select(q => new Similar(
-                    q.Id,
-                    q.Text,
-                    q.Answer,
-                    q.Embedding!.L2Distance(queryVector)))
-                .ToListAsync(ct);
+                .Select(kv => new Similar(kv.Key, kv.Value.Text, kv.Value.Answer, kv.Value.MinDistance)).ToList();
         }
 
         public async Task<Question?> GetAsync(Guid id, CancellationToken ct = default)

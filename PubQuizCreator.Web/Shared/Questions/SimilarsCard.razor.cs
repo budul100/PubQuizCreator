@@ -13,18 +13,21 @@ namespace PubQuizCreator.Web.Shared.Questions
         private Timer? debounceTimer;
         private bool hasSearched;
         private bool isSearching;
-        private string lastSearchText = string.Empty;
+        private string lastAnswer = string.Empty;
+        private string lastQuestion = string.Empty;
         private List<Similar> similars = [];
 
         #endregion Private Fields
 
         #region Public Properties
 
+        [Parameter] public string AnswerText { get; set; } = string.Empty;
+
         [Parameter] public Guid ExcludeId { get; set; } = Guid.Empty;
 
         [Inject] public QuestionService QuestionService { get; set; } = null!;
 
-        [Parameter] public string SearchText { get; set; } = string.Empty;
+        [Parameter] public string QuestionText { get; set; } = string.Empty;
 
         #endregion Public Properties
 
@@ -42,12 +45,19 @@ namespace PubQuizCreator.Web.Shared.Questions
 
         protected override void OnParametersSet()
         {
-            var trimmed = SearchText?.Trim() ?? string.Empty;
+            var q = QuestionText?.Trim() ?? string.Empty;
+            var a = AnswerText?.Trim() ?? string.Empty;
 
-            if (trimmed == lastSearchText) return;
-            lastSearchText = trimmed;
+            // Only trigger if one of the two fields has actually changed
+            if (q == lastQuestion
+                && a == lastAnswer) return;
 
-            if (string.IsNullOrWhiteSpace(trimmed))
+            lastQuestion = q;
+            lastAnswer = a;
+
+            // Minimum length for meaningful vector search (at least 10 characters in the question or answer)
+            if (q.Length < Constants.SimilaritySearchLengthMin
+                && $"{q} {a}".Trim().Length < Constants.SimilaritySearchLengthMin)
             {
                 debounceTimer?.Dispose();
                 similars = [];
@@ -56,11 +66,9 @@ namespace PubQuizCreator.Web.Shared.Questions
                 return;
             }
 
-            async void SearchCallback(object? _) => await RunSearchAsync(trimmed);
-
             debounceTimer?.Dispose();
             debounceTimer = new Timer(
-                callback: SearchCallback,
+                callback: async _ => await RunSearchAsync(q, a),
                 state: null,
                 dueTime: Constants.InputDebounceTime,
                 period: Timeout.Infinite);
@@ -70,15 +78,18 @@ namespace PubQuizCreator.Web.Shared.Questions
 
         #region Private Methods
 
-        private async Task RunSearchAsync(string text)
+        private async Task RunSearchAsync(string question, string answer)
         {
             isSearching = true;
             await InvokeAsync(StateHasChanged);
 
             try
             {
+                var combined = $"{question} {answer}".Trim();
+
                 similars = await QuestionService.FindSimilarsAsync(
-                    text: text,
+                    text1: question,
+                    text2: combined,
                     excludeId: ExcludeId,
                     topN: 5);
 
