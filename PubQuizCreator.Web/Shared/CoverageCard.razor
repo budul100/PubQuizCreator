@@ -2,33 +2,44 @@
 
 <div class="card">
     <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
-        <span>Slot coverage</span>
+        <span>
+            @(Mode == CoverageMode.IdeasToQuestions ? "Question coverage" : "Slot coverage")
+        </span>
         @if (isLoading)
         {
             <span class="spinner-border spinner-border-sm text-secondary" />
         }
     </div>
     <div class="card-body p-2">
-        @if (!isLoading && coverage.Count == 0)
+        @if (!isLoading && !DisplayItems.Any())
         {
-            <p class="text-muted small mb-0">No upcoming quizzes with open slots.</p>
+            <p class="text-muted small mb-0">
+                @(Mode == CoverageMode.IdeasToQuestions
+                    ? "All active slots with questions covered."
+                    : "No upcoming quizzes with open slots.")
+            </p>
         }
         else
         {
-            @foreach (var item in coverage)
+            @foreach (var item in DisplayItems)
             {
                 var color = item.Category.ColorHex;
                 var textColor = color.TextColor();
 
-                var badgeStyle = item.IsCovered
-                    ? $"background-color: {color}; color: {textColor}; opacity: 0.35;"
-                    : $"background-color: {color}; color: {textColor};";
-                var badgeClass = "badge d-flex align-items-center justify-content-between gap-2 w-100";
+                var isCovered = Mode == CoverageMode.IdeasToQuestions ? item.IsCoveredIdeas : item.IsCoveredQuestions;
+                var countContent = Mode == CoverageMode.IdeasToQuestions
+                ? (isCovered
+                ? $"{item.IdeasAvailable}/{item.QuestionsOpen} ✓"
+                : $"{item.IdeasAvailable}/{item.QuestionsOpen} (−{item.IdeasOpen})")
+                : (isCovered
+                ? $"{item.QuestionsAvailable}/{item.SlotsOpen} ✓"
+                : $"{item.QuestionsAvailable}/{item.SlotsOpen} (−{item.QuestionsOpen})");
 
-                var countContent = item.IsCovered
-                    ? $"{item.AvailableQuestions}/{item.TotalOpenSlots} ✓"
-                    : $"{item.AvailableQuestions}/{item.TotalOpenSlots} (−{item.Deficit})";
-                var countClass = !item.IsCovered ? "fw-bold text-nowrap" : "fw-normal text-nowrap";
+                var badgeStyle = isCovered
+                ? $"background-color: {color}; color: {textColor}; opacity: 0.35;"
+                : $"background-color: {color}; color: {textColor};";
+                var badgeClass = "badge d-flex align-items-center justify-content-between gap-2 w-100";
+                var countClass = !isCovered ? "fw-bold text-nowrap" : "fw-normal text-nowrap";
 
                 <div class="mb-2">
                     @if (NavigateToQuestions)

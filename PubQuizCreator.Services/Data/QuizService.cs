@@ -183,10 +183,8 @@ namespace PubQuizCreator.Services.Data
         {
             await using var db = await dbFactory.CreateDbContextAsync(ct);
 
-            var today = DateOnly.FromDateTime(DateTime.Today);
-
             var slots = await db.RoundSlots
-                .Where(s => s.Round.Quiz.Date >= today && !s.Round.Quiz.IsCompleted)
+                .Where(s => !s.Round.Quiz.IsCompleted)
                 .Select(s => new { s.CategoryId, s.QuestionId })
                 .ToListAsync(ct);
 
@@ -201,40 +199,59 @@ namespace PubQuizCreator.Services.Data
             var slotsMap = slots
                 .Where(s => s.CategoryId.HasValue && s.QuestionId == null)
                 .GroupBy(s => s.CategoryId!.Value)
-                .ToDictionary(g => g.Key, g => g.Count());
+                .ToDictionary(
+                    keySelector: g => g.Key,
+                    elementSelector: g => g.Count());
 
-            var categoryIds = slots
+            var slotCategories = slots
                 .Where(s => s.CategoryId.HasValue)
                 .Select(s => s.CategoryId!.Value)
                 .ToHashSet();
 
-            var availableCounts = await db.Questions
+            var categories = await db.Categories
+                .Where(c => slotCategories.Contains(c.Id) && !c.IsHidden)
+                .ToListAsync(ct);
+
+            var categoryIds = categories
+                .Select(c => c.Id)
+                .ToHashSet();
+
+            var questionsCount = await db.Questions
                 .Where(q => q.CategoryId.HasValue
                     && categoryIds.Contains(q.CategoryId.Value)
                     && !q.IsUnusable
                     && !assignedIds.Contains(q.Id)
-                    && !q.Category!.IsHidden)
+                    && (q.AllowReuse || !db.RoundSlots.Any(s => s.QuestionId == q.Id && s.Round.Quiz.IsCompleted)))
                 .GroupBy(q => q.CategoryId)
                 .Select(g => new { CategoryId = g.Key, Count = g.Count() })
                 .ToListAsync(ct);
 
-            var availableMap = availableCounts
-                .ToDictionary(x => x.CategoryId!.Value, x => x.Count);
+            var questionsMap = questionsCount.ToDictionary(
+                keySelector: x => x.CategoryId!.Value,
+                elementSelector: x => x.Count);
 
-            var categories = await db.Categories
-                .Where(c => categoryIds.Contains(c.Id) && !c.IsHidden)
+            var ideasCount = await db.Ideas
+                .Where(i => !i.IsProcessed
+                    && i.CategoryId.HasValue
+                    && categoryIds.Contains(i.CategoryId.Value))
+                .GroupBy(i => i.CategoryId)
+                .Select(g => new { CategoryId = g.Key!.Value, Count = g.Count() })
                 .ToListAsync(ct);
 
-            return categories
+            var ideasMap = ideasCount.ToDictionary(
+                keySelector: x => x.CategoryId,
+                elementSelector: x => x.Count);
+
+            var result = categories
                 .Select(c => new Coverage
                 {
                     Category = c,
-                    AvailableQuestions = availableMap.GetValueOrDefault(c.Id, 0),
-                    TotalOpenSlots = slotsMap.GetValueOrDefault(c.Id, 0)
-                })
-                .OrderBy(x => x.IsCovered)
-                .ThenByDescending(x => x.Deficit)
-                .ThenBy(x => x.Category.Name).ToList();
+                    QuestionsAvailable = questionsMap.GetValueOrDefault(c.Id, 0),
+                    SlotsOpen = slotsMap.GetValueOrDefault(c.Id, 0),
+                    IdeasAvailable = ideasMap.GetValueOrDefault(c.Id, 0)
+                }).ToList();
+
+            return result;
         }
 
         public async Task<Quiz?> GetDetailAsync(Guid quizId, CancellationToken ct = default)

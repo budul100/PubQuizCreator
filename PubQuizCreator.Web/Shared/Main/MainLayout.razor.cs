@@ -64,7 +64,7 @@ namespace PubQuizCreator.Web.Shared.Main
         private async Task RefreshDeficitAsync()
         {
             var coverage = await QuizService.GetCoverageAsync();
-            missingQuestions = coverage.Where(c => !c.IsCovered).Sum(c => c.Deficit);
+            missingQuestions = coverage.Where(c => !c.IsCoveredQuestions).Sum(c => c.QuestionsOpen);
         }
 
         #endregion Private Methods

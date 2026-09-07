@@ -4,15 +4,21 @@
     {
         #region Public Properties
 
-        public int AvailableQuestions { get; set; }
-
         public Category Category { get; set; } = null!;
 
-        public int Deficit => Math.Max(0, TotalOpenSlots - AvailableQuestions);
+        public int IdeasAvailable { get; set; }
 
-        public bool IsCovered => AvailableQuestions >= TotalOpenSlots;
+        public int IdeasOpen => Math.Max(0, QuestionsOpen - IdeasAvailable);
 
-        public int TotalOpenSlots { get; set; }
+        public bool IsCoveredIdeas => IdeasAvailable >= QuestionsOpen;
+
+        public bool IsCoveredQuestions => QuestionsAvailable >= SlotsOpen;
+
+        public int QuestionsAvailable { get; set; }
+
+        public int QuestionsOpen => Math.Max(0, SlotsOpen - QuestionsAvailable);
+
+        public int SlotsOpen { get; set; }
 
         #endregion Public Properties
     }
