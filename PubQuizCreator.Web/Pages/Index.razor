@@ -40,7 +40,7 @@ else
                         <table class="table table-sm mb-0">
                             <tbody>
 
-                                <TalliesRow Tallies="ideas" />
+                                <TalliesRow Tallies="ideas" HrefPrefix="/ideas?categoryId=" />
 
                             </tbody>
                         </table>
@@ -74,7 +74,7 @@ else
                         <table class="table table-sm mb-0">
                             <tbody>
 
-                                <TalliesRow Tallies="questions" />
+                                <TalliesRow Tallies="questions" HrefPrefix="/questions?categoryId=" />
 
                             </tbody>
                         </table>
@@ -96,8 +96,8 @@ else
                 <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
                     <span>Next Quiz</span>
                 </div>
-                
-                <div class="card-body">
+
+                <div class="card-body" style="cursor: pointer;" @onclick='() => Nav.NavigateTo($"/quizzes/{nextQuiz.Id}")'>
                     @if (nextQuiz == null)
                     {
                         <p class="text-muted mb-0">No upcoming quizzes.</p>

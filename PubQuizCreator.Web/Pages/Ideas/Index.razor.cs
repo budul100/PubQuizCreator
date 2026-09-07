@@ -27,6 +27,13 @@ namespace PubQuizCreator.Web.Pages.Ideas
 
         #endregion Private Fields
 
+        #region Public Properties
+
+        [SupplyParameterFromQuery(Name = "categoryId")]
+        public Guid? InitialCategoryId { get; set; }
+
+        #endregion Public Properties
+
         #region Public Methods
 
         public void Dispose()
@@ -47,18 +54,31 @@ namespace PubQuizCreator.Web.Pages.Ideas
             searchText = StateService.IdeasSearchText;
             sortAscending = StateService.IdeasSortAscending;
 
-            var savedId = StateService.IdeasSelectedCategory;
-            if (savedId != Guid.Empty)
+            if (InitialCategoryId.HasValue
+                && InitialCategoryId != Guid.Empty)
             {
                 filterMode = IdeaFilter.Specific;
-                filterCategoryId = savedId;
+                filterCategoryId = InitialCategoryId.Value;
+            }
+            else
+            {
+                var savedId = StateService.IdeasSelectedCategory;
+                if (savedId != Guid.Empty)
+                {
+                    filterMode = IdeaFilter.Specific;
+                    filterCategoryId = savedId;
+                }
             }
 
-            categories = (await CategoryService.GetAllAsync()).Where(c => !c.IsHidden).ToList();
+            categories = (await CategoryService.GetAllAsync())
+                .Where(c => !c.IsHidden).ToList();
             await ReloadAsync();
 
-            if (filterMode == IdeaFilter.All && entries.Any(i => i.CategoryId == null))
+            if (filterMode == IdeaFilter.All
+                && entries.Any(i => i.CategoryId == null))
+            {
                 filterMode = IdeaFilter.Uncategorized;
+            }
 
             ApplyFilter();
         }
