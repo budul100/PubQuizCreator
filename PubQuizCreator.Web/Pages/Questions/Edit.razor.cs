@@ -6,7 +6,6 @@ using PubQuizCreator.Core;
 using PubQuizCreator.Core.Helpers;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Core.Types;
-using PubQuizCreator.Services;
 using PubQuizCreator.Web.Helpers;
 
 namespace PubQuizCreator.Web.Pages.Questions
@@ -16,16 +15,12 @@ namespace PubQuizCreator.Web.Pages.Questions
         #region Private Fields
 
         private List<Category> categories = [];
-        private Timer? debounceTimer;
-        private bool hasSearched;
         private string? ideaText;
         private bool isInitialized;
         private IBrowserFile? pendingFile;
         private Question question = new();
         private string? saveError;
         private bool saving;
-        private bool searchingEmbedding;
-        private List<Similar> similars = [];
 
         #endregion Private Fields
 
@@ -53,16 +48,6 @@ namespace PubQuizCreator.Web.Pages.Questions
         private bool IsNew => Id == null;
 
         #endregion Private Properties
-
-        #region Public Methods
-
-        public void Dispose()
-        {
-            debounceTimer?.Dispose();
-            GC.SuppressFinalize(this);
-        }
-
-        #endregion Public Methods
 
         #region Protected Methods
 
@@ -202,9 +187,19 @@ namespace PubQuizCreator.Web.Pages.Questions
             StateHasChanged();
         }
 
-        private void OnCategoryChanged(ChangeEventArgs e) => question.CategoryId = Guid.TryParse(e.Value?.ToString(), out var id)
-            ? id.NullIfEmpty()
-            : null;
+        private void OnCategoryChanged(ChangeEventArgs e)
+        {
+            if (Guid.TryParse(
+                input: e.Value?.ToString(),
+                result: out var id))
+            {
+                question.CategoryId = id.NullIfEmpty();
+            }
+            else
+            {
+                question.CategoryId = default;
+            }
+        }
 
         private void OnFileChanged((IBrowserFile File, MediaType Type) args)
         {
@@ -242,33 +237,6 @@ namespace PubQuizCreator.Web.Pages.Questions
             question.MediaFile = null;
             question.MediaType = MediaType.None;
             pendingFile = null;
-        }
-
-        private async Task RunSimilaritySearchAsync()
-        {
-            var text = $"{question.Text} {question.Answer}".Trim();
-
-            searchingEmbedding = true;
-            await InvokeAsync(StateHasChanged);
-
-            try
-            {
-                similars = await QuestionService.FindSimilarsAsync(
-                    text: text,
-                    excludeId: Id ?? Guid.Empty,
-                    topN: 5);
-
-                hasSearched = true;
-            }
-            catch
-            {
-                // Ollama unavailable — fail silently
-            }
-            finally
-            {
-                searchingEmbedding = false;
-                await InvokeAsync(StateHasChanged);
-            }
         }
 
         private async Task SaveAsync()
@@ -311,9 +279,6 @@ namespace PubQuizCreator.Web.Pages.Questions
                     CategoryId = nextCategoryId
                 };
 
-                similars = [];
-                hasSearched = false;
-
                 if (IdeaId.HasValue && IdeaId != Guid.Empty)
                 {
                     await IdeaService.SetProcessedAsync(IdeaId.Value);
@@ -343,36 +308,16 @@ namespace PubQuizCreator.Web.Pages.Questions
         private void SetAnswer(string text)
         {
             question.Answer = text;
-            TriggerSimilaritySearch();
+        }
+
+        private void SetTextLong(string text)
+        {
+            question.Description = text;
         }
 
         private void SetTextShort(string text)
         {
             question.Text = text;
-            TriggerSimilaritySearch();
-        }
-
-
-        private void SetTextLong(string text)
-        {
-            question.Description = text;
-            TriggerSimilaritySearch(); 
-        }
-
-
-        private void TriggerSimilaritySearch()
-        {
-            debounceTimer?.Dispose();
-
-            debounceTimer = new Timer(
-                callback: async _ =>
-                {
-                    await RunSimilaritySearchAsync();
-                    await InvokeAsync(StateHasChanged);
-                },
-                state: null,
-                dueTime: 800,
-                period: Timeout.Infinite);
         }
 
         #endregion Private Methods

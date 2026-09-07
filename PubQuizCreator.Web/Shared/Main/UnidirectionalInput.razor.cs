@@ -10,8 +10,9 @@ namespace PubQuizCreator.Web.Shared.Main
         private const int DebounceDelayInMilliseconds = 250;
 
         private CancellationTokenSource? debounceCts;
+        private bool forceNextRender = false;
         private ElementReference inputRef;
-        private bool isUserTyping = false;
+        private bool isFocused = false;
         private string lastKnownValue = string.Empty;
         private string localValue = string.Empty;
 
@@ -47,6 +48,7 @@ namespace PubQuizCreator.Web.Shared.Main
         {
             localValue = string.Empty;
             lastKnownValue = string.Empty;
+            forceNextRender = true;
 
             StateHasChanged();
             return Task.CompletedTask;
@@ -63,14 +65,24 @@ namespace PubQuizCreator.Web.Shared.Main
             if (Value != lastKnownValue)
             {
                 lastKnownValue = Value ?? string.Empty;
-                if (!isUserTyping)
+
+                if (!isFocused)
                 {
                     localValue = lastKnownValue;
                 }
             }
         }
 
-        protected override bool ShouldRender() => !isUserTyping;
+        protected override bool ShouldRender()
+        {
+            if (forceNextRender)
+            {
+                forceNextRender = false;
+                return true;
+            }
+
+            return !isFocused;
+        }
 
         #endregion Protected Methods
 
@@ -83,10 +95,13 @@ namespace PubQuizCreator.Web.Shared.Main
             await FocusAsync();
         }
 
+        private void HandleFocus()
+        {
+            isFocused = true;
+        }
+
         private async Task HandleInput(ChangeEventArgs e)
         {
-            isUserTyping = true;
-
             localValue = e?.Value?.ToString() ?? string.Empty;
 
             debounceCts?.Cancel();
@@ -103,8 +118,6 @@ namespace PubQuizCreator.Web.Shared.Main
                 {
                     lastKnownValue = localValue;
                     await ValueChanged.InvokeAsync(localValue);
-
-                    isUserTyping = false;
                 }
             }
             catch (TaskCanceledException)
@@ -113,7 +126,7 @@ namespace PubQuizCreator.Web.Shared.Main
 
         private async Task HandleLocalBlur(FocusEventArgs e)
         {
-            isUserTyping = false;
+            isFocused = false;
             debounceCts?.Cancel();
 
             var trimmed = localValue.Trim();
@@ -132,7 +145,6 @@ namespace PubQuizCreator.Web.Shared.Main
         {
             if (e.Key == "Enter")
             {
-                isUserTyping = false;
                 debounceCts?.Cancel();
                 var trimmed = localValue.Trim();
                 localValue = trimmed;

@@ -1,39 +1,37 @@
 ﻿<div class="unidirectional-input-wrapper">
     @if (Multiline)
     {
-        <textarea 
-            class="@CssClass"
-            placeholder="@Placeholder"
-            rows="@Rows"
-            value="@localValue"
-            @ref="inputRef"
-            @oninput="HandleInput"
-            @onblur="HandleLocalBlur"
-            @onkeydown="HandleLocalKeyDown"
-            @attributes="AdditionalAttributes" />
+        <textarea class="@CssClass"
+                  placeholder="@Placeholder"
+                  rows="@Rows"
+                  value="@localValue"
+                  @ref="inputRef"
+                  @onfocus="HandleFocus"
+                  @oninput="HandleInput"
+                  @onblur="HandleLocalBlur"
+                  @onkeydown="HandleLocalKeyDown"
+                  @attributes="AdditionalAttributes" />
     }
     else
     {
-        <input 
-            class="@CssClass"
-            placeholder="@Placeholder"
-            value="@localValue"
-            @ref="inputRef"
-            @oninput="HandleInput"
-            @onblur="HandleLocalBlur"
-            @onkeydown="HandleLocalKeyDown"
-            @attributes="AdditionalAttributes" />
+        <input class="@CssClass"
+               placeholder="@Placeholder"
+               value="@localValue"
+               @ref="inputRef"
+               @onfocus="HandleFocus"
+               @oninput="HandleInput"
+               @onblur="HandleLocalBlur"
+               @onkeydown="HandleLocalKeyDown"
+               @attributes="AdditionalAttributes" />
     }
 
     @if (ShowClearButton && !string.IsNullOrEmpty(localValue))
     {
-        <button 
-            class="unidirectional-input-clear-btn"
-            tabindex="-1" 
-            type="button"
-            @onclick="ClearAndNotifyAsync">
+        <button class="unidirectional-input-clear-btn"
+                tabindex="-1"
+                type="button"
+                @onclick="ClearAndNotifyAsync">
             &times;
         </button>
     }
 </div>
-

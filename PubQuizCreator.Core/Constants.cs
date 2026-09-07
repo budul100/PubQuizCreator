@@ -25,6 +25,9 @@
         // Header font size if not defined in app settings.
         public const float FontSizeHeader = 11f;
 
+        // Debounce time in milliseconds for the search input to avoid excessive API calls.
+        public const int InputDebounceTime = 800;
+
         // Maximum allowed file size for uploads (200 MB).
         public const long MaxUploadSizeBytes = 200 * 1024 * 1024;
 
