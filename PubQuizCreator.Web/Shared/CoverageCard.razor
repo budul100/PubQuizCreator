@@ -26,18 +26,14 @@
                 var color = item.Category.ColorHex;
                 var textColor = color.TextColor();
 
-                var isCovered = Mode == CoverageMode.IdeasToQuestions ? item.IsCoveredIdeas : item.IsCoveredQuestions;
-                var countContent = Mode == CoverageMode.IdeasToQuestions
-                ? (isCovered
-                ? $"{item.IdeasAvailable}/{item.QuestionsOpen} ✓"
-                : $"{item.IdeasAvailable}/{item.QuestionsOpen} (−{item.IdeasOpen})")
-                : (isCovered
-                ? $"{item.QuestionsAvailable}/{item.SlotsOpen} ✓"
-                : $"{item.QuestionsAvailable}/{item.SlotsOpen} (−{item.QuestionsOpen})");
+                var isCovered = item.IsCoveredQuestions;
+                var countContent = isCovered
+                    ? $"{item.QuestionsAvailable}/{item.SlotsOpen} ✓"
+                    : $"{item.QuestionsAvailable}/{item.SlotsOpen} (−{item.QuestionsOpen})";
 
                 var badgeStyle = isCovered
-                ? $"background-color: {color}; color: {textColor}; opacity: 0.35;"
-                : $"background-color: {color}; color: {textColor};";
+                    ? $"background-color: {color}; color: {textColor}; opacity: 0.35;"
+                    : $"background-color: {color}; color: {textColor};";
                 var badgeClass = "badge d-flex align-items-center justify-content-between gap-2 w-100";
                 var countClass = !isCovered ? "fw-bold text-nowrap" : "fw-normal text-nowrap";
 

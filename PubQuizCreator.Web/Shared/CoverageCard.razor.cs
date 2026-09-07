@@ -29,9 +29,8 @@ namespace PubQuizCreator.Web.Shared
         private IEnumerable<Coverage> DisplayItems => Mode switch
         {
             CoverageMode.IdeasToQuestions => coverage
-                .Where(c => c.QuestionsOpen > 0)
-                .OrderBy(c => c.IsCoveredIdeas)
-                .ThenByDescending(c => c.IdeasOpen)
+                .OrderBy(c => c.IsCoveredQuestions)
+                .ThenByDescending(c => c.QuestionsOpen)
                 .ThenBy(c => c.Category.Name),
 
             _ => coverage
