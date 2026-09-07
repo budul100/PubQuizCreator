@@ -1,3 +1,5 @@
+// DATEI: Pages\Quizzes\Index.razor.cs
+
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Web.Helpers;
 
@@ -11,6 +13,7 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
         private List<Quiz> active = [];
         private List<Quiz> completed = [];
+        private bool isLoading = true;
         private DateOnly newDate = DateOnly.FromDateTime(DateTime.Today);
         private bool showCompleted = false;
         private bool showCreate;
@@ -52,8 +55,12 @@ namespace PubQuizCreator.Web.Pages.Quizzes
 
         private async Task ReloadAsync()
         {
+            isLoading = true;
+
             active = await QuizService.GetActiveAsync();
             completed = await QuizService.GetCompletedAsync();
+
+            isLoading = false;
         }
 
         private void SetView(bool completed) => showCompleted = completed;
