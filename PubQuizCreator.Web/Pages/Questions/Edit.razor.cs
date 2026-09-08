@@ -6,6 +6,7 @@ using PubQuizCreator.Core;
 using PubQuizCreator.Core.Helpers;
 using PubQuizCreator.Core.Models;
 using PubQuizCreator.Core.Types;
+using PubQuizCreator.Services.App;
 using PubQuizCreator.Web.Helpers;
 
 namespace PubQuizCreator.Web.Pages.Questions
@@ -15,6 +16,7 @@ namespace PubQuizCreator.Web.Pages.Questions
         #region Private Fields
 
         private List<Category> categories = [];
+        private bool copiedToClipboard;
         private string? ideaText;
         private bool isInitialized;
         private IBrowserFile? pendingFile;
@@ -46,6 +48,8 @@ namespace PubQuizCreator.Web.Pages.Questions
             && !string.IsNullOrWhiteSpace(question.Answer);
 
         private bool IsNew => Id == null;
+
+        [Inject] private ToastService ToastService { get; set; } = null!;
 
         #endregion Private Properties
 
@@ -139,6 +143,28 @@ namespace PubQuizCreator.Web.Pages.Questions
             Nav.NavigateTo(ReturnUrl ?? "/questions");
         }
 
+        private async Task DiscardIdeaAndGoBackAsync()
+        {
+            if (IdeaId.NullIfEmpty() is not { } ideaId)
+            {
+                Nav.NavigateTo("/ideas");
+                return;
+            }
+
+            var confirmed = await JS.ConfirmAsync(
+                "Discard this duplicate? The original idea will be deleted permanently.");
+            if (!confirmed) return;
+
+            var idea = await IdeaService.GetAsync(ideaId);
+            if (idea != null)
+            {
+                MediaService.Delete(idea.MediaFile);
+                await IdeaService.DeleteAsync(ideaId);
+            }
+
+            Nav.NavigateTo("/ideas");
+        }
+
         private async Task MarkAsUnusableAsync()
         {
             var confirmed = await JS.ConfirmAsync(
@@ -225,6 +251,16 @@ namespace PubQuizCreator.Web.Pages.Questions
             var aiUrl = Configuration["Quiz:AiUrl"];
             if (!string.IsNullOrWhiteSpace(aiUrl))
                 await JS.InvokeVoidAsync("open", aiUrl, "_blank");
+
+            // Feedback an den User: Toast + Button-Text
+            ToastService.ShowSuccess("Prompt copied to clipboard!");
+            copiedToClipboard = true;
+
+            _ = Task.Delay(2500).ContinueWith(_ =>
+            {
+                copiedToClipboard = false;
+                InvokeAsync(StateHasChanged);
+            });
         }
 
         private void RemoveMediaAsync()

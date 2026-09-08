@@ -130,8 +130,8 @@
                             type="button"
                             disabled="@(!CanCheck)"
                             @onclick="OpenAiPromptAsync"
-                            title="Run fact-check prompt in AI">
-                        🤖 Ask AI
+                            title="Run fact-check prompt in AI (copies prompt to clipboard)">
+                        @(copiedToClipboard ? "✓ Copied to clipboard!" : "🤖 Ask AI")
                     </button>
                 </div>
 
@@ -146,6 +146,17 @@
                            href="@(IdeaId.HasValue && IdeaId != Guid.Empty ? "/ideas" : ReturnUrl ?? "/questions")">
                             Cancel
                         </a>
+
+                        @if (IdeaId.HasValue && IdeaId != Guid.Empty)
+                        {
+                            <button class="btn btn-outline-danger"
+                                    type="button"
+                                    disabled="@saving"
+                                    @onclick="DiscardIdeaAndGoBackAsync"
+                                    title="Delete this idea without creating a question">
+                                Discard Idea
+                            </button>
+                        }
 
                         <button class="btn btn-outline-warning"
                                 type="button"
@@ -172,7 +183,7 @@
                 </div>
 
             </div>
-
+            
             @if (saveError != null)
             {
                 <div class="alert alert-danger mt-3">@saveError</div>
