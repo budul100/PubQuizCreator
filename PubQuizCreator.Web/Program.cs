@@ -171,7 +171,7 @@ internal class Program
         return rounds
             .Where(r => r.Slots.Count > 0
                 && (roundIds.Count == 0 || roundIds.Contains(r.Id)))
-            .OrderBy(r => r.Position).sToArray();
+            .OrderBy(r => r.Position).ToArray();
     }
 
     private static async Task<IResult> LogOutAsync(HttpContext ctx)
