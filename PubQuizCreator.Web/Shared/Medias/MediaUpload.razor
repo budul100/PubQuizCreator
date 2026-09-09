@@ -18,7 +18,13 @@
             <video controls src="@MediaService.GetUrl(MediaFile)" class="img-fluid rounded border" style="max-height: 220px;" />
         }
         <div class="d-flex align-items-center gap-2 mt-2">
-            <small class="text-muted text-truncate" style="max-width: 300px;">@MediaFile</small>
+            <a href="/media/download/@MediaFile"
+               class="text-decoration-none text-muted text-truncate small d-inline-flex align-items-center gap-1"
+               style="max-width: 300px;"
+               title="Download @MediaFile">
+                <span class="oi oi-cloud-download" />
+                <span>@MediaFile</span>
+            </a>
             <button type="button" class="btn btn-outline-danger btn-sm" @onclick="OnRemove">
                 Remove media
             </button>
