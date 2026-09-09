@@ -29,8 +29,10 @@ namespace PubQuizCreator.Services.Export
 
             stream.Position = 0;
 
+            // 1. Wrap PresentationDocument in an explicit using block to flush all XML parts
+            // and relationships into the memory stream upon closing.
             using (var doc = PresentationDocument.Open(
-                stream: stream,
+                stream: stream, 
                 isEditable: true))
             {
                 var presentationPart = doc.PresentationPart
@@ -47,15 +49,15 @@ namespace PubQuizCreator.Services.Export
                 var slideIndex = 0;
                 var newSlides = new List<SlidePart>();
 
-                var ordereds = round.Slots
+                var slots = round.Slots
                     .OrderBy(s => s.Position).ToArray();
 
-                foreach (var orderd in ordereds)
+                foreach (var slot in slots)
                 {
-                    if (orderd.Question == null) continue;
+                    if (slot.Question == null) continue;
 
-                    var hasMedia = !string.IsNullOrWhiteSpace(orderd.Question.MediaFile)
-                        && orderd.Question.MediaType is MediaType.Image or MediaType.Video;
+                    var hasMedia = !string.IsNullOrWhiteSpace(slot.Question.MediaFile)
+                        && slot.Question.MediaType is MediaType.Image or MediaType.Video;
 
                     var sourceTemplate = (hasMedia ? mediaTemplate : default)
                         ?? questionTemplate
@@ -68,17 +70,18 @@ namespace PubQuizCreator.Services.Export
                         sourceSlide: sourceTemplate);
 
                     slideIndex++;
+
                     UpdateSlideIdentifier(
                         slidePart: clonedSlide,
                         slideName: $"Slide{slideIndex}");
 
                     var title = titleFormat.Replace(
                         oldValue: "{position}",
-                        newValue: orderd.Position.ToString());
+                        newValue: slot.Position.ToString());
 
                     var description = GetDescription(
-                        questionText: orderd.Question.Text,
-                        description: orderd.Question.Description);
+                        questionText: slot.Question.Text,
+                        description: slot.Question.Description);
 
                     SetShapeText(
                         slidePart: clonedSlide,
@@ -88,7 +91,7 @@ namespace PubQuizCreator.Services.Export
                     SetShapeText(
                         slidePart: clonedSlide,
                         shapeName: Constants.TemplateShapeQuestion,
-                        text: orderd.Question.Text);
+                        text: slot.Question.Text);
 
                     SetShapeText(
                         slidePart: clonedSlide,
@@ -98,7 +101,7 @@ namespace PubQuizCreator.Services.Export
                     SetShapeText(
                         slidePart: clonedSlide,
                         shapeName: Constants.TemplateShapeAnswer,
-                        text: orderd.Question.Answer);
+                        text: slot.Question.Answer);
 
                     SetSpeakerNotes(
                         presentationPart: presentationPart,
@@ -109,10 +112,13 @@ namespace PubQuizCreator.Services.Export
                     {
                         await TryAttachMediaAsync(
                             slidePart: clonedSlide,
-                            mediaFileName: orderd.Question.MediaFile!,
-                            mediaType: orderd.Question.MediaType,
+                            mediaFileName: slot.Question.MediaFile!,
+                            mediaType: slot.Question.MediaType,
                             ct: ct);
                     }
+
+                    // Flush DOM changes of the cloned slide into its part stream
+                    clonedSlide.Slide?.Save();
 
                     newSlides.Add(clonedSlide);
                 }
@@ -122,8 +128,11 @@ namespace PubQuizCreator.Services.Export
                     originalOrder: slideParts,
                     templateMap: templateMap,
                     questionSlides: newSlides);
+
+                presentationPart.Presentation?.Save();
             }
 
+            // 2. Convert POTX to PPTX only after 'doc' has been closed and fully flushed
             return ConvertPotxToPptx(stream.ToArray());
         }
 
@@ -136,38 +145,43 @@ namespace PubQuizCreator.Services.Export
             using var input = new MemoryStream(potxBytes);
             using var output = new MemoryStream();
 
-            using var zipIn = new ZipArchive(
-                stream: input,
-                mode: ZipArchiveMode.Read);
-
-            using var zipOut = new ZipArchive(
-                stream: output,
-                mode: ZipArchiveMode.Create,
-                leaveOpen: true);
-
-            foreach (var entry in zipIn.Entries)
+            using (var zipIn = new ZipArchive(
+                stream: input, 
+                mode: ZipArchiveMode.Read))
             {
-                var newEntry = zipOut.CreateEntry(
-                    entryName: entry.FullName,
-                    compressionLevel: CompressionLevel.Optimal);
+                // zipOut MUST be disposed before output.ToArray(),
+                // as ZipArchive writes the central directory record upon disposal.
+                using var zipOut = new ZipArchive(
+                    stream: output, 
+                    mode: ZipArchiveMode.Create, 
+                    leaveOpen: true);
 
-                using var reader = entry.Open();
-                using var writer = newEntry.Open();
-
-                if (entry.FullName == "[Content_Types].xml")
+                foreach (var entry in zipIn.Entries)
                 {
-                    using var sr = new StreamReader(reader);
-                    var content = sr.ReadToEnd().Replace(
-                        oldValue: "presentationml.template.main+xml",
-                        newValue: "presentationml.presentation.main+xml");
+                    var newEntry = zipOut.CreateEntry(
+                        entryName: entry.FullName,
+                        compressionLevel: CompressionLevel.Optimal);
 
-                    using var sw = new StreamWriter(writer);
-                    sw.Write(content);
+                    using var reader = entry.Open();
+                    using var writer = newEntry.Open();
+
+                    if (entry.FullName == "[Content_Types].xml")
+                    {
+                        using var sr = new StreamReader(reader, Encoding.UTF8);
+                        var content = sr.ReadToEnd().Replace(
+                            oldValue: "presentationml.template.main+xml",
+                            newValue: "presentationml.presentation.main+xml");
+
+                        using var sw = new StreamWriter(writer, new UTF8Encoding(false));
+                        sw.Write(content);
+                    }
+                    else
+                    {
+                        reader.CopyTo(writer);
+                    }
                 }
-                else
-                {
-                    reader.CopyTo(writer);
-                }
+
+                // zipOut is closed here -> Central directory record is written to 'output'
             }
 
             return output.ToArray();
@@ -177,10 +191,15 @@ namespace PubQuizCreator.Services.Export
         {
             var notesPart = slidePart.AddNewPart<NotesSlidePart>();
 
+            // 1. Link to the NotesMasterPart
             if (presentationPart.NotesMasterPart is { } notesMasterPart)
             {
                 notesPart.AddPart(notesMasterPart);
             }
+
+            // 2. IMPORTANT: Bidirectional link back to the SlidePart!
+            // Without this relationship, PowerPoint considers the slide notes corrupted.
+            notesPart.AddPart(slidePart);
 
             notesPart.NotesSlide = new NotesSlide(
                 new CommonSlideData(
@@ -216,6 +235,7 @@ namespace PubQuizCreator.Services.Export
                                 new Drawing.ListStyle())))),
                 new ColorMapOverride(new Drawing.MasterColorMapping()));
 
+            notesPart.NotesSlide.Save();
             return notesPart;
         }
 
@@ -272,15 +292,24 @@ namespace PubQuizCreator.Services.Export
         {
             var newSlidePart = presentationPart.AddNewPart<SlidePart>();
 
+            // 1. Explicitly attach the SlideLayoutPart using the exact original relationship ID
             if (sourceSlide.SlideLayoutPart is { } layoutPart)
             {
                 var layoutRelId = sourceSlide.GetIdOfPart(layoutPart);
                 newSlidePart.AddPart(layoutPart, layoutRelId);
             }
 
+            // 2. Clone the slide XML content
+            using (var sourceStream = sourceSlide.GetStream(FileMode.Open))
+            using (var targetStream = newSlidePart.GetStream(FileMode.Create))
+            {
+                sourceStream.CopyTo(targetStream);
+            }
+
+            // 3. Copy remaining parts (images, embedded parts, etc.)
             foreach (var rel in sourceSlide.Parts)
             {
-                if (rel.OpenXmlPart is SlideLayoutPart)
+                if (rel.OpenXmlPart is SlideLayoutPart or NotesSlidePart)
                     continue;
 
                 if (rel.OpenXmlPart is ImagePart imagePart)
@@ -300,6 +329,7 @@ namespace PubQuizCreator.Services.Export
                 }
             }
 
+            // 4. Copy external relationships
             foreach (var extRel in sourceSlide.ExternalRelationships)
             {
                 newSlidePart.AddExternalRelationship(
@@ -308,6 +338,7 @@ namespace PubQuizCreator.Services.Export
                     id: extRel.Id);
             }
 
+            // 5. Copy hyperlink relationships
             foreach (var hypRel in sourceSlide.HyperlinkRelationships)
             {
                 newSlidePart.AddHyperlinkRelationship(
@@ -316,6 +347,7 @@ namespace PubQuizCreator.Services.Export
                     id: hypRel.Id);
             }
 
+            // 6. Copy media data part references (audio/video)
             var packageDoc = (PresentationDocument)newSlidePart.OpenXmlPackage;
 
             foreach (var dpRef in sourceSlide.DataPartReferenceRelationships)
@@ -352,12 +384,7 @@ namespace PubQuizCreator.Services.Export
                 }
             }
 
-            using (var sourceStream = sourceSlide.GetStream(FileMode.Open))
-            using (var targetStream = newSlidePart.GetStream(FileMode.Create))
-            {
-                sourceStream.CopyTo(targetStream);
-            }
-
+            // Remove any legacy notes slide that might have been copied via relationships
             if (newSlidePart.NotesSlidePart is { } existingNotesPart)
             {
                 newSlidePart.DeletePart(existingNotesPart);
@@ -537,6 +564,8 @@ namespace PubQuizCreator.Services.Export
                     new Drawing.Run(
                         new Drawing.RunProperties { Language = "en-US" },
                         new Drawing.Text(text))));
+
+                notesPart.NotesSlide?.Save();
             }
         }
 
