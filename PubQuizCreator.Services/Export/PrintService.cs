@@ -26,13 +26,11 @@ namespace PubQuizCreator.Services.Export
 
         public byte[] Print(Quiz quiz)
         {
-            var document = Document.Create(c => CreateQuiz(
-                container: c,
+            var document = Document.Create(container => CreateQuiz(
+                container: container,
                 quiz: quiz));
 
-            var result = document.GeneratePdf();
-
-            return result;
+            return document.GeneratePdf();
         }
 
         #endregion Public Methods
@@ -45,55 +43,74 @@ namespace PubQuizCreator.Services.Export
             row.RelativeItem().AlignRight().Text("P = Picture, A = Audio, V = Video");
         }
 
-        private static void CreateQuestions(TableDescriptor table, IEnumerable<RoundSlot> slots)
+        private static void CreateHeader(IContainer cell, string title, bool center = false)
+        {
+            var container = cell.Padding(4);
+            if (center) container = container.AlignCenter();
+            container.Text(title).SemiBold();
+        }
+
+        private static void CreateRows(TableDescriptor table, IReadOnlyList<RoundSlot> slots)
         {
             table.ColumnsDefinition(cols =>
             {
-                cols.ConstantColumn(25);    // Nr
-                cols.RelativeColumn(3);     // Catg
-                cols.RelativeColumn(10);    // Question
-                cols.ConstantColumn(15);    // Type
+                cols.ConstantColumn(25);    // Index
+                cols.RelativeColumn(3);     // Category
+                cols.RelativeColumn(10);    // Question & Description
+                cols.ConstantColumn(22);    // Media Type Indicator
                 cols.ConstantColumn(5);     // Divider
-                cols.ConstantColumn(25);    // Nr
+                cols.ConstantColumn(25);    // Index
                 cols.RelativeColumn(5);     // Answer
             });
 
-            table.Header(h =>
+            table.Header(header =>
             {
-                h.Cell().Padding(4).Text("Nr").SemiBold();
-                h.Cell().Padding(4).Text("Category").SemiBold();
-                h.Cell().Padding(4).Text("Question").SemiBold();
-                h.Cell().Padding(4).Text("T").SemiBold();
-                h.Cell();
-                h.Cell().Padding(4).Text("Nr").SemiBold();
-                h.Cell().Padding(4).Text("Answer").SemiBold();
+                CreateHeader(header.Cell(), "Nr");
+                CreateHeader(header.Cell(), "Category");
+                CreateHeader(header.Cell(), "Question");
+                CreateHeader(header.Cell(), "T", center: true);
+                header.Cell();
+                CreateHeader(header.Cell(), "Nr");
+                CreateHeader(header.Cell(), "Answer");
             });
 
-            var index = 0;
-
-            foreach (var slot in slots)
+            for (var i = 0; i < slots.Count; i++)
             {
-                index++;
+                var slot = slots[i];
+                var index = i + 1;
 
                 var background = index % 2 != 0
                     ? Colors.White
                     : Colors.Grey.Lighten4;
 
-                var questions = new[] { slot.Question?.Text, slot.Question?.Description }
-                    .Where(s => !string.IsNullOrWhiteSpace(s));
+                var questionText = FormatQuestion(
+                    text: slot.Question?.Text,
+                    description: slot.Question?.Description);
 
-                var question = string.Join(
-                    separator: Environment.NewLine,
-                    values: questions);
+                var mediaCode = GetMediaCode(slot.Question?.MediaType);
 
                 table.Cell().Background(background).Padding(5).Text(index.ToString());
                 table.Cell().Background(background).Padding(5).Text(slot.Category?.Name ?? "—");
-                table.Cell().Background(background).Padding(5).Text(question ?? "—");
-                table.Cell().Background(background).Padding(5).Text(GetMediaCode(slot.Question?.MediaType));
+                table.Cell().Background(background).Padding(5).Text(questionText);
+                table.Cell().Background(background).PaddingVertical(5).AlignCenter().Text(mediaCode);
                 table.Cell().Background(background).BorderRight(1).BorderColor(Colors.Grey.Lighten2);
                 table.Cell().Background(background).Padding(5).Text(index.ToString());
                 table.Cell().Background(background).Padding(5).Text(slot.Question?.Answer ?? "—");
             }
+        }
+
+        private static string FormatQuestion(string? text, string? description)
+        {
+            var hasText = !string.IsNullOrWhiteSpace(text);
+            var hasDescription = !string.IsNullOrWhiteSpace(description);
+
+            return (hasText, hasDescription) switch
+            {
+                (true, true) => $"{text}{Environment.NewLine}{description}",
+                (true, false) => text!,
+                (false, true) => description!,
+                _ => "—"
+            };
         }
 
         private static string GetMediaCode(MediaType? mediaType) => mediaType switch
@@ -101,30 +118,33 @@ namespace PubQuizCreator.Services.Export
             MediaType.Image => "P",
             MediaType.Audio => "A",
             MediaType.Video => "V",
-            _ => ""
+            _ => string.Empty
         };
 
         private void CreateQuiz(IDocumentContainer container, Quiz quiz)
         {
             var rounds = quiz.Rounds
                 .Where(r => r.Slots.Count > 0)
-                .OrderBy(r => r.Position).ToArray();
+                .OrderBy(r => r.Position)
+                .ToList();
 
-            var pageTotal = rounds.Length;
+            var pageTotal = rounds.Count;
 
-            for (var pageIndex = 0; pageIndex < rounds.Length; pageIndex++)
+            for (var pageIndex = 0; pageIndex < rounds.Count; pageIndex++)
             {
-                container.Page(p => CreateRound(
-                    page: p,
+                var currentRound = rounds[pageIndex];
+                var pageNum = pageIndex + 1;
+
+                container.Page(page => CreateRound(
+                    page: page,
                     quiz: quiz,
-                    round: rounds[pageIndex],
-                    pageNum: pageIndex + 1,
+                    round: currentRound,
+                    pageNum: pageNum,
                     pageTotal: pageTotal));
             }
         }
 
-        private void CreateRound(PageDescriptor page, Quiz quiz, Round round,
-            int pageNum, int pageTotal)
+        private void CreateRound(PageDescriptor page, Quiz quiz, Round round, int pageNum, int pageTotal)
         {
             page.Size(PageSizes.A4.Landscape());
             page.Margin(1.5f, Unit.Centimetre);
@@ -133,21 +153,25 @@ namespace PubQuizCreator.Services.Export
             // Header
             page.Header()
                 .Text($"{quiz.Title} – {quiz.Date:dd.MM.yyyy} – Round {round.Position}")
-                .AlignCenter().FontSize(fontSizeHeader).SemiBold();
+                .AlignCenter()
+                .FontSize(fontSizeHeader)
+                .SemiBold();
 
             // Content
             var slots = round.Slots
-                .OrderBy(s => s.Position).ToArray();
+                .OrderBy(s => s.Position)
+                .ToList();
 
-            page.Content().PaddingTop(8)
-                .Table(t => CreateQuestions(
-                    table: t,
+            page.Content()
+                .PaddingTop(8)
+                .Table(table => CreateRows(
+                    table: table,
                     slots: slots));
 
             // Footer
             page.Footer()
-                .Row(r => CreateFooter(
-                    row: r,
+                .Row(row => CreateFooter(
+                    row: row,
                     pageNum: pageNum,
                     pageTotal: pageTotal));
         }
