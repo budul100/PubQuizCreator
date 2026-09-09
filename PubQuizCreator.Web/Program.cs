@@ -19,15 +19,19 @@ internal class Program
 {
     #region Private Methods
 
-    private static async Task<IResult> CreateJsonAsync(Guid id, string? rounds, QuizService quizService,
-        CancellationToken cancellationToken)
+    private static async Task<IResult> CreateJsonAsync(Guid quizId, string? query, QuizService quizService,
+        CancellationToken ct)
     {
-        var quiz = await quizService.GetDetailAsync(quizId: id, ct: cancellationToken);
+        var quiz = await quizService.GetDetailAsync(
+            quizId: quizId,
+            ct: ct);
         if (quiz == default) return Results.NotFound();
 
-        var selectedRounds = FilterRounds(quiz.Rounds, rounds);
+        var rounds = GetRounds(
+            rounds: quiz.Rounds,
+            query: query);
 
-        var jsonBytes = quiz.CreateJson(selectedRounds);
+        var jsonBytes = quiz.CreateJson(rounds);
         var filename = $"quiz_{quiz.Date:yyyy-MM-dd}_data.json";
 
         return Results.File(
@@ -36,12 +40,21 @@ internal class Program
             fileDownloadName: filename);
     }
 
-    private static async Task<IResult> CreatePptxAsync(Guid id, string? rounds, string? template,
+    private static async Task<IResult> CreatePptxAsync(Guid quizId, string? query, string? template,
         QuizService quizService, FileService exportService, SettingsService settingsService,
-        CancellationToken cancellationToken)
+        CancellationToken ct)
     {
-        var quiz = await quizService.GetDetailAsync(quizId: id, ct: cancellationToken);
+        var quiz = await quizService.GetDetailAsync(
+            quizId: quizId,
+            ct: ct);
         if (quiz == default) return Results.NotFound();
+
+        var rounds = GetRounds(
+            rounds: quiz.Rounds,
+            query: query);
+
+        if (rounds.Count() == 0)
+            return Results.BadRequest("No rounds with slots found for the given selection.");
 
         if (string.IsNullOrWhiteSpace(template))
             return Results.BadRequest("Query parameter 'template' is required.");
@@ -50,63 +63,73 @@ internal class Program
         if (templatePath == null)
             return Results.NotFound($"Template '{template}' not found.");
 
-        var selectedRounds = FilterRounds(quiz.Rounds, rounds);
-
-        if (selectedRounds.Length == 0)
-            return Results.BadRequest("No rounds with slots found for the given selection.");
-
         var date = quiz.Date;
+        var templateName = Path.GetFileNameWithoutExtension(templatePath).ToLower();
 
-        // Single round → direct .pptx file
-        if (selectedRounds.Length == 1)
+        if (rounds.Count() == 1)
         {
-            var round = selectedRounds[0];
-            var pptx = await exportService.ExportAsync(round, templatePath, cancellationToken);
-            var filename = $"quiz_{date:yyyy-MM-dd}_r{round.Position:D1}.pptx";
+            // Single round → direct .pptx file
+
+            var round = rounds.Single();
+            var pptx = await exportService.ExportAsync(
+                round: round,
+                templatePath: templatePath,
+                ct: ct);
+
+            var filename = $"{date:yyyy-MM-dd}_r{round.Position:D1}_{templateName}.pptx";
 
             return Results.File(
                 fileContents: pptx,
                 contentType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
                 fileDownloadName: filename);
         }
-
-        // Multiple rounds → ZIP
-        var zipStream = new MemoryStream();
-
-        using (var zip = new ZipArchive(
-            stream: zipStream,
-            mode: ZipArchiveMode.Create,
-            leaveOpen: true))
+        else
         {
-            foreach (var round in selectedRounds)
+            // Multiple rounds → ZIP
+            var zipStream = new MemoryStream();
+
+            using (var zip = new ZipArchive(
+                stream: zipStream,
+                mode: ZipArchiveMode.Create,
+                leaveOpen: true))
             {
-                var pptx = await exportService.ExportAsync(round, templatePath, cancellationToken);
+                foreach (var round in rounds)
+                {
+                    var pptx = await exportService.ExportAsync(
+                        round: round,
+                        templatePath: templatePath,
+                        ct: ct);
 
-                using var entry = zip.CreateEntry(
-                    entryName: $"quiz_{date:yyyy-MM-dd}_r{round.Position:D1}.pptx",
-                    compressionLevel: CompressionLevel.Fastest).Open();
+                    var entryName = $"{date:yyyy-MM-dd}_r{round.Position:D1}_{templateName}.pptx";
 
-                entry.Write(pptx);
+                    using var entry = zip.CreateEntry(
+                        entryName: entryName,
+                        compressionLevel: CompressionLevel.Fastest).Open();
+
+                    entry.Write(pptx);
+                }
             }
+
+            zipStream.Position = 0;
+
+            var zipFilename = $"{date:yyyy-MM-dd}_{templateName}.zip";
+
+            return Results.File(
+                fileStream: zipStream,
+                contentType: "application/zip",
+                fileDownloadName: zipFilename);
         }
-
-        zipStream.Position = 0;
-
-        var zipFilename = $"quiz_{date:yyyy-MM-dd}_slides.zip";
-
-        return Results.File(
-            fileStream: zipStream,
-            contentType: "application/zip",
-            fileDownloadName: zipFilename);
     }
 
-    private static async Task<IResult> CreatePrintAsync(Guid id, string? rounds, QuizService quizService,
-        PrintService printService, CancellationToken cancellationToken)
+    private static async Task<IResult> CreatePrintAsync(Guid quizId, string? query, QuizService quizService,
+        PrintService printService, CancellationToken ct)
     {
-        var quiz = await quizService.GetDetailAsync(quizId: id, ct: cancellationToken);
+        var quiz = await quizService.GetDetailAsync(
+            quizId: quizId,
+            ct: ct);
         if (quiz == default) return Results.NotFound();
 
-        var roundIds = ParseGuids(rounds);
+        var roundIds = GetGuids(query);
 
         if (roundIds.Count > 0)
         {
@@ -115,7 +138,7 @@ internal class Program
         }
 
         var contents = printService.Print(quiz);
-        var filename = $"quiz_{quiz.Date:yyyy-MM-dd}_questions.pdf";
+        var filename = $"{quiz.Date:yyyy-MM-dd}_quiz.pdf";
 
         return Results.File(
             fileContents: contents,
@@ -138,15 +161,24 @@ internal class Program
             fileDownloadName: safeFileName);
     }
 
-    private static Round[] FilterRounds(IEnumerable<Round> rounds, string? roundIdsQuery)
+    private static HashSet<Guid> GetGuids(string? query)
     {
-        var roundIds = ParseGuids(roundIdsQuery);
+        if (string.IsNullOrWhiteSpace(query)) return [];
+
+        return query
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
+            .Where(g => g != Guid.Empty).ToHashSet();
+    }
+
+    private static IEnumerable<Round> GetRounds(IEnumerable<Round> rounds, string? query)
+    {
+        var roundIds = GetGuids(query);
 
         return rounds
             .Where(r => r.Slots.Count > 0
                 && (roundIds.Count == 0 || roundIds.Contains(r.Id)))
-            .OrderBy(r => r.Position)
-            .ToArray();
+            .OrderBy(r => r.Position).ToArray();
     }
 
     private static async Task<IResult> LogOutAsync(HttpContext ctx)
@@ -301,17 +333,6 @@ internal class Program
         app.MapFallbackToPage("/_Host");
 
         app.Run();
-    }
-
-    private static HashSet<Guid> ParseGuids(string? input)
-    {
-        if (string.IsNullOrWhiteSpace(input)) return [];
-
-        return input
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(s => Guid.TryParse(s, out var g) ? g : Guid.Empty)
-            .Where(g => g != Guid.Empty)
-            .ToHashSet();
     }
 
     #endregion Private Methods
