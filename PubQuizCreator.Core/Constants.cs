@@ -73,8 +73,8 @@
         // Name of the answer template slide
         public const string TemplateSlideAnswer = "Answer";
 
-        // Name of the question template slide
-        public const string TemplateSlideContent = "Content";
+        // Name of the image/video template slide
+        public const string TemplateSlideMedia = "Media";
 
         // Name of the question template slide
         public const string TemplateSlideQuestion = "Question";

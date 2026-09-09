@@ -22,100 +22,103 @@ namespace PubQuizCreator.Services.Export
                 cancellationToken: ct);
 
             using var stream = new MemoryStream();
-            await stream.WriteAsync(templateBytes.AsMemory(0, templateBytes.Length), ct);
+
+            await stream.WriteAsync(
+                buffer: templateBytes.AsMemory(0,
+                templateBytes.Length), cancellationToken: ct);
+
             stream.Position = 0;
 
-            using (var doc = PresentationDocument.Open(
+            using var doc = PresentationDocument.Open(
                 stream: stream,
-                isEditable: true))
+                isEditable: true);
+
+            var presentationPart = doc.PresentationPart
+                ?? throw new InvalidOperationException("PresentationPart is null.");
+
+            var slideParts = GetOrderedSlideParts(presentationPart);
+            var templateMap = MapTemplateSlides(slideParts);
+
+            var questionTemplate = templateMap.GetValueOrDefault(Constants.TemplateSlideQuestion);
+            var mediaTemplate = templateMap.GetValueOrDefault(Constants.TemplateSlideMedia);
+            var answerTemplate = templateMap.GetValueOrDefault(Constants.TemplateSlideAnswer);
+
+            var titleFormat = settingsService.GetFormatTitle();
+            var slideIndex = 0;
+            var newSlides = new List<SlidePart>();
+
+            foreach (var slot in round.Slots.OrderBy(s => s.Position))
             {
-                var presentationPart = doc.PresentationPart
-                    ?? throw new InvalidOperationException("PresentationPart is null.");
+                if (slot.Question == null) continue;
 
-                var slideParts = GetOrderedSlideParts(presentationPart);
-                var templateMap = MapTemplateSlides(slideParts);
+                var hasMedia = !string.IsNullOrWhiteSpace(slot.Question.MediaFile)
+                    && slot.Question.MediaType is MediaType.Image or MediaType.Video;
 
-                var questionTemplate = templateMap.GetValueOrDefault(Constants.TemplateSlideQuestion);
-                var contentTemplate = templateMap.GetValueOrDefault(Constants.TemplateSlideContent);
-                var answerTemplate = templateMap.GetValueOrDefault(Constants.TemplateSlideAnswer);
+                var sourceTemplate = (hasMedia ? mediaTemplate : default)
+                    ?? questionTemplate
+                    ?? answerTemplate;
 
-                var titleFormat = settingsService.GetFormatTitle();
-                var slideIndex = 0;
-                var newSlides = new List<SlidePart>();
+                if (sourceTemplate == null) continue;
 
-                foreach (var slot in round.Slots.OrderBy(s => s.Position))
+                var clonedSlide = GetSlidePart(
+                    presentationPart: presentationPart,
+                    sourceSlide: sourceTemplate);
+
+                slideIndex++;
+                UpdateSlideIdentifier(
+                    slidePart: clonedSlide,
+                    slideName: $"Slide{slideIndex}");
+
+                var title = titleFormat.Replace(
+                    oldValue: "{position}",
+                    newValue: slot.Position.ToString());
+
+                var description = GetDescription(
+                    questionText: slot.Question.Text,
+                    description: slot.Question.Description);
+
+                SetShapeText(
+                    slidePart: clonedSlide,
+                    shapeName: Constants.TemplateShapeTitle,
+                    text: title);
+
+                SetShapeText(
+                    slidePart: clonedSlide,
+                    shapeName: Constants.TemplateShapeQuestion,
+                    text: slot.Question.Text);
+
+                SetShapeText(
+                    slidePart: clonedSlide,
+                    shapeName: Constants.TemplateShapeQuestionDescription,
+                    text: description);
+
+                SetShapeText(
+                    slidePart: clonedSlide,
+                    shapeName: Constants.TemplateShapeAnswer,
+                    text: slot.Question.Answer);
+
+                SetSpeakerNotes(
+                    presentationPart: presentationPart,
+                    slidePart: clonedSlide,
+                    text: description);
+
+                if (hasMedia)
                 {
-                    if (slot.Question == null) continue;
-
-                    var hasContent = !string.IsNullOrWhiteSpace(slot.Question.MediaFile)
-                        && slot.Question.MediaType is MediaType.Image or MediaType.Video;
-
-                    // Prioritize content template when media exists, fallback to question template
-                    var sourceTemplate = (hasContent ? contentTemplate : default)
-                        ?? questionTemplate
-                        ?? answerTemplate;
-
-                    if (sourceTemplate == null) continue;
-
-                    var clonedSlide = CloneSlidePart(
-                        presentationPart: presentationPart,
-                        sourceSlide: sourceTemplate);
-
-                    slideIndex++;
-                    UpdateSlideIdentifier(
+                    await TryAttachMediaAsync(
                         slidePart: clonedSlide,
-                        slideName: $"Slide{slideIndex}");
-
-                    var title = titleFormat.Replace(
-                        oldValue: "{position}",
-                        newValue: slot.Position.ToString());
-
-                    var notesAndDescription = BuildDescriptionText(
-                        questionText: slot.Question.Text,
-                        description: slot.Question.Description);
-
-                    SetShapeText(
-                        slidePart: clonedSlide,
-                        shapeName: Constants.TemplateShapeTitle,
-                        text: title);
-
-                    SetShapeText(
-                        slidePart: clonedSlide,
-                        shapeName: Constants.TemplateShapeQuestion,
-                        text: slot.Question.Text);
-
-                    SetShapeText(
-                        slidePart: clonedSlide,
-                        shapeName: Constants.TemplateShapeQuestionDescription,
-                        text: notesAndDescription);
-
-                    SetShapeText(
-                        slidePart: clonedSlide,
-                        shapeName: Constants.TemplateShapeAnswer,
-                        text: slot.Question.Answer);
-
-                    SetSpeakerNotes(
-                        presentationPart: presentationPart,
-                        slidePart: clonedSlide,
-                        text: notesAndDescription);
-
-                    if (hasContent)
-                    {
-                        await TryAttachMediaAsync(
-                            slidePart: clonedSlide,
-                            mediaFileName: slot.Question.MediaFile!,
-                            ct: ct);
-                    }
-
-                    newSlides.Add(clonedSlide);
+                        mediaFileName: slot.Question.MediaFile!,
+                        mediaType: slot.Question.MediaType,
+                        ct: ct);
                 }
 
-                RebuildSlideOrder(
-                    presentationPart: presentationPart,
-                    originalOrder: slideParts,
-                    templateMap: templateMap,
-                    questionSlides: newSlides);
+                newSlides.Add(clonedSlide);
             }
+
+            RebuildSlideOrder(
+                presentationPart: presentationPart,
+                originalOrder: slideParts,
+                templateMap: templateMap,
+                questionSlides: newSlides);
 
             return ConvertPotxToPptx(stream.ToArray());
         }
@@ -124,131 +127,42 @@ namespace PubQuizCreator.Services.Export
 
         #region Private Methods
 
-        private static string BuildDescriptionText(string? questionText, string? description)
-        {
-            var builder = new StringBuilder();
-
-            if (!string.IsNullOrWhiteSpace(questionText))
-            {
-                builder.AppendLine(questionText);
-            }
-
-            if (!string.IsNullOrWhiteSpace(description))
-            {
-                builder.AppendLine(description);
-            }
-
-            return builder.ToString();
-        }
-
-        private static SlidePart CloneSlidePart(PresentationPart presentationPart, SlidePart sourceSlide)
-        {
-            var newSlidePart = presentationPart.AddNewPart<SlidePart>();
-
-            using (var sourceStream = sourceSlide.GetStream(FileMode.Open))
-            using (var targetStream = newSlidePart.GetStream(FileMode.Create))
-            {
-                sourceStream.CopyTo(targetStream);
-            }
-
-            foreach (var rel in sourceSlide.Parts)
-            {
-                if (rel.OpenXmlPart is ImagePart imagePart)
-                {
-                    var newImagePart = newSlidePart.AddImagePart(
-                        contentType: imagePart.ContentType,
-                        id: rel.RelationshipId);
-
-                    using var imgStream = imagePart.GetStream(FileMode.Open);
-                    newImagePart.FeedData(imgStream);
-                }
-                else
-                {
-                    newSlidePart.AddPart(
-                        part: rel.OpenXmlPart,
-                        id: rel.RelationshipId);
-                }
-            }
-
-            foreach (var extRel in sourceSlide.ExternalRelationships)
-            {
-                newSlidePart.AddExternalRelationship(
-                    relationshipType: extRel.RelationshipType,
-                    externalUri: extRel.Uri,
-                    id: extRel.Id);
-            }
-
-            foreach (var hypRel in sourceSlide.HyperlinkRelationships)
-            {
-                newSlidePart.AddHyperlinkRelationship(
-                    hyperlinkUri: hypRel.Uri,
-                    isExternal: hypRel.IsExternal,
-                    id: hypRel.Id);
-            }
-
-            foreach (var dpRef in sourceSlide.DataPartReferenceRelationships)
-            {
-                switch (dpRef)
-                {
-                    case AudioReferenceRelationship audioRef:
-                        newSlidePart.AddAudioReferenceRelationship(
-                            mediaDataPart: (MediaDataPart)audioRef.DataPart,
-                            id: audioRef.Id);
-                        break;
-
-                    case MediaReferenceRelationship mediaRef:
-                        newSlidePart.AddMediaReferenceRelationship(
-                            mediaDataPart: (MediaDataPart)mediaRef.DataPart,
-                            id: mediaRef.Id);
-                        break;
-
-                    case VideoReferenceRelationship videoRef:
-                        newSlidePart.AddVideoReferenceRelationship(
-                            mediaDataPart: (MediaDataPart)videoRef.DataPart,
-                            id: videoRef.Id);
-                        break;
-                }
-            }
-
-            if (newSlidePart.NotesSlidePart is { } existingNotesPart)
-            {
-                newSlidePart.DeletePart(existingNotesPart);
-            }
-
-            return newSlidePart;
-        }
-
         private static byte[] ConvertPotxToPptx(byte[] potxBytes)
         {
             using var input = new MemoryStream(potxBytes);
             using var output = new MemoryStream();
 
-            using (var zipIn = new ZipArchive(stream: input, mode: ZipArchiveMode.Read))
-            using (var zipOut = new ZipArchive(stream: output, mode: ZipArchiveMode.Create, leaveOpen: true))
+            using var zipIn = new ZipArchive(
+                stream: input,
+                mode: ZipArchiveMode.Read);
+
+            using var zipOut = new ZipArchive(
+                stream: output,
+                mode: ZipArchiveMode.Create,
+                leaveOpen: true);
+
+            foreach (var entry in zipIn.Entries)
             {
-                foreach (var entry in zipIn.Entries)
+                var newEntry = zipOut.CreateEntry(
+                    entryName: entry.FullName,
+                    compressionLevel: CompressionLevel.Optimal);
+
+                using var reader = entry.Open();
+                using var writer = newEntry.Open();
+
+                if (entry.FullName == "[Content_Types].xml")
                 {
-                    var newEntry = zipOut.CreateEntry(
-                        entryName: entry.FullName,
-                        compressionLevel: CompressionLevel.Optimal);
+                    using var sr = new StreamReader(reader);
+                    var content = sr.ReadToEnd().Replace(
+                        oldValue: "presentationml.template.main+xml",
+                        newValue: "presentationml.presentation.main+xml");
 
-                    using var reader = entry.Open();
-                    using var writer = newEntry.Open();
-
-                    if (entry.FullName == "[Content_Types].xml")
-                    {
-                        using var sr = new StreamReader(reader);
-                        var content = sr.ReadToEnd().Replace(
-                            oldValue: "presentationml.template.main+xml",
-                            newValue: "presentationml.presentation.main+xml");
-
-                        using var sw = new StreamWriter(writer);
-                        sw.Write(content);
-                    }
-                    else
-                    {
-                        reader.CopyTo(writer);
-                    }
+                    using var sw = new StreamWriter(writer);
+                    sw.Write(content);
+                }
+                else
+                {
+                    reader.CopyTo(writer);
                 }
             }
 
@@ -308,6 +222,23 @@ namespace PubQuizCreator.Services.Export
                     .NonVisualDrawingProperties?.Name?.Value == name);
         }
 
+        private static string GetDescription(string? questionText, string? description)
+        {
+            var builder = new StringBuilder();
+
+            if (!string.IsNullOrWhiteSpace(questionText))
+            {
+                builder.AppendLine(questionText);
+            }
+
+            if (!string.IsNullOrWhiteSpace(description))
+            {
+                builder.AppendLine(description);
+            }
+
+            return builder.ToString();
+        }
+
         private static string GetImageContentType(string fileName)
         {
             var ext = Path.GetExtension(fileName).ToLowerInvariant();
@@ -330,8 +261,96 @@ namespace PubQuizCreator.Services.Export
                 ?? throw new InvalidOperationException("SlideIdList is null.");
 
             return slideIdList.Elements<SlideId>()
-                .Select(sid => (SlidePart)presentationPart.GetPartById(sid.RelationshipId!))
-                .ToList();
+                .Select(sid => (SlidePart)presentationPart.GetPartById(sid.RelationshipId!)).ToList();
+        }
+
+        private static SlidePart GetSlidePart(PresentationPart presentationPart, SlidePart sourceSlide)
+        {
+            var newSlidePart = presentationPart.AddNewPart<SlidePart>();
+
+            using (var sourceStream = sourceSlide.GetStream(FileMode.Open))
+            using (var targetStream = newSlidePart.GetStream(FileMode.Create))
+            {
+                sourceStream.CopyTo(targetStream);
+            }
+
+            foreach (var rel in sourceSlide.Parts)
+            {
+                if (rel.OpenXmlPart is ImagePart imagePart)
+                {
+                    var newImagePart = newSlidePart.AddImagePart(
+                        contentType: imagePart.ContentType,
+                        id: rel.RelationshipId);
+
+                    using var imgStream = imagePart.GetStream(FileMode.Open);
+                    newImagePart.FeedData(imgStream);
+                }
+                else
+                {
+                    newSlidePart.AddPart(
+                        part: rel.OpenXmlPart,
+                        id: rel.RelationshipId);
+                }
+            }
+
+            foreach (var extRel in sourceSlide.ExternalRelationships)
+            {
+                newSlidePart.AddExternalRelationship(
+                    relationshipType: extRel.RelationshipType,
+                    externalUri: extRel.Uri,
+                    id: extRel.Id);
+            }
+
+            foreach (var hypRel in sourceSlide.HyperlinkRelationships)
+            {
+                newSlidePart.AddHyperlinkRelationship(
+                    hyperlinkUri: hypRel.Uri,
+                    isExternal: hypRel.IsExternal,
+                    id: hypRel.Id);
+            }
+
+            var packageDoc = (PresentationDocument)newSlidePart.OpenXmlPackage;
+
+            foreach (var dpRef in sourceSlide.DataPartReferenceRelationships)
+            {
+                if (dpRef.DataPart is MediaDataPart originalMedia)
+                {
+                    var clonedMediaPart = packageDoc.CreateMediaDataPart(originalMedia.ContentType);
+
+                    using (var src = originalMedia.GetStream(FileMode.Open))
+                    {
+                        clonedMediaPart.FeedData(src);
+                    }
+
+                    switch (dpRef)
+                    {
+                        case AudioReferenceRelationship audioRef:
+                            newSlidePart.AddAudioReferenceRelationship(
+                                mediaDataPart: clonedMediaPart,
+                                id: audioRef.Id);
+                            break;
+
+                        case MediaReferenceRelationship mediaRef:
+                            newSlidePart.AddMediaReferenceRelationship(
+                                mediaDataPart: clonedMediaPart,
+                                id: mediaRef.Id);
+                            break;
+
+                        case VideoReferenceRelationship videoRef:
+                            newSlidePart.AddVideoReferenceRelationship(
+                                mediaDataPart: clonedMediaPart,
+                                id: videoRef.Id);
+                            break;
+                    }
+                }
+            }
+
+            if (newSlidePart.NotesSlidePart is { } existingNotesPart)
+            {
+                newSlidePart.DeletePart(existingNotesPart);
+            }
+
+            return newSlidePart;
         }
 
         private static Dictionary<string, SlidePart> MapTemplateSlides(List<SlidePart> slideParts)
@@ -360,7 +379,7 @@ namespace PubQuizCreator.Services.Export
             var templateSlideNames = new[]
             {
                 Constants.TemplateSlideQuestion,
-                Constants.TemplateSlideContent,
+                Constants.TemplateSlideMedia,
                 Constants.TemplateSlideAnswer
             };
 
@@ -411,6 +430,19 @@ namespace PubQuizCreator.Services.Export
             presentation.Save();
         }
 
+        private static void ReplaceMediaAudio(SlidePart slidePart, byte[] audioBytes)
+        {
+            var audioRel = slidePart.DataPartReferenceRelationships
+                .OfType<AudioReferenceRelationship>()
+                .FirstOrDefault();
+
+            if (audioRel?.DataPart is MediaDataPart targetMediaPart)
+            {
+                using var ms = new MemoryStream(audioBytes);
+                targetMediaPart.FeedData(ms);
+            }
+        }
+
         private static void ReplaceMediaImage(SlidePart slidePart, byte[] imageBytes, string fileName)
         {
             var slide = slidePart.Slide;
@@ -423,8 +455,8 @@ namespace PubQuizCreator.Services.Export
                 return;
 
             if (slidePart.TryGetPartById(
-                id: relId, 
-                part: out var part) 
+                id: relId,
+                part: out var part)
                 && part is ImagePart existingImage)
             {
                 using var ms = new MemoryStream(imageBytes);
@@ -504,19 +536,28 @@ namespace PubQuizCreator.Services.Export
             }
         }
 
-        private async Task TryAttachMediaAsync(SlidePart slidePart, string mediaFileName, CancellationToken ct)
+        private async Task TryAttachMediaAsync(SlidePart slidePart, string mediaFileName, MediaType mediaType,
+            CancellationToken ct)
         {
             try
             {
-                var imageBytes = await mediaService.LoadAsync(
+                var mediaBytes = await mediaService.LoadAsync(
                     fileName: mediaFileName,
                     ct: ct);
 
-                if (imageBytes != null)
+                if (mediaBytes == null) return;
+
+                if (mediaType == MediaType.Audio)
+                {
+                    ReplaceMediaAudio(
+                        slidePart: slidePart,
+                        audioBytes: mediaBytes);
+                }
+                else
                 {
                     ReplaceMediaImage(
                         slidePart: slidePart,
-                        imageBytes: imageBytes,
+                        imageBytes: mediaBytes,
                         fileName: mediaFileName);
                 }
             }
