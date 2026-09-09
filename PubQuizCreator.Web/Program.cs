@@ -44,16 +44,12 @@ internal class Program
         QuizService quizService, FileService exportService, SettingsService settingsService,
         CancellationToken ct)
     {
-        var quiz = await quizService.GetDetailAsync(
-            quizId: quizId,
-            ct: ct);
-        if (quiz == default) return Results.NotFound();
+        var quiz = await quizService.GetDetailAsync(quizId: quizId, ct: ct);
+        if (quiz == default)
+            return Results.NotFound();
 
-        var rounds = GetRounds(
-            rounds: quiz.Rounds,
-            query: query);
-
-        if (rounds.Count() == 0)
+        var rounds = GetRounds(rounds: quiz.Rounds, query: query).ToList();
+        if (rounds.Count == 0)
             return Results.BadRequest("No rounds with slots found for the given selection.");
 
         if (string.IsNullOrWhiteSpace(template))
@@ -66,11 +62,9 @@ internal class Program
         var date = quiz.Date;
         var templateName = Path.GetFileNameWithoutExtension(templatePath).ToLower();
 
-        if (rounds.Count() == 1)
+        if (rounds.Count == 1)
         {
-            // Single round → direct .pptx file
-
-            var round = rounds.Single();
+            var round = rounds[0];
             var pptx = await exportService.ExportAsync(
                 round: round,
                 templatePath: templatePath,
@@ -85,37 +79,36 @@ internal class Program
         }
         else
         {
-            // Multiple rounds → ZIP
-            var zipStream = new MemoryStream();
+            byte[] zipBytes;
 
-            using (var zip = new ZipArchive(
-                stream: zipStream,
-                mode: ZipArchiveMode.Create,
-                leaveOpen: true))
+            using (var zipStream = new MemoryStream())
             {
-                foreach (var round in rounds)
+                using (var zip = new ZipArchive(zipStream, ZipArchiveMode.Create, leaveOpen: false))
                 {
-                    var pptx = await exportService.ExportAsync(
-                        round: round,
-                        templatePath: templatePath,
-                        ct: ct);
+                    foreach (var round in rounds)
+                    {
+                        var pptx = await exportService.ExportAsync(
+                            round: round,
+                            templatePath: templatePath,
+                            ct: ct);
 
-                    var entryName = $"{date:yyyy-MM-dd}_r{round.Position:D1}_{templateName}.pptx";
+                        var entryName = $"{date:yyyy-MM-dd}_r{round.Position:D1}_{templateName}.pptx";
 
-                    using var entry = zip.CreateEntry(
-                        entryName: entryName,
-                        compressionLevel: CompressionLevel.Fastest).Open();
+                        using var entryStream = zip.CreateEntry(
+                            entryName: entryName,
+                            compressionLevel: CompressionLevel.Fastest).Open();
 
-                    entry.Write(pptx);
+                        entryStream.Write(pptx);
+                    }
                 }
-            }
 
-            zipStream.Position = 0;
+                zipBytes = zipStream.ToArray();
+            }
 
             var zipFilename = $"{date:yyyy-MM-dd}_{templateName}.zip";
 
             return Results.File(
-                fileStream: zipStream,
+                fileContents: zipBytes,
                 contentType: "application/zip",
                 fileDownloadName: zipFilename);
         }
@@ -178,7 +171,7 @@ internal class Program
         return rounds
             .Where(r => r.Slots.Count > 0
                 && (roundIds.Count == 0 || roundIds.Contains(r.Id)))
-            .OrderBy(r => r.Position).ToArray();
+            .OrderBy(r => r.Position).sToArray();
     }
 
     private static async Task<IResult> LogOutAsync(HttpContext ctx)
@@ -315,15 +308,15 @@ internal class Program
             handler: LogOutAsync).AllowAnonymous();
 
         app.MapGet(
-            pattern: "/export/quiz/{id:guid}/pdf",
+            pattern: "/export/quiz/{quizId:guid}/pdf",
             handler: CreatePrintAsync);
 
         app.MapGet(
-            pattern: "/export/quiz/{id:guid}/json",
+            pattern: "/export/quiz/{quizId:guid}/json",
             handler: CreateJsonAsync);
 
         app.MapGet(
-            pattern: "/export/quiz/{id:guid}/pptx",
+            pattern: "/export/quiz/{quizId:guid}/pptx",
             handler: CreatePptxAsync);
 
         app.MapGet(
