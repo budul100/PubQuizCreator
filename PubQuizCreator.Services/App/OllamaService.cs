@@ -4,7 +4,7 @@ using Microsoft.Extensions.Configuration;
 using PubQuizCreator.Core;
 using PubQuizCreator.Core.Interfaces;
 
-namespace PubQuizCreator.Services
+namespace PubQuizCreator.Services.App
 {
     public class OllamaService(HttpClient httpClient, IConfiguration configuration)
         : IEmbeddingService

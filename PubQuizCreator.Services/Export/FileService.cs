@@ -9,7 +9,7 @@ using PubQuizCreator.Services.App;
 using PubQuizCreator.Services.Content;
 using Drawing = DocumentFormat.OpenXml.Drawing;
 
-namespace PubQuizCreator.Services
+namespace PubQuizCreator.Services.Export
 {
     public class FileService(MediaService mediaService, SettingsService settingsService, ToastService toastService)
     {
@@ -43,8 +43,9 @@ namespace PubQuizCreator.Services
                 {
                     if (slot.Question == null) continue;
 
-                    var hasMedia = slot.Question.MediaType == MediaType.Image
-                        && !string.IsNullOrWhiteSpace(slot.Question.MediaFile);
+                    var hasMedia = !string.IsNullOrWhiteSpace(slot.Question.MediaFile)
+                        && (slot.Question.MediaType == MediaType.Image
+                        || slot.Question.MediaType == MediaType.Video);
 
                     // Use answer template if available, otherwise content or question template
                     var sourceTemplate = answerTemplate
@@ -342,11 +343,11 @@ namespace PubQuizCreator.Services
                 .ToList();
 
             // If no template slides found, append question slides at the end
-            int insertAt = templateIndices.Count > 0
+            var insertAt = templateIndices.Count > 0
                 ? templateIndices.Min()
                 : originalOrder.Count;
 
-            int removeThrough = templateIndices.Count > 0
+            var removeThrough = templateIndices.Count > 0
                 ? templateIndices.Max()
                 : insertAt - 1;
 
