@@ -2,14 +2,16 @@
 {
     @if (!string.IsNullOrEmpty(MediaFile))
     {
-        <span>@Prefix<a href="/media/@MediaFile"
-           target="_blank"
-           title="@MediaFile"
-           class="text-secondary"
-           style="display: inline; line-height: inherit; vertical-align: middle;">
-            <MediaIcon 
-                MediaType="@MediaType" 
-                Prefix="" />
+        <span>
+            @Prefix<a 
+                href="/media/download/@MediaFile"
+                title="Download @MediaFile"
+                class="text-secondary"
+                @onclick:stopPropagation="true"
+                style="display: inline; line-height: inherit; vertical-align: middle;">
+                <MediaIcon 
+                    MediaType="@MediaType"
+                    Prefix="" />
             </a>
         </span>
     }
@@ -17,7 +19,7 @@
     {
         <span class="text-secondary" title="Has media (no file)">
             <MediaIcon 
-                MediaType="@MediaType" 
+                MediaType="@MediaType"
                 Prefix="@Prefix" />
         </span>
     }

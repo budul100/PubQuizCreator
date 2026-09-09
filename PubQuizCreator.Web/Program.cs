@@ -6,6 +6,7 @@ using Microsoft.Extensions.FileProviders;
 using Npgsql;
 using PubQuizCreator.Core;
 using PubQuizCreator.Core.Interfaces;
+using PubQuizCreator.Core.Models;
 using PubQuizCreator.Data;
 using PubQuizCreator.Services.App;
 using PubQuizCreator.Services.Content;
@@ -24,13 +25,7 @@ internal class Program
         var quiz = await quizService.GetDetailAsync(quizId: id, ct: cancellationToken);
         if (quiz == default) return Results.NotFound();
 
-        var roundIds = ParseGuids(rounds);
-
-        var selectedRounds = quiz.Rounds
-            .Where(r => r.Slots.Count > 0
-                && (roundIds.Count == 0 || roundIds.Contains(r.Id)))
-            .OrderBy(r => r.Position)
-            .ToArray();
+        var selectedRounds = FilterRounds(quiz.Rounds, rounds);
 
         var jsonBytes = quiz.CreateJson(selectedRounds);
         var filename = $"quiz_{quiz.Date:yyyy-MM-dd}_data.json";
@@ -55,13 +50,7 @@ internal class Program
         if (templatePath == null)
             return Results.NotFound($"Template '{template}' not found.");
 
-        var roundIds = ParseGuids(rounds);
-
-        var selectedRounds = quiz.Rounds
-            .Where(r => r.Slots.Count > 0
-                && (roundIds.Count == 0 || roundIds.Contains(r.Id)))
-            .OrderBy(r => r.Position)
-            .ToArray();
+        var selectedRounds = FilterRounds(quiz.Rounds, rounds);
 
         if (selectedRounds.Length == 0)
             return Results.BadRequest("No rounds with slots found for the given selection.");
@@ -119,7 +108,6 @@ internal class Program
 
         var roundIds = ParseGuids(rounds);
 
-        // Filter rounds if selection provided; keep original order
         if (roundIds.Count > 0)
         {
             quiz.Rounds = quiz.Rounds
@@ -133,6 +121,32 @@ internal class Program
             fileContents: contents,
             contentType: "application/pdf",
             fileDownloadName: filename);
+    }
+
+    private static IResult DownloadMedia(string fileName, SettingsService settingsService)
+    {
+        var safeFileName = Path.GetFileName(fileName);
+        var filePath = Path.Combine(settingsService.GetPathMedia(), safeFileName);
+
+        if (!File.Exists(filePath))
+        {
+            return Results.NotFound();
+        }
+
+        return Results.File(
+            path: filePath,
+            fileDownloadName: safeFileName);
+    }
+
+    private static Round[] FilterRounds(IEnumerable<Round> rounds, string? roundIdsQuery)
+    {
+        var roundIds = ParseGuids(roundIdsQuery);
+
+        return rounds
+            .Where(r => r.Slots.Count > 0
+                && (roundIds.Count == 0 || roundIds.Contains(r.Id)))
+            .OrderBy(r => r.Position)
+            .ToArray();
     }
 
     private static async Task<IResult> LogOutAsync(HttpContext ctx)
@@ -270,18 +284,19 @@ internal class Program
 
         app.MapGet(
             pattern: "/export/quiz/{id:guid}/pdf",
-            handler: (Guid id, string? rounds, QuizService qs, PrintService ps, CancellationToken ct)
-                => CreatePrintAsync(id, rounds, qs, ps, ct));
+            handler: CreatePrintAsync);
 
         app.MapGet(
             pattern: "/export/quiz/{id:guid}/json",
-            handler: (Guid id, string? rounds, QuizService qs, CancellationToken ct)
-                => CreateJsonAsync(id, rounds, qs, ct));
+            handler: CreateJsonAsync);
 
         app.MapGet(
             pattern: "/export/quiz/{id:guid}/pptx",
-            handler: (Guid id, string? rounds, string? template, QuizService qs, FileService es, SettingsService sc, CancellationToken ct)
-                => CreatePptxAsync(id, rounds, template, qs, es, sc, ct));
+            handler: CreatePptxAsync);
+
+        app.MapGet(
+            pattern: "/media/download/{fileName}",
+            handler: DownloadMedia).RequireAuthorization();
 
         app.MapFallbackToPage("/_Host");
 
