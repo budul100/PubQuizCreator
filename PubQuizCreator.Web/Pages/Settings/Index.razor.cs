@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 using PubQuizCreator.Core;
-using PubQuizCreator.Services;
+using PubQuizCreator.Web.Helpers;
 
 namespace PubQuizCreator.Web.Pages.Settings
 {
@@ -36,9 +36,12 @@ namespace PubQuizCreator.Web.Pages.Settings
 
         #region Private Methods
 
-        private void RemoveTemplate(string fileName)
+        private async Task RemoveTemplateAsync(string fileName)
         {
             if (settings == null) return;
+
+            var confirmed = await JS.ConfirmDeleteAsync(fileName);
+            if (!confirmed) return;
 
             settings.PptxTemplates.Remove(fileName);
             // Note: does not delete the file from disk — only removes it from the list
