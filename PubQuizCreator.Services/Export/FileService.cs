@@ -17,13 +17,17 @@ namespace PubQuizCreator.Services.Export
 
         public async Task<byte[]> ExportAsync(Round round, string templatePath, CancellationToken ct)
         {
-            var templateBytes = await File.ReadAllBytesAsync(templatePath, ct);
+            var templateBytes = await File.ReadAllBytesAsync(
+                path: templatePath,
+                cancellationToken: ct);
 
             using var stream = new MemoryStream();
-            stream.Write(templateBytes);
+            await stream.WriteAsync(templateBytes.AsMemory(0, templateBytes.Length), ct);
             stream.Position = 0;
 
-            using (var doc = PresentationDocument.Open(stream: stream, isEditable: true))
+            using (var doc = PresentationDocument.Open(
+                stream: stream,
+                isEditable: true))
             {
                 var presentationPart = doc.PresentationPart
                     ?? throw new InvalidOperationException("PresentationPart is null.");
@@ -43,15 +47,13 @@ namespace PubQuizCreator.Services.Export
                 {
                     if (slot.Question == null) continue;
 
-                    var hasMedia = !string.IsNullOrWhiteSpace(slot.Question.MediaFile)
-                        && (slot.Question.MediaType == MediaType.Image
-                        || slot.Question.MediaType == MediaType.Video);
+                    var hasContent = !string.IsNullOrWhiteSpace(slot.Question.MediaFile)
+                        && slot.Question.MediaType is MediaType.Image or MediaType.Video;
 
-                    // Use answer template if available, otherwise content or question template
-                    var sourceTemplate = answerTemplate
-                        ?? (hasMedia ? contentTemplate : questionTemplate)
-                        ?? contentTemplate
-                        ?? questionTemplate;
+                    // Prioritize content template when media exists, fallback to question template
+                    var sourceTemplate = (hasContent ? contentTemplate : default)
+                        ?? questionTemplate
+                        ?? answerTemplate;
 
                     if (sourceTemplate == null) continue;
 
@@ -59,59 +61,50 @@ namespace PubQuizCreator.Services.Export
                         presentationPart: presentationPart,
                         sourceSlide: sourceTemplate);
 
-                    var cSld = clonedSlide.Slide?.CommonSlideData;
+                    slideIndex++;
+                    UpdateSlideIdentifier(
+                        slidePart: clonedSlide,
+                        slideName: $"Slide{slideIndex}");
 
-                    if (cSld != null)
+                    var title = titleFormat.Replace(
+                        oldValue: "{position}",
+                        newValue: slot.Position.ToString());
+
+                    var notesAndDescription = BuildDescriptionText(
+                        questionText: slot.Question.Text,
+                        description: slot.Question.Description);
+
+                    SetShapeText(
+                        slidePart: clonedSlide,
+                        shapeName: Constants.TemplateShapeTitle,
+                        text: title);
+
+                    SetShapeText(
+                        slidePart: clonedSlide,
+                        shapeName: Constants.TemplateShapeQuestion,
+                        text: slot.Question.Text);
+
+                    SetShapeText(
+                        slidePart: clonedSlide,
+                        shapeName: Constants.TemplateShapeQuestionDescription,
+                        text: notesAndDescription);
+
+                    SetShapeText(
+                        slidePart: clonedSlide,
+                        shapeName: Constants.TemplateShapeAnswer,
+                        text: slot.Question.Answer);
+
+                    SetSpeakerNotes(
+                        presentationPart: presentationPart,
+                        slidePart: clonedSlide,
+                        text: notesAndDescription);
+
+                    if (hasContent)
                     {
-                        slideIndex++;
-                        cSld.Name = $"Slide{slideIndex}";
-                    }
-
-                    var title = titleFormat.Replace("{position}", slot.Position.ToString());
-
-                    var textDesciption = new StringBuilder();
-
-                    if (!string.IsNullOrWhiteSpace(slot.Question.Text))
-                    {
-                        textDesciption.AppendLine(slot.Question.Text);
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(slot.Question.Description))
-                    {
-                        textDesciption.AppendLine(slot.Question.Description);
-                    }
-
-                    // Populate all shapes — missing shapes are silently skipped
-                    SetShapeText(clonedSlide, Constants.TemplateShapeTitle, title);
-                    SetShapeText(clonedSlide, Constants.TemplateShapeQuestion, slot.Question.Text);
-                    SetShapeText(clonedSlide, Constants.TemplateShapeQuestionDescription, textDesciption.ToString());
-                    SetShapeText(clonedSlide, Constants.TemplateShapeAnswer, slot.Question.Answer);
-
-                    SetSpeakerNotes(presentationPart, clonedSlide, textDesciption.ToString());
-
-                    if (hasMedia)
-                    {
-                        byte[]? imageBytes = null;
-
-                        try
-                        {
-                            imageBytes = await mediaService.LoadAsync(
-                                fileName: slot.Question.MediaFile!,
-                                ct: ct);
-                        }
-                        catch (FileNotFoundException)
-                        {
-                            toastService.ShowError(
-                                $"Media file not found: {slot.Question.MediaFile}");
-                        }
-
-                        if (imageBytes != null)
-                        {
-                            ReplaceMediaImage(
-                                slidePart: clonedSlide,
-                                imageBytes: imageBytes,
-                                fileName: slot.Question.MediaFile!);
-                        }
+                        await TryAttachMediaAsync(
+                            slidePart: clonedSlide,
+                            mediaFileName: slot.Question.MediaFile!,
+                            ct: ct);
                     }
 
                     newSlides.Add(clonedSlide);
@@ -131,24 +124,37 @@ namespace PubQuizCreator.Services.Export
 
         #region Private Methods
 
-        private static SlidePart CloneSlidePart(PresentationPart presentationPart,
-            SlidePart sourceSlide)
+        private static string BuildDescriptionText(string? questionText, string? description)
+        {
+            var builder = new StringBuilder();
+
+            if (!string.IsNullOrWhiteSpace(questionText))
+            {
+                builder.AppendLine(questionText);
+            }
+
+            if (!string.IsNullOrWhiteSpace(description))
+            {
+                builder.AppendLine(description);
+            }
+
+            return builder.ToString();
+        }
+
+        private static SlidePart CloneSlidePart(PresentationPart presentationPart, SlidePart sourceSlide)
         {
             var newSlidePart = presentationPart.AddNewPart<SlidePart>();
 
-            // Deep-copy the slide XML
             using (var sourceStream = sourceSlide.GetStream(FileMode.Open))
+            using (var targetStream = newSlidePart.GetStream(FileMode.Create))
             {
-                using var targetStream = newSlidePart.GetStream(FileMode.Create);
                 sourceStream.CopyTo(targetStream);
             }
 
-            // Re-create all relationships from the source slide
             foreach (var rel in sourceSlide.Parts)
             {
                 if (rel.OpenXmlPart is ImagePart imagePart)
                 {
-                    // Clone image parts to avoid cross-references
                     var newImagePart = newSlidePart.AddImagePart(
                         contentType: imagePart.ContentType,
                         id: rel.RelationshipId);
@@ -164,7 +170,6 @@ namespace PubQuizCreator.Services.Export
                 }
             }
 
-            // Copy external relationships (audio, video via URI)
             foreach (var extRel in sourceSlide.ExternalRelationships)
             {
                 newSlidePart.AddExternalRelationship(
@@ -173,7 +178,6 @@ namespace PubQuizCreator.Services.Export
                     id: extRel.Id);
             }
 
-            // Copy hyperlink relationships
             foreach (var hypRel in sourceSlide.HyperlinkRelationships)
             {
                 newSlidePart.AddHyperlinkRelationship(
@@ -182,7 +186,6 @@ namespace PubQuizCreator.Services.Export
                     id: hypRel.Id);
             }
 
-            // Copy audio/media data part references
             foreach (var dpRef in sourceSlide.DataPartReferenceRelationships)
             {
                 switch (dpRef)
@@ -207,9 +210,7 @@ namespace PubQuizCreator.Services.Export
                 }
             }
 
-            // Detach the cloned notes slide reference — notes are added separately
-            var existingNotesPart = newSlidePart.NotesSlidePart;
-            if (existingNotesPart != null)
+            if (newSlidePart.NotesSlidePart is { } existingNotesPart)
             {
                 newSlidePart.DeletePart(existingNotesPart);
             }
@@ -222,15 +223,9 @@ namespace PubQuizCreator.Services.Export
             using var input = new MemoryStream(potxBytes);
             using var output = new MemoryStream();
 
-            using (var zipIn = new ZipArchive(
-                stream: input,
-                mode: ZipArchiveMode.Read))
+            using (var zipIn = new ZipArchive(stream: input, mode: ZipArchiveMode.Read))
+            using (var zipOut = new ZipArchive(stream: output, mode: ZipArchiveMode.Create, leaveOpen: true))
             {
-                using var zipOut = new ZipArchive(
-                    stream: output,
-                    mode: ZipArchiveMode.Create,
-                    leaveOpen: true);
-
                 foreach (var entry in zipIn.Entries)
                 {
                     var newEntry = zipOut.CreateEntry(
@@ -243,11 +238,9 @@ namespace PubQuizCreator.Services.Export
                     if (entry.FullName == "[Content_Types].xml")
                     {
                         using var sr = new StreamReader(reader);
-
-                        var content = sr.ReadToEnd()
-                            .Replace(
-                                oldValue: "presentationml.template.main+xml",
-                                newValue: "presentationml.presentation.main+xml");
+                        var content = sr.ReadToEnd().Replace(
+                            oldValue: "presentationml.template.main+xml",
+                            newValue: "presentationml.presentation.main+xml");
 
                         using var sw = new StreamWriter(writer);
                         sw.Write(content);
@@ -262,20 +255,63 @@ namespace PubQuizCreator.Services.Export
             return output.ToArray();
         }
 
+        private static NotesSlidePart CreateNotesSlidePart(PresentationPart presentationPart, SlidePart slidePart)
+        {
+            var notesPart = slidePart.AddNewPart<NotesSlidePart>();
+
+            if (presentationPart.NotesMasterPart is { } notesMasterPart)
+            {
+                notesPart.AddPart(notesMasterPart);
+            }
+
+            notesPart.NotesSlide = new NotesSlide(
+                new CommonSlideData(
+                    new ShapeTree(
+                        new NonVisualGroupShapeProperties(
+                            new NonVisualDrawingProperties { Id = 1U, Name = "" },
+                            new NonVisualGroupShapeDrawingProperties(),
+                            new ApplicationNonVisualDrawingProperties()),
+                        new GroupShapeProperties(
+                            new Drawing.TransformGroup(
+                                new Drawing.Offset { X = 0, Y = 0 },
+                                new Drawing.Extents { Cx = 0, Cy = 0 },
+                                new Drawing.ChildOffset { X = 0, Y = 0 },
+                                new Drawing.ChildExtents { Cx = 0, Cy = 0 })),
+                        new Shape(
+                            new NonVisualShapeProperties(
+                                new NonVisualDrawingProperties { Id = 2U, Name = "Slide Image" },
+                                new NonVisualShapeDrawingProperties(
+                                    new Drawing.ShapeLocks { NoGrouping = true, NoRotation = true, NoChangeAspect = true }),
+                                new ApplicationNonVisualDrawingProperties(
+                                    new PlaceholderShape { Type = PlaceholderValues.SlideImage })),
+                            new ShapeProperties()),
+                        new Shape(
+                            new NonVisualShapeProperties(
+                                new NonVisualDrawingProperties { Id = 3U, Name = "Notes Placeholder" },
+                                new NonVisualShapeDrawingProperties(
+                                    new Drawing.ShapeLocks { NoGrouping = true }),
+                                new ApplicationNonVisualDrawingProperties(
+                                    new PlaceholderShape { Type = PlaceholderValues.Body, Index = 1U })),
+                            new ShapeProperties(),
+                            new TextBody(
+                                new Drawing.BodyProperties(),
+                                new Drawing.ListStyle())))),
+                new ColorMapOverride(new Drawing.MasterColorMapping()));
+
+            return notesPart;
+        }
+
         private static Shape? FindShapeByName(Slide slide, string name)
         {
             return slide.Descendants<Shape>()
-                .FirstOrDefault(sp =>
-                {
-                    var cNvPr = sp.NonVisualShapeProperties?
-                        .NonVisualDrawingProperties;
-                    return cNvPr?.Name?.Value == name;
-                });
+                .FirstOrDefault(sp => sp.NonVisualShapeProperties?
+                    .NonVisualDrawingProperties?.Name?.Value == name);
         }
 
         private static string GetImageContentType(string fileName)
         {
             var ext = Path.GetExtension(fileName).ToLowerInvariant();
+
             return ext switch
             {
                 ".jpg" or ".jpeg" => "image/jpeg",
@@ -290,23 +326,21 @@ namespace PubQuizCreator.Services.Export
 
         private static List<SlidePart> GetOrderedSlideParts(PresentationPart presentationPart)
         {
-            var presentation = presentationPart.Presentation;
-            var slideIdList = presentation?.SlideIdList
+            var slideIdList = presentationPart.Presentation?.SlideIdList
                 ?? throw new InvalidOperationException("SlideIdList is null.");
 
             return slideIdList.Elements<SlideId>()
-                .Select(sid => (SlidePart)presentationPart.GetPartById(sid.RelationshipId!)).ToList();
+                .Select(sid => (SlidePart)presentationPart.GetPartById(sid.RelationshipId!))
+                .ToList();
         }
 
         private static Dictionary<string, SlidePart> MapTemplateSlides(List<SlidePart> slideParts)
         {
-            var result = new Dictionary<string, SlidePart>();
+            var result = new Dictionary<string, SlidePart>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var sp in slideParts)
             {
-                var cSld = sp.Slide?.CommonSlideData;
-                var name = cSld?.Name?.Value;
-
+                var name = sp.Slide?.CommonSlideData?.Name?.Value;
                 if (!string.IsNullOrEmpty(name))
                 {
                     result[name] = sp;
@@ -320,9 +354,9 @@ namespace PubQuizCreator.Services.Export
             Dictionary<string, SlidePart> templateMap, List<SlidePart> questionSlides)
         {
             var presentation = presentationPart.Presentation;
-            var slideIdList = presentation?.SlideIdList!;
+            var slideIdList = presentation?.SlideIdList
+                ?? throw new InvalidOperationException("SlideIdList is null.");
 
-            // Collect all template slides that should be removed
             var templateSlideNames = new[]
             {
                 Constants.TemplateSlideQuestion,
@@ -332,17 +366,13 @@ namespace PubQuizCreator.Services.Export
 
             var slidesToRemove = templateSlideNames
                 .Select(name => templateMap.GetValueOrDefault(name))
-                .Where(sp => sp != null)
-                .ToHashSet()!;
+                .OfType<SlidePart>().ToHashSet();
 
-            // Find the index range of template slides in the original order
             var templateIndices = originalOrder
-                .Select((sp, i) => (sp, i))
-                .Where(x => slidesToRemove.Contains(x.sp))
-                .Select(x => x.i)
-                .ToList();
+                .Select((sp, i) => (SlidePart: sp, Index: i))
+                .Where(x => slidesToRemove.Contains(x.SlidePart))
+                .Select(x => x.Index).ToList();
 
-            // If no template slides found, append question slides at the end
             var insertAt = templateIndices.Count > 0
                 ? templateIndices.Min()
                 : originalOrder.Count;
@@ -351,114 +381,90 @@ namespace PubQuizCreator.Services.Export
                 ? templateIndices.Max()
                 : insertAt - 1;
 
-            // Build desired order: prefix + question slides + suffix
             var desiredOrder = originalOrder
                 .Take(insertAt)
                 .Concat(questionSlides)
-                .Concat(originalOrder.Skip(removeThrough + 1))
-                .ToList();
+                .Concat(originalOrder.Skip(removeThrough + 1)).ToList();
 
-            // Remove template slides from the package
             foreach (var slideToRemove in slidesToRemove)
             {
-                if (slideToRemove != default)
+                if (slideToRemove.NotesSlidePart is { } notesPart)
                 {
-                    var notesPart = slideToRemove?.NotesSlidePart;
-
-                    if (notesPart != null)
-                        slideToRemove!.DeletePart(notesPart);
-
-                    presentationPart.DeletePart(slideToRemove!);
+                    slideToRemove.DeletePart(notesPart);
                 }
+
+                presentationPart.DeletePart(slideToRemove);
             }
 
-            // Rebuild the SlideIdList
             slideIdList.RemoveAllChildren<SlideId>();
 
             uint nextId = 256;
             foreach (var slidePart in desiredOrder)
             {
-                var relId = presentationPart.GetIdOfPart(slidePart);
                 slideIdList.Append(new SlideId
                 {
                     Id = nextId++,
-                    RelationshipId = relId
+                    RelationshipId = presentationPart.GetIdOfPart(slidePart)
                 });
             }
 
-            presentation!.Save();
+            presentation.Save();
         }
 
         private static void ReplaceMediaImage(SlidePart slidePart, byte[] imageBytes, string fileName)
         {
             var slide = slidePart.Slide;
 
-            // Find the p:pic element with cNvPr name="Media"
             var mediaPic = slide?.Descendants<Picture>()
-                .FirstOrDefault(pic =>
-                {
-                    var cNvPr = pic.NonVisualPictureProperties?
-                        .NonVisualDrawingProperties;
-                    return cNvPr?.Name?.Value == Constants.TemplateShapeMedia;
-                });
+                .FirstOrDefault(pic => pic.NonVisualPictureProperties?
+                    .NonVisualDrawingProperties?.Name?.Value == Constants.TemplateShapeMedia);
 
-            if (mediaPic == null) return;
+            if (mediaPic?.BlipFill?.Blip is not { Embed.Value: { } relId } blip)
+                return;
 
-            // Get the blip reference
-            var blip = mediaPic.BlipFill?.Blip;
-            if (blip?.Embed?.Value == null) return;
-
-            var relId = blip.Embed.Value;
-
-            // Get the existing image part and replace its content
-            if (slidePart.TryGetPartById(relId, out var part) && part is ImagePart existingImage)
+            if (slidePart.TryGetPartById(
+                id: relId, 
+                part: out var part) 
+                && part is ImagePart existingImage)
             {
                 using var ms = new MemoryStream(imageBytes);
                 existingImage.FeedData(ms);
             }
             else
             {
-                // Fallback: create a new image part and update the reference
                 var contentType = GetImageContentType(fileName);
                 var newImagePart = slidePart.AddImagePart(contentType);
+
                 using var ms = new MemoryStream(imageBytes);
                 newImagePart.FeedData(ms);
+
                 blip.Embed = slidePart.GetIdOfPart(newImagePart);
             }
         }
 
-        private static void SetShapeText(SlidePart slidePart, string shapeName, string text)
+        private static void SetShapeText(SlidePart slidePart, string shapeName, string? text)
         {
-            var slide = slidePart.Slide;
+            if (slidePart.Slide == null || string.IsNullOrEmpty(text))
+                return;
 
-            if (slide == default) return;
-
-            var shape = FindShapeByName(
-                slide: slide,
-                name: shapeName);
-            if (shape == null) return;
-
-            var txBody = shape.TextBody;
+            var shape = FindShapeByName(slide: slidePart.Slide, name: shapeName);
+            var txBody = shape?.TextBody;
             if (txBody == null) return;
 
-            // Preserve the first paragraph's properties
             var firstPara = txBody.Elements<Drawing.Paragraph>().FirstOrDefault();
-
-            // Preserve the first run's properties
             var firstRun = firstPara?.Elements<Drawing.Run>().FirstOrDefault();
 
-            // Remove all existing paragraphs
             txBody.RemoveAllChildren<Drawing.Paragraph>();
 
-            // Create new paragraph with preserved formatting
             var newPara = new Drawing.Paragraph();
             if (firstPara?.ParagraphProperties?.CloneNode(true) is Drawing.ParagraphProperties paraProps)
+            {
                 newPara.Append(paraProps);
+            }
 
             var newRun = new Drawing.Run();
             if (firstRun?.RunProperties?.CloneNode(true) is Drawing.RunProperties runProps)
             {
-                // Clear spell-check error marking from cloned properties
                 runProps.Dirty = null;
                 runProps.SpellingError = null;
                 newRun.Append(runProps);
@@ -469,93 +475,54 @@ namespace PubQuizCreator.Services.Export
             txBody.Append(newPara);
         }
 
-        private static void SetSpeakerNotes(PresentationPart presentationPart, SlidePart slidePart, string notesText)
+        private static void SetSpeakerNotes(PresentationPart presentationPart, SlidePart slidePart, string text)
         {
-            NotesSlidePart notesPart;
+            var notesPart = slidePart.NotesSlidePart ?? CreateNotesSlidePart(presentationPart, slidePart);
 
-            if (slidePart.NotesSlidePart != null)
-            {
-                notesPart = slidePart.NotesSlidePart;
-            }
-            else
-            {
-                notesPart = slidePart.AddNewPart<NotesSlidePart>();
-
-                // Link to the notes master
-                var notesMasterPart = presentationPart.NotesMasterPart;
-
-                if (notesMasterPart != null)
-                {
-                    notesPart.AddPart(notesMasterPart);
-                }
-
-                // Create the notes slide structure
-                notesPart.NotesSlide = new NotesSlide(
-                    new CommonSlideData(
-                        new ShapeTree(
-                            new NonVisualGroupShapeProperties(
-                                new NonVisualDrawingProperties { Id = 1U, Name = "" },
-                                new NonVisualGroupShapeDrawingProperties(),
-                                new ApplicationNonVisualDrawingProperties()),
-                            new GroupShapeProperties(
-                                new Drawing.TransformGroup(
-                                    new Drawing.Offset { X = 0, Y = 0 },
-                                    new Drawing.Extents { Cx = 0, Cy = 0 },
-                                    new Drawing.ChildOffset { X = 0, Y = 0 },
-                                    new Drawing.ChildExtents { Cx = 0, Cy = 0 })),
-
-                            // Slide image placeholder
-                            new Shape(
-                                new NonVisualShapeProperties(
-                                    new NonVisualDrawingProperties { Id = 2U, Name = "Slide Image" },
-                                    new NonVisualShapeDrawingProperties(
-                                        new Drawing.ShapeLocks { NoGrouping = true, NoRotation = true, NoChangeAspect = true }),
-                                    new ApplicationNonVisualDrawingProperties(
-                                        new PlaceholderShape { Type = PlaceholderValues.SlideImage })),
-                                new ShapeProperties()),
-
-                            // Notes body placeholder
-                            new Shape(
-                                new NonVisualShapeProperties(
-                                    new NonVisualDrawingProperties { Id = 3U, Name = "Notes Placeholder" },
-                                    new NonVisualShapeDrawingProperties(
-                                        new Drawing.ShapeLocks { NoGrouping = true }),
-                                    new ApplicationNonVisualDrawingProperties(
-                                        new PlaceholderShape { Type = PlaceholderValues.Body, Index = 1U })),
-                                new ShapeProperties(),
-                                new TextBody(
-                                    new Drawing.BodyProperties(),
-                                    new Drawing.ListStyle(),
-                                    new Drawing.Paragraph(
-                                        new Drawing.Run(
-                                            new Drawing.RunProperties { Language = "en-US" },
-                                            new Drawing.Text(notesText))))))),
-                    new ColorMapOverride(new Drawing.MasterColorMapping()));
-
-                return;
-            }
-
-            // Update existing notes: find the body placeholder and replace text
             var notesBody = notesPart.NotesSlide?
                 .Descendants<Shape>()
-                .FirstOrDefault(s =>
-                {
-                    var ph = s.NonVisualShapeProperties?
-                        .ApplicationNonVisualDrawingProperties?
-                        .GetFirstChild<PlaceholderShape>();
+                .FirstOrDefault(s => s.NonVisualShapeProperties?
+                    .ApplicationNonVisualDrawingProperties?
+                    .GetFirstChild<PlaceholderShape>()?.Type?.Value == PlaceholderValues.Body);
 
-                    return ph?.Type?.Value == PlaceholderValues.Body;
-                });
-
-            if (notesBody?.TextBody != null)
+            if (notesBody?.TextBody is { } txBody)
             {
-                var txBody = notesBody.TextBody;
                 txBody.RemoveAllChildren<Drawing.Paragraph>();
-
                 txBody.Append(new Drawing.Paragraph(
                     new Drawing.Run(
                         new Drawing.RunProperties { Language = "en-US" },
-                        new Drawing.Text(notesText))));
+                        new Drawing.Text(text))));
+            }
+        }
+
+        private static void UpdateSlideIdentifier(SlidePart slidePart, string slideName)
+        {
+            var commonData = slidePart.Slide?.CommonSlideData;
+            if (commonData != null)
+            {
+                commonData.Name = slideName;
+            }
+        }
+
+        private async Task TryAttachMediaAsync(SlidePart slidePart, string mediaFileName, CancellationToken ct)
+        {
+            try
+            {
+                var imageBytes = await mediaService.LoadAsync(
+                    fileName: mediaFileName,
+                    ct: ct);
+
+                if (imageBytes != null)
+                {
+                    ReplaceMediaImage(
+                        slidePart: slidePart,
+                        imageBytes: imageBytes,
+                        fileName: mediaFileName);
+                }
+            }
+            catch (FileNotFoundException)
+            {
+                toastService.ShowError($"Media file not found: {mediaFileName}");
             }
         }
 
