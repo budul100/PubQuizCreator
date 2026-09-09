@@ -32,7 +32,7 @@ namespace PubQuizCreator.Services.Export
             // 1. Wrap PresentationDocument in an explicit using block to flush all XML parts
             // and relationships into the memory stream upon closing.
             using (var doc = PresentationDocument.Open(
-                stream: stream, 
+                stream: stream,
                 isEditable: true))
             {
                 var presentationPart = doc.PresentationPart
@@ -57,7 +57,7 @@ namespace PubQuizCreator.Services.Export
                     if (slot.Question == null) continue;
 
                     var hasMedia = !string.IsNullOrWhiteSpace(slot.Question.MediaFile)
-                        && slot.Question.MediaType is MediaType.Image or MediaType.Video;
+                        && slot.Question.MediaType is MediaType.Image or MediaType.Audio or MediaType.Video;
 
                     var sourceTemplate = (hasMedia ? mediaTemplate : default)
                         ?? questionTemplate
@@ -146,14 +146,14 @@ namespace PubQuizCreator.Services.Export
             using var output = new MemoryStream();
 
             using (var zipIn = new ZipArchive(
-                stream: input, 
+                stream: input,
                 mode: ZipArchiveMode.Read))
             {
                 // zipOut MUST be disposed before output.ToArray(),
                 // as ZipArchive writes the central directory record upon disposal.
                 using var zipOut = new ZipArchive(
-                    stream: output, 
-                    mode: ZipArchiveMode.Create, 
+                    stream: output,
+                    mode: ZipArchiveMode.Create,
                     leaveOpen: true);
 
                 foreach (var entry in zipIn.Entries)
@@ -306,7 +306,7 @@ namespace PubQuizCreator.Services.Export
                 sourceStream.CopyTo(targetStream);
             }
 
-            // 3. Copy remaining parts (images, embedded parts, etc.)
+            // 3. Copy standard parts (Images, Embedded parts, etc.) with exact original ID
             foreach (var rel in sourceSlide.Parts)
             {
                 if (rel.OpenXmlPart is SlideLayoutPart or NotesSlidePart)
@@ -347,47 +347,33 @@ namespace PubQuizCreator.Services.Export
                     id: hypRel.Id);
             }
 
-            // 6. Copy media data part references (audio/video)
-            var packageDoc = (PresentationDocument)newSlidePart.OpenXmlPackage;
-
+            // 6. Reuse MediaDataParts directly instead of recreating them!
+            // Reusing the existing MediaDataPart prevents desyncing animation timelines
             foreach (var dpRef in sourceSlide.DataPartReferenceRelationships)
             {
-                if (dpRef.DataPart is MediaDataPart originalMedia)
+                if (dpRef.DataPart is MediaDataPart mediaDataPart)
                 {
-                    var clonedMediaPart = packageDoc.CreateMediaDataPart(originalMedia.ContentType);
-
-                    using (var src = originalMedia.GetStream(FileMode.Open))
-                    {
-                        clonedMediaPart.FeedData(src);
-                    }
-
                     switch (dpRef)
                     {
                         case AudioReferenceRelationship audioRef:
                             newSlidePart.AddAudioReferenceRelationship(
-                                mediaDataPart: clonedMediaPart,
+                                mediaDataPart: mediaDataPart,
                                 id: audioRef.Id);
                             break;
 
                         case MediaReferenceRelationship mediaRef:
                             newSlidePart.AddMediaReferenceRelationship(
-                                mediaDataPart: clonedMediaPart,
+                                mediaDataPart: mediaDataPart,
                                 id: mediaRef.Id);
                             break;
 
                         case VideoReferenceRelationship videoRef:
                             newSlidePart.AddVideoReferenceRelationship(
-                                mediaDataPart: clonedMediaPart,
+                                mediaDataPart: mediaDataPart,
                                 id: videoRef.Id);
                             break;
                     }
                 }
-            }
-
-            // Remove any legacy notes slide that might have been copied via relationships
-            if (newSlidePart.NotesSlidePart is { } existingNotesPart)
-            {
-                newSlidePart.DeletePart(existingNotesPart);
             }
 
             return newSlidePart;
@@ -472,14 +458,51 @@ namespace PubQuizCreator.Services.Export
 
         private static void ReplaceMediaAudio(SlidePart slidePart, byte[] audioBytes)
         {
-            var audioRel = slidePart.DataPartReferenceRelationships
-                .OfType<AudioReferenceRelationship>()
-                .FirstOrDefault();
+            var slide = slidePart.Slide;
+            if (slide == null) return;
 
-            if (audioRel?.DataPart is MediaDataPart targetMediaPart)
+            // 1. Locate only the placeholder picture shape designated for media
+            var mediaPic = slide.Descendants<Picture>()
+                .FirstOrDefault(pic => pic.NonVisualPictureProperties?
+                    .NonVisualDrawingProperties?.Name?.Value == Constants.TemplateShapeMedia);
+
+            if (mediaPic == null) return;
+
+            // 2. Resolve the relationship ID pointing to the target audio data part
+            var appNonVisualProps = mediaPic.NonVisualPictureProperties?
+                .ApplicationNonVisualDrawingProperties;
+
+            var audioRelId = appNonVisualProps?
+                .GetFirstChild<Drawing.AudioFromFile>()?.Link?.Value;
+
+            // Check PowerPoint 2010+ media extension if AudioFromFile is not present
+            if (string.IsNullOrEmpty(audioRelId))
+            {
+                var mediaElement = appNonVisualProps?
+                    .Descendants<DocumentFormat.OpenXml.Office2010.PowerPoint.Media>()
+                    .FirstOrDefault();
+
+                audioRelId = mediaElement?.Embed?.Value;
+            }
+
+            if (string.IsNullOrEmpty(audioRelId)) return;
+
+            // 3. Find the matching relationship and update only its data stream
+            var targetRel = slidePart.DataPartReferenceRelationships
+                .OfType<AudioReferenceRelationship>()
+                .FirstOrDefault(rel => rel.Id == audioRelId);
+
+            if (targetRel?.DataPart is MediaDataPart targetMediaPart)
             {
                 using var ms = new MemoryStream(audioBytes);
                 targetMediaPart.FeedData(ms);
+            }
+            else if (slidePart.TryGetPartById(audioRelId, out var directPart))
+            {
+                // Fallback for presentations embedding audio via direct Part reference
+                using var ms = new MemoryStream(audioBytes);
+                using var stream = directPart.GetStream(FileMode.Create);
+                ms.CopyTo(stream);
             }
         }
 
