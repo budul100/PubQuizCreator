@@ -8,14 +8,14 @@ PubQuizCreator is a self-hosted web application for managing pub quiz questions,
 
 ## Technology Stack
 
-| Component   | Technology                                         |
-|-------------|----------------------------------------------------|
-| Framework   | ASP.NET Core 9 / Blazor Server                     |
-| Database    | PostgreSQL 16 with pgvector                        |
-| Embeddings  | Ollama (`mxbai-embed-large`, 1024 dimensions)      |
-| Export      | PowerPoint (.pptx), PDF                            |
-| Container   | Docker / Docker Compose                            |
-| Registry    | GitHub Container Registry (ghcr.io)                |
+| Component  | Technology                                    |
+| ---------- | --------------------------------------------- |
+| Framework  | ASP.NET Core 9 / Blazor Server                |
+| Database   | PostgreSQL 16 with pgvector                   |
+| Embeddings | Ollama (`mxbai-embed-large`, 1024 dimensions) |
+| Export     | PowerPoint (.pptx), PDF                       |
+| Container  | Docker / Docker Compose                       |
+| Registry   | GitHub Container Registry (ghcr.io)           |
 
 ---
 
@@ -29,21 +29,21 @@ PubQuizCreator is a self-hosted web application for managing pub quiz questions,
 
 ### Services (`docker-compose.yml`)
 
-| Service       | Description                                                                 |
-|---------------|-----------------------------------------------------------------------------|
-| `pubquiz-db`  | PostgreSQL 16 with pgvector, internal network only, health-checked          |
-| `pubquiz-web` | Blazor application, exposed via `proxynet`, depends on db health check      |
+| Service       | Description                                                            |
+| ------------- | ---------------------------------------------------------------------- |
+| `pubquiz-db`  | PostgreSQL 16 with pgvector, internal network only, health-checked     |
+| `pubquiz-web` | Blazor application, exposed via `proxynet`, depends on db health check |
 
 ### Environment Variables (`.env`)
 
-| Variable                        | Description                                                    |
-|---------------------------------|----------------------------------------------------------------|
-| `DB_PASSWORD`                   | PostgreSQL password for the `pubquiz` user                     |
-| `ConnectionStrings__Default`    | Full Npgsql connection string                                  |
-| `Auth__Username` / `Auth__Password` | Basic auth credentials for the web interface              |
-| `Media__StoragePath`            | Absolute path to the media directory inside the container      |
-| `Ollama__BaseUrl`               | Ollama endpoint, e.g. `http://host.docker.internal:11434`      |
-| `Export__TemplatesPath`         | Absolute path to the templates directory inside the container  |
+| Variable                            | Description                                                   |
+| ----------------------------------- | ------------------------------------------------------------- |
+| `DB_PASSWORD`                       | PostgreSQL password for the `pubquiz` user                    |
+| `ConnectionStrings__Default`        | Full Npgsql connection string                                 |
+| `Auth__Username` / `Auth__Password` | Basic auth credentials for the web interface                  |
+| `Media__StoragePath`                | Absolute path to the media directory inside the container     |
+| `Ollama__BaseUrl`                   | Ollama endpoint, e.g. `http://host.docker.internal:11434`     |
+| `Export__TemplatesPath`             | Absolute path to the templates directory inside the container |
 
 ### `docker-compose.yml` Example
 
@@ -146,12 +146,12 @@ To trigger an update via GitHub Actions manually (without SSH access), a `workfl
 
 ## Features
 
-| Area               | Details                                                                                                    |
-|--------------------|------------------------------------------------------------------------------------------------------------|
+| Area                | Details                                                                                                                                                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Question management | Create, edit, categorize, and tag questions with media (image, audio, video). Tracks usage history and supports semantic duplicate detection via Ollama embeddings. |
-| Quiz planning      | Build quizzes from rounds and slots. Assign questions per category, drag-and-drop reordering, round templates. |
-| Export             | Generates PowerPoint presentations (questions and answers decks) from configurable `.pptx` templates. PDF export also available. |
-| AI integration     | Configurable fact-check prompt with placeholders for question and answer text. Opens a configurable AI URL in the browser. |
+| Quiz planning       | Build quizzes from rounds and slots. Assign questions per category, drag-and-drop reordering, round templates.                                                      |
+| Export              | Generates PowerPoint presentations (questions and answers decks) from configurable `.pptx` templates. PDF export also available.                                    |
+| AI integration      | Configurable fact-check prompt with placeholders for question and answer text. Opens a configurable AI URL in the browser.                                          |
 
 ---
 
@@ -163,10 +163,11 @@ Exports use two `.pptx` or `.potx` template files: one for the questions deck an
 
 The export service identifies template slides by their slide name, set in the XML attribute `name` on the `p:cSld` element. Each template file must contain slides with the following exact names:
 
-| Slide Name    | Purpose                              |
-|---------------|--------------------------------------|
-| `TPL_Question` | Template slide for question slides  |
-| `TPL_Answer`   | Template slide for answer slides    |
+| Slide Name | Purpose                            |
+| ---------- | ---------------------------------- |
+| `Question` | Template slide for question slides |
+| `Media`    | Template slide for question slides with a video or image |
+| `Answer`   | Template slide for answer slides   |
 
 Template slides are not included in the final export. They are cloned for each output slide, then removed from the deck.
 
@@ -199,7 +200,7 @@ Each template slide must contain text box shapes with names matching the keys us
 > **Home > Editing > Select > Selection Pane** — click a shape in the pane to rename it.
 
 | Shape Name            | Content                                                            |
-|-----------------------|--------------------------------------------------------------------|
+| --------------------- | ------------------------------------------------------------------ |
 | `Question`            | The text of the question                                           |
 | `QuestionDescription` | The text of the question and the description                       |
 | `Answer`              | The text of the answer                                             |
@@ -214,12 +215,12 @@ To add it: select the slide in PowerPoint, click the notes area below the slide,
 
 ### Template Checklist
 
-| Check | How to verify |
-|---|---|
-| Slide name set correctly | VBA Immediate Window: `? ActivePresentation.Slides(n).Name` |
-| All required shapes named | Selection Pane in PowerPoint; names are case-sensitive |
-| Notes placeholder has content | Click notes area below slide; at least one character required |
-| File saved as `.pptx` or `.potx` | **Save As > PowerPoint Presentation or Template** |
+| Check                            | How to verify                                                 |
+| -------------------------------- | ------------------------------------------------------------- |
+| Slide name set correctly         | VBA Immediate Window: `? ActivePresentation.Slides(n).Name`   |
+| All required shapes named        | Selection Pane in PowerPoint; names are case-sensitive        |
+| Notes placeholder has content    | Click notes area below slide; at least one character required |
+| File saved as `.pptx` or `.potx` | **Save As > PowerPoint Presentation or Template**             |
 
 ---
 
