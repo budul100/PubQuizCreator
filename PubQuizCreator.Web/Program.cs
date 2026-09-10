@@ -1,6 +1,7 @@
 ﻿using System.IO.Compression;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Npgsql;
@@ -19,8 +20,8 @@ internal class Program
 {
     #region Private Methods
 
-    private static async Task<IResult> CreateJsonAsync(Guid quizId, string? query, QuizService quizService,
-        CancellationToken ct)
+    private static async Task<IResult> CreateJsonAsync([FromRoute] Guid quizId,
+        [FromQuery(Name = "rounds")] string? query, QuizService quizService, CancellationToken ct)
     {
         var quiz = await quizService.GetDetailAsync(
             quizId: quizId,
@@ -40,15 +41,17 @@ internal class Program
             fileDownloadName: filename);
     }
 
-    private static async Task<IResult> CreatePptxAsync(Guid quizId, string? query, string? template,
-        QuizService quizService, FileService exportService, SettingsService settingsService,
-        CancellationToken ct)
+    private static async Task<IResult> CreatePptxAsync([FromRoute] Guid quizId,
+        [FromQuery(Name = "rounds")] string? query, [FromQuery] string? template, QuizService quizService,
+        FileService exportService, SettingsService settingsService, CancellationToken ct)
     {
         var quiz = await quizService.GetDetailAsync(quizId: quizId, ct: ct);
         if (quiz == default)
             return Results.NotFound();
 
-        var rounds = GetRounds(rounds: quiz.Rounds, query: query).ToList();
+        var rounds = GetRounds(
+            rounds: quiz.Rounds,
+            query: query).ToList();
         if (rounds.Count == 0)
             return Results.BadRequest("No rounds with slots found for the given selection.");
 
@@ -114,8 +117,9 @@ internal class Program
         }
     }
 
-    private static async Task<IResult> CreatePrintAsync(Guid quizId, string? query, QuizService quizService,
-        PrintService printService, CancellationToken ct)
+    private static async Task<IResult> CreatePrintAsync([FromRoute] Guid quizId,
+        [FromQuery(Name = "rounds")] string? query, QuizService quizService, PrintService printService,
+        CancellationToken ct)
     {
         var quiz = await quizService.GetDetailAsync(
             quizId: quizId,
