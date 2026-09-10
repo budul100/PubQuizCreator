@@ -4,17 +4,17 @@ Self-hosted quiz management and export application.
 
 ## Overview
 
-PubQuizCreator is a self-hosted web application for managing pub quiz questions, rounds, and templates, and for exporting quizzes as PowerPoint presentations or PDF documents. It runs as a Docker container and uses PostgreSQL with the pgvector extension for storing questions and semantic similarity search via Ollama embeddings.
+PubQuizCreator is a self-hosted web application for managing pub quiz questions, rounds, and templates, and for exporting completed quizzes as PowerPoint presentations, PDF documents, or JSON data[cite: 1, 4]. It uses PostgreSQL with the pgvector extension for storing questions and performing semantic similarity searches via Ollama embeddings[cite: 1, 2].
 
 ## Technology Stack
 
 | Component  | Technology                                    |
 | ---------- | --------------------------------------------- |
-| Framework  | ASP.NET Core 9 / Blazor Server                |
-| Database   | PostgreSQL 16 with pgvector                   |
-| Embeddings | Ollama (`mxbai-embed-large`, 1024 dimensions) |
-| Export     | PowerPoint (.pptx), PDF                       |
-| Container  | Docker / Docker Compose                       |
+| Framework  | ASP.NET Core 9 / Blazor Server[cite: 1, 4]                |
+| Database   | PostgreSQL 16 with pgvector[cite: 1]                   |
+| Embeddings | Ollama (`mxbai-embed-large`, 1024 dimensions)[cite: 1, 2] |
+| Export     | PowerPoint (.pptx), PDF (QuestPDF), JSON[cite: 2, 4]      |
+| Container  | Docker / Docker Compose[cite: 1]                       |
 | Registry   | GitHub Container Registry (ghcr.io)           |
 
 ---
@@ -24,170 +24,141 @@ PubQuizCreator is a self-hosted web application for managing pub quiz questions,
 ### Prerequisites
 
 - Docker and Docker Compose installed on the host
-- A reverse proxy network named `proxynet` must exist
-- Ollama reachable from within the container (configured via `Ollama:BaseUrl`)
+- An external Docker bridge network named `proxynet` (e.g. for a reverse proxy)[cite: 1]
+- Ollama accessible from within the container (configured via `Ollama__BaseUrl`)[cite: 3]
 
 ### Services (`docker-compose.yml`)
 
 | Service       | Description                                                            |
 | ------------- | ---------------------------------------------------------------------- |
-| `pubquiz-db`  | PostgreSQL 16 with pgvector, internal network only, health-checked     |
-| `pubquiz-web` | Blazor application, exposed via `proxynet`, depends on db health check |
+| `pubquiz-db`  | PostgreSQL 16 with pgvector, internal network only, health-checked[cite: 1]     |
+| `pubquiz-web` | Blazor application, connected to `proxynet` and the internal db network[cite: 1] |
 
 ### Environment Variables (`.env`)
 
 | Variable                            | Description                                                   |
 | ----------------------------------- | ------------------------------------------------------------- |
-| `DB_PASSWORD`                       | PostgreSQL password for the `pubquiz` user                    |
-| `ConnectionStrings__Default`        | Full Npgsql connection string                                 |
-| `Auth__Username` / `Auth__Password` | Basic auth credentials for the web interface                  |
-| `Media__StoragePath`                | Absolute path to the media directory inside the container     |
-| `Ollama__BaseUrl`                   | Ollama endpoint, e.g. `http://host.docker.internal:11434`     |
-| `Export__TemplatesPath`             | Absolute path to the templates directory inside the container |
+| `DB_PASSWORD`                       | PostgreSQL password for the `pubquiz` database user[cite: 1]           |
+| `ConnectionStrings__Default`        | Full Npgsql connection string[cite: 1]                                 |
+| `Auth__Username` / `Auth__Password` | Cookie authentication credentials for the web interface[cite: 3]       |
+| `Media__StoragePath`                | Absolute path to the media folder inside the container[cite: 3]        |
+| `Export__TemplatesPath`             | Absolute path to the PPTX templates folder[cite: 3]                    |
+| `Ollama__BaseUrl`                   | Ollama API endpoint (e.g., `[http://host.docker.internal:11434](http://host.docker.internal:11434)`)[cite: 1, 3] |
 
-### `docker-compose.yml` Example
+### Production `docker-compose.yml` Example
 
 ```yaml
 services:
   pubquiz-db:
     image: pgvector/pgvector:pg16
+    container_name: pubquiz-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: pubquiz
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: pubquiz
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - pubquiz-pgdata:/var/lib/postgresql/data
     networks:
-      - internal
+      - pubquiz-internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pubquiz"]
+      test: ["CMD-SHELL", "pg_isready -U pubquiz -d pubquiz"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   pubquiz-web:
     image: ghcr.io/budul100/pubquizcreator:latest
+    container_name: pubquiz-web
     restart: unless-stopped
     env_file: .env
     volumes:
-      - ${MEDIA_PATH}:/app/media
-      - ${TEMPLATES_PATH}:/app/templates
+      - ./media:/data/media
+      - ./templates:/data/templates
       - ./settings.override.json:/app/settings.override.json
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       pubquiz-db:
         condition: service_healthy
     networks:
-      - internal
+      - pubquiz-internal
       - proxynet
 
 networks:
-  internal:
+  pubquiz-internal:
+    internal: true
   proxynet:
     external: true
 
 volumes:
-  db_data:
+  pubquiz-pgdata:
 ```
 
-### Required Files on the Host
+### Directory Setup
 
-Place the following in `/opt/pubquizcreator/` before starting:
+Prepare the working directory (e.g. `/opt/pubquizcreator/`)[cite: 1]:
 
+```text
+├── .env
+├── docker-compose.yml
+├── media/                  # Uploaded images, audio, and videos
+├── templates/              # Uploaded PPTX/POTX presentation templates
+└── settings.override.json  # Runtime configuration overrides (created automatically)
 ```
-.env                    # environment variables
-docker-compose.yml      # production compose file
-media/                  # directory for uploaded media files
-templates/              # directory for PPTX template files
-settings.override.json  # runtime settings overrides
-```
 
-### Starting the Application
+Start the containers:
 
 ```bash
-cd /opt/pubquizcreator
 docker compose pull
 docker compose up -d
 ```
-
-Database migrations run automatically on startup. The application is available via the configured reverse proxy.
-
-### Updating a Running Instance
-
-Deployment to the server is not automated. An `update.sh` script can be placed in `/opt/pubquizcreator/` for convenience:
-
-```bash
-#!/usr/bin/env bash
-set -eu
-
-echo "=== Pulling latest images ==="
-docker compose pull --quiet
-
-echo "=== Starting / updating containers ==="
-docker compose up -d
-
-echo "=== Removing old dangling images ==="
-docker image prune -f
-
-echo "=== Update finished successfully ==="
-```
-
-Run it manually when a new image is available:
-
-```bash
-cd /opt/pubquizcreator && bash update.sh
-```
-
-Every push to `main` triggers a GitHub Actions workflow that builds a `linux/arm64` Docker image and pushes it to `ghcr.io/budul100/pubquizcreator:latest`. The image is publicly available and can be pulled without authentication.
-
-To trigger an update via GitHub Actions manually (without SSH access), a `workflow_dispatch` workflow can be added to the repository.
 
 ---
 
 ## Features
 
-| Area                | Details                                                                                                                                                             |
+| Area                | Description                                                                                                                                                         |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Question management | Create, edit, categorize, and tag questions with media (image, audio, video). Tracks usage history and supports semantic duplicate detection via Ollama embeddings. |
-| Quiz planning       | Build quizzes from rounds and slots. Assign questions per category, drag-and-drop reordering, round templates.                                                      |
-| Export              | Generates PowerPoint presentations (questions and answers decks) from configurable `.pptx` templates. PDF export also available.                                    |
-| AI integration      | Configurable fact-check prompt with placeholders for question and answer text. Opens a configurable AI URL in the browser.                                          |
+| Question Management | Create, edit, and categorize questions with attachments (image, audio, video)[cite: 1]. Tracks usage history across quizzes and performs vector-based duplicate detection[cite: 2]. |
+| Idea Inbox          | Quick-capture brainstorming ideas (with optional media) before converting them into fully formulated quiz questions[cite: 1, 3].                                               |
+| Quiz Planning       | Assemble quizzes by rounds and slots[cite: 1, 4]. Support for round templates, category coverage insights, and drag-and-drop ordering[cite: 2, 4].                                         |
+| Multi-format Export | Export selected rounds into styled PowerPoint decks (`.pptx` or bundled `.zip`), printable overview sheets (`.pdf`), or structured data (`.json`)[cite: 4].               |
+| AI Fact-Checking    | One-click clipboard prompt compilation for external AI review (e.g. Gemini, ChatGPT) using customizable prompt templates[cite: 3].                                           |
 
 ---
 
 ## PowerPoint Template Setup
 
-Exports use two `.pptx` or `.potx` template files: one for the questions deck and one for the answers deck. These are uploaded via the Settings page and stored on the server.
+Presentations are generated from `.pptx` or `.potx` templates uploaded in **Settings**[cite: 2, 4]. The export service clones and populates slides based on predefined slide and shape names[cite: 1, 2].
 
-### Slide Identification
+### Slide Names
 
-The export service identifies template slides by their slide name, set in the XML attribute `name` on the `p:cSld` element. Each template file must contain slides with the following exact names:
+The template should contain slides named via the `name` attribute in the presentation XML (`p:cSld`)[cite: 2]:
 
-| Slide Name | Purpose                            |
-| ---------- | ---------------------------------- |
-| `Question` | Template slide for question slides |
-| `Media`    | Template slide for question slides with a video or image |
-| `Answer`   | Template slide for answer slides   |
+| Slide Name | Purpose                                                          |
+| ---------- | ---------------------------------------------------------------- |
+| `Question` | Default slide for regular text questions[cite: 1, 2]                         |
+| `Media`    | Slide for questions containing image, audio, or video attachments[cite: 1, 2] |
+| `Answer`   | Optional answer template slide[cite: 1, 2]                                   |
 
-Template slides are not included in the final export. They are cloned for each output slide, then removed from the deck.
+*Note: Template slides are cloned for each question slot and automatically removed from the exported presentation[cite: 2].*
 
-### Setting the Slide Name
+#### Setting Slide Names in PowerPoint (VBA)
 
-Open the template file in PowerPoint and use the VBA editor (`Alt+F11`) to rename slides. Run the following macro with the target slide active:
+Use the VBA editor (`Alt + F11`) in PowerPoint to assign names to the template slides:
 
 ```vba
-Sub RenameSlide()
+Sub RenameCurrentSlide()
     Dim sld As Slide
     Set sld = ActiveWindow.View.Slide
     Dim newName As String
-    newName = InputBox("New name:", "Rename Slide", sld.Name)
-    If newName = "" Then Exit Sub
-    sld.Name = newName
-    ActivePresentation.Save
+    newName = InputBox("Enter slide name (e.g. Question, Media):", "Rename Slide", sld.Name)
+    If newName <> "" Then sld.Name = newName
 End Sub
 ```
 
-To verify slide names without a macro, use the VBA Immediate Window (`Ctrl+G`):
+To verify a slide name in the Immediate Window (`Ctrl + G`):
 
 ```vba
 ? ActivePresentation.Slides(1).Name
@@ -195,46 +166,40 @@ To verify slide names without a macro, use the VBA Immediate Window (`Ctrl+G`):
 
 ### Required Shape Names
 
-Each template slide must contain text box shapes with names matching the keys used by the export service. Shape names are **case-sensitive**. Set them via the Selection Pane:
+Shape names are **case-sensitive**. Rename shapes using PowerPoint's **Selection Pane** (*Home > Editing > Select > Selection Pane*):
 
-> **Home > Editing > Select > Selection Pane** — click a shape in the pane to rename it.
-
-| Shape Name            | Content                                                            |
-| --------------------- | ------------------------------------------------------------------ |
-| `Question`            | The text of the question                                           |
-| `QuestionDescription` | The text of the question and the description                       |
-| `Answer`              | The text of the answer                                             |
-| `Position`            | Slide title / question number (formatted via `Export:TitleFormat`) |
-| `Media`               | Placeholder for media content (image, audio, video)                |
-
-### Notes Placeholder
-
-Each template slide must have a notes placeholder with at least one character of text (a space is sufficient). Without it, the notes XML part is absent from the cloned slide and the export service cannot write notes to it.
-
-To add it: select the slide in PowerPoint, click the notes area below the slide, and type any text. Save the file.
-
-### Template Checklist
-
-| Check                            | How to verify                                                 |
-| -------------------------------- | ------------------------------------------------------------- |
-| Slide name set correctly         | VBA Immediate Window: `? ActivePresentation.Slides(n).Name`   |
-| All required shapes named        | Selection Pane in PowerPoint; names are case-sensitive        |
-| Notes placeholder has content    | Click notes area below slide; at least one character required |
-| File saved as `.pptx` or `.potx` | **Save As > PowerPoint Presentation or Template**             |
+| Shape Name            | Target Content                                                 |
+| --------------------- | -------------------------------------------------------------- |
+| `Title`               | Slide title (e.g., question number formatted via `TitleFormat`)[cite: 1, 2] |
+| `Question`            | Short question text[cite: 1, 2]                                            |
+| `QuestionDescription` | Extended description / notes[cite: 1, 2]                                   |
+| `Answer`              | Answer text[cite: 1, 2]                                                    |
+| `Media`               | Picture/media placeholder for attached image, audio, or video[cite: 1, 2]  |
 
 ---
 
 ## Local Development
 
-A separate `docker-compose.dev.yml` is provided for local development. It starts PostgreSQL on port `5433` and Ollama on port `11434`. The web application runs directly from Visual Studio or the `dotnet` CLI against the Development connection string in `appsettings.Development.json`.
+Start the local database and Ollama instance using the provided Compose profile[cite: 1]:
 
-The Ollama embedding model must be pulled manually before first use:
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+- **PostgreSQL:** Port `5433` (Password: `dev`)[cite: 1]
+- **Ollama:** Port `11435`[cite: 1]
+
+Pull the embedding model locally:
 
 ```bash
 ollama pull mxbai-embed-large
 ```
 
-The application runs without Ollama. Embedding generation is skipped gracefully when Ollama is unavailable, and the status indicator in the navigation bar reflects the current connectivity state.
+Launch the web app directly from your IDE or via CLI[cite: 4]:
+
+```bash
+dotnet run --project PubQuizCreator.Web --launch-profile "PubQuizCreator (local)"
+```
 
 ---
 
