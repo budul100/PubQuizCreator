@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 set -eu
 
-BACKUP_DIR="/var/backups/pubquiz"
+APPNAME="pubquizcreator"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-DB_FILENAME="pubquiz_${TIMESTAMP}.sql.gz"
-MEDIA_FILENAME="pubquiz_media_${TIMESTAMP}.tar.gz"
+
+DB_FILENAME="${APPNAME}_${TIMESTAMP}.sql.gz"
+MEDIA_FILENAME="${APPNAME}-media_${TIMESTAMP}.tar.gz"
+
 HIDRIVE_PATH="hidrive:users/xyz/Veranstaltungen/PubQuiz/Archiv/Backups"
-PROJECT_DIR="/opt/pubquizcreator"
+BACKUP_DIR="/var/backups/pubquiz"
+PROJECT_DIR="/opt/${APPNAME}"
 
 mkdir -p "$BACKUP_DIR"
 
@@ -28,8 +31,8 @@ rclone copy "$BACKUP_DIR/$DB_FILENAME" "$HIDRIVE_PATH/"
 rclone copy "$BACKUP_DIR/$MEDIA_FILENAME" "$HIDRIVE_PATH/"
 
 echo "=== Cleaning up local backups older than 7 days ==="
-find "$BACKUP_DIR" -name "pubquiz_*.sql.gz" -mtime +7 -delete
-find "$BACKUP_DIR" -name "pubquiz_media_*.tar.gz" -mtime +7 -delete
+find "$BACKUP_DIR" -name "${APPNAME}_*.sql.gz" -mtime +7 -delete
+find "$BACKUP_DIR" -name "${APPNAME}-media_*.tar.gz" -mtime +7 -delete
 
 echo "=== Cleaning up remote backups older than 365 days ==="
 rclone delete --min-age 365d "$HIDRIVE_PATH/"

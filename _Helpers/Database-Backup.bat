@@ -1,20 +1,21 @@
 @echo off
 setlocal
 
+set APPNAME=pubquizcreator
 set BACKUP_DIR=%HiDrive%\Veranstaltungen\PubQuiz\Archiv\Backups
-set PROJECT_DIR=C:\path\to\pubquizcreator
+set PROJECT_DIR=C:\path\to\%APPNAME%
 
-set CONTAINER=pubquizcreator-db-1
+set CONTAINER=%APPNAME%-db-1
 set DB=pubquiz
 set USER=pubquiz
 
 if not exist "%BACKUP_DIR%" mkdir "%BACKUP_DIR%"
 
 for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd_HHmm"') do set TIMESTAMP=%%i
-set DB_FILENAME=pubquiz_%TIMESTAMP%.dump
-set MEDIA_FILENAME=pubquiz_media_%TIMESTAMP%.zip
+set DB_FILENAME=%APPNAME%_%TIMESTAMP%.dump
+set MEDIA_FILENAME=%APPNAME%-media_%TIMESTAMP%.zip
 
-echo === PubQuizCreator: Backup ===
+echo === Backup ===
 echo Target: %BACKUP_DIR%\%DB_FILENAME%
 echo.
 

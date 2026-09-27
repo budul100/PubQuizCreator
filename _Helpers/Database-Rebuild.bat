@@ -1,13 +1,16 @@
 @echo off
 setlocal
-echo === PubQuizCreator: Rebuild Database ===
+echo === Rebuild Database ===
 echo.
 
+set APPNAME=pubquizcreator
+
 set ROOT=%~dp0\..
-set MIGRATIONS=%ROOT%\PubQuizCreator.Data\Migrations
-set DATA_PROJECT=%ROOT%\PubQuizCreator.Data
-set WEB_PROJECT=%ROOT%\PubQuizCreator.Web
-set CONTAINER=pubquizcreator-db-1
+set MIGRATIONS=%ROOT%\%APPNAME%.Data\Migrations
+set DATA_PROJECT=%ROOT%\%APPNAME%.Data
+set WEB_PROJECT=%ROOT%\%APPNAME%.Web
+
+set CONTAINER=%APPNAME%-db-1
 set DB_USER=pubquiz
 
 echo Do you want to delete all existing migrations first?

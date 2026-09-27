@@ -33,7 +33,7 @@ internal class Program
             query: query);
 
         var jsonBytes = quiz.CreateJson(rounds);
-        var filename = $"quiz_{quiz.Date:yyyy-MM-dd}_data.json";
+        var filename = $"{quiz.Date:yyyy-MM-dd}_data.json";
 
         return Results.File(
             fileContents: jsonBytes,

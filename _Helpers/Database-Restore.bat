@@ -1,14 +1,16 @@
 @echo off
 setlocal
 
-set BACKUP_DIR=%HiDrive%\Veranstaltungen\PubQuiz\Archiv\Backups
-set PROJECT_DIR=C:\path\to\pubquizcreator
+set APPNAME=pubquizcreator
 
-set CONTAINER=pubquizcreator-db-1
+set BACKUP_DIR=%HiDrive%\Veranstaltungen\PubQuiz\Archiv\Backups
+set PROJECT_DIR=C:\path\to\%APPNAME%
+
+set CONTAINER=%APPNAME%-db-1
 set DB=pubquiz
 set USER=pubquiz
 
-echo === PubQuizCreator: Restore ===
+echo === Restore ===
 echo.
 echo Available DB backups:
 echo.
@@ -25,7 +27,7 @@ if not exist "%BACKUP_DIR%\%DB_FILENAME%" (
 
 echo.
 echo Available media backups:
-dir /b "%BACKUP_DIR%\pubquiz_media_*.zip" 2>nul
+dir /b "%BACKUP_DIR%\%APPNAME%-media_*.zip" 2>nul
 
 echo.
 set /p MEDIA_FILENAME=Enter media filename (leave empty to skip): 

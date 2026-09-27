@@ -1,7 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
 
-set WEB_PROJECT=PubQuizCreator.Web
+set APPNAME=pubquizcreator
+
+set WEB_PROJECT=%APPNAME%.Web
 
 chcp 65001 >nul
 

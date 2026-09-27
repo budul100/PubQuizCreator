@@ -9,7 +9,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PubQuizCreator.Data", "PubQ
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PubQuizCreator.Web", "PubQuizCreator.Web\PubQuizCreator.Web.csproj", "{9A945FF7-5E44-4678-B2E4-0F53F61225BE}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Projektmappenelemente", "Projektmappenelemente", "{84D27F74-D2BA-6C25-2661-968F101900D9}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Project", "Project", "{84D27F74-D2BA-6C25-2661-968F101900D9}"
 	ProjectSection(SolutionItems) = preProject
 		.github\workflows\deploy.yml = .github\workflows\deploy.yml
 		docker-compose.dev.yml = docker-compose.dev.yml
