@@ -49,15 +49,19 @@ namespace PubQuizCreator.Services.Export
                 var slideIndex = 0;
                 var newSlides = new List<SlidePart>();
 
+                // Only slots with a question are exported, so the "next" slot is always the next exported question
                 var slots = round.Slots
+                    .Where(s => s.Question != null)
                     .OrderBy(s => s.Position).ToArray();
 
-                foreach (var slot in slots)
+                for (var i = 0; i < slots.Length; i++)
                 {
-                    if (slot.Question == null) continue;
+                    var slot = slots[i];
+                    var question = slot.Question!;
+                    var nextSlot = i + 1 < slots.Length ? slots[i + 1] : null;
 
-                    var hasMedia = !string.IsNullOrWhiteSpace(slot.Question.MediaFile)
-                        && slot.Question.MediaType is MediaType.Image or MediaType.Audio or MediaType.Video;
+                    var hasMedia = !string.IsNullOrWhiteSpace(question.MediaFile)
+                        && question.MediaType is MediaType.Image or MediaType.Audio or MediaType.Video;
 
                     var sourceTemplate = (hasMedia ? mediaTemplate : default)
                         ?? questionTemplate
@@ -75,13 +79,24 @@ namespace PubQuizCreator.Services.Export
                         slidePart: clonedSlide,
                         slideName: $"Slide{slideIndex}");
 
-                    var title = titleFormat.Replace(
-                        oldValue: "{position}",
-                        newValue: slot.Position.ToString());
+                    var title = GetTitle(
+                        titleFormat: titleFormat,
+                        position: slot.Position.ToString());
 
                     var description = GetDescription(
-                        questionText: slot.Question.Text,
-                        description: slot.Question.Description);
+                        questionText: question.Text,
+                        description: question.Description);
+
+                    var nextTitle = nextSlot != null
+                        ? GetTitle(
+                            titleFormat: titleFormat,
+                            position: nextSlot.Position.ToString())
+                        : null;
+
+                    var notes = GetSpeakerNotes(
+                        description: description,
+                        nextTitle: nextTitle,
+                        nextQuestionText: nextSlot?.Question?.Text);
 
                     SetShapeText(
                         slidePart: clonedSlide,
@@ -91,7 +106,7 @@ namespace PubQuizCreator.Services.Export
                     SetShapeText(
                         slidePart: clonedSlide,
                         shapeName: Constants.TemplateShapeQuestion,
-                        text: slot.Question.Text);
+                        text: question.Text);
 
                     SetShapeText(
                         slidePart: clonedSlide,
@@ -101,19 +116,19 @@ namespace PubQuizCreator.Services.Export
                     SetShapeText(
                         slidePart: clonedSlide,
                         shapeName: Constants.TemplateShapeAnswer,
-                        text: slot.Question.Answer);
+                        text: question.Answer);
 
                     SetSpeakerNotes(
                         presentationPart: presentationPart,
                         slidePart: clonedSlide,
-                        text: description);
+                        text: notes);
 
                     if (hasMedia)
                     {
                         await TryAttachMediaAsync(
                             slidePart: clonedSlide,
-                            mediaFileName: slot.Question.MediaFile!,
-                            mediaType: slot.Question.MediaType,
+                            mediaFileName: question.MediaFile!,
+                            mediaType: question.MediaType,
                             ct: ct);
                     }
 
@@ -379,6 +394,36 @@ namespace PubQuizCreator.Services.Export
             return newSlidePart;
         }
 
+        private static string GetSpeakerNotes(string description, string? nextTitle, string? nextQuestionText)
+        {
+            var builder = new StringBuilder(description.TrimEnd());
+
+            // Preview of the next question only, the answer is intentionally omitted
+            if (!string.IsNullOrWhiteSpace(nextQuestionText))
+            {
+                if (builder.Length > 0)
+                {
+                    builder.AppendLine();
+                    builder.AppendLine();
+                }
+
+                builder.AppendLine(string.IsNullOrWhiteSpace(nextTitle)
+                    ? "Next question:"
+                    : $"Next: {nextTitle}");
+
+                builder.AppendLine(nextQuestionText);
+            }
+
+            return builder.ToString();
+        }
+
+        private static string GetTitle(string titleFormat, string position)
+        {
+            return titleFormat.Replace(
+                oldValue: "{position}",
+                newValue: position);
+        }
+
         private static Dictionary<string, SlidePart> MapTemplateSlides(List<SlidePart> slideParts)
         {
             var result = new Dictionary<string, SlidePart>(StringComparer.OrdinalIgnoreCase);
@@ -416,20 +461,20 @@ namespace PubQuizCreator.Services.Export
             var templateIndices = originalOrder
                 .Select((sp, i) => (SlidePart: sp, Index: i))
                 .Where(x => slidesToRemove.Contains(x.SlidePart))
-                .Select(x => x.Index).ToList();
+                .Select(x => x.Index).ToArray();
 
-            var insertAt = templateIndices.Count > 0
+            var insertAt = templateIndices.Length > 0
                 ? templateIndices.Min()
                 : originalOrder.Count;
 
-            var removeThrough = templateIndices.Count > 0
+            var removeThrough = templateIndices.Length > 0
                 ? templateIndices.Max()
                 : insertAt - 1;
 
             var desiredOrder = originalOrder
                 .Take(insertAt)
                 .Concat(questionSlides)
-                .Concat(originalOrder.Skip(removeThrough + 1)).ToList();
+                .Concat(originalOrder.Skip(removeThrough + 1)).ToArray();
 
             foreach (var slideToRemove in slidesToRemove)
             {
@@ -580,16 +625,36 @@ namespace PubQuizCreator.Services.Export
                     .ApplicationNonVisualDrawingProperties?
                     .GetFirstChild<PlaceholderShape>()?.Type?.Value == PlaceholderValues.Body);
 
-            if (notesBody?.TextBody is { } txBody)
-            {
-                txBody.RemoveAllChildren<Drawing.Paragraph>();
-                txBody.Append(new Drawing.Paragraph(
-                    new Drawing.Run(
-                        new Drawing.RunProperties { Language = "en-US" },
-                        new Drawing.Text(text))));
+            if (notesBody?.TextBody is not { } txBody) return;
 
-                notesPart.NotesSlide?.Save();
+            txBody.RemoveAllChildren<Drawing.Paragraph>();
+
+            // One paragraph per line, since line breaks inside a:t are not rendered by PowerPoint
+            var lines = text
+                .TrimEnd()
+                .Replace("\r\n", "\n")
+                .Split('\n');
+
+            foreach (var line in lines)
+            {
+                var paragraph = new Drawing.Paragraph();
+
+                if (line.Length > 0)
+                {
+                    paragraph.Append(new Drawing.Run(
+                        new Drawing.RunProperties { Language = "en-US" },
+                        new Drawing.Text(line)));
+                }
+                else
+                {
+                    // Empty paragraph needs end properties to keep its line height
+                    paragraph.Append(new Drawing.EndParagraphRunProperties { Language = "en-US" });
+                }
+
+                txBody.Append(paragraph);
             }
+
+            notesPart.NotesSlide?.Save();
         }
 
         private static void UpdateSlideIdentifier(SlidePart slidePart, string slideName)
