@@ -3,6 +3,9 @@ name: Deploy Docker Image
 on:
   workflow_dispatch:
 
+env:
+  APP: pubquizcreator
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -13,7 +16,10 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: APP
           script: |
-            docker pull ghcr.io/budul100/pubquizcreator:latest
-            cd /opt/pubquizcreator
+            set -e
+            cd /opt/$APP
+            docker compose pull
             docker compose up -d --no-build
+            docker image prune -f
